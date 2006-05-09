@@ -63,7 +63,7 @@ clean : ; rm -f psdparse psdparse.exe $(OBJ) $(OBJW32)
 # see http://www.telegraphics.com.au/svn/garble/trunk/
 # supply your own orig.psd
 test : orig.psd ../garble/garble
-	cp orig.psd test.psd; \
+	cp $< test.psd; \
 	for (( i=1 ; i<20 ; ++i )) ; do \
 		./psdparse -w -d _pass$$i test.psd; \
 		../garble/garble test.psd 100; \
