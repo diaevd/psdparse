@@ -1,13 +1,17 @@
 How to build/install
 --------------------
-Once you have this source kit, you can either build using the supplied
-(handmade) Makefile:
+Once you have this source kit, you can either:
+
+1. build using the supplied Makefile:
 	# make
 	
-(The supplied Makefile is the easiest way to CROSS-build the Win32 programs,
-but this will interest you only if you have MinGW installed.)
+The supplied Makefile is the easiest way to:
+	- CROSS-build the Win32 programs, if you have MinGW installed;
+	- build on OS X (unless you have already installed libpng)
+See the Makefile for more information and prerequisites.
 	
-OR you can use the conventional GNU 'configure' method (experimental for now):
+OR 
+2. you can use the conventional GNU 'configure' method (experimental for now):
 	# ./configure
 	# make
 and to put the program in a usual install directory:
