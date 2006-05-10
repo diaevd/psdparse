@@ -1,6 +1,5 @@
 How to build/install
 --------------------
-Once you have this source kit, you can either:
 
 1. build using the supplied Makefile:
 	# make

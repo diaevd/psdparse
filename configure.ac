@@ -23,7 +23,8 @@ AC_PROG_INSTALL
 
 # Theoretically we could still build a restricted tool 
 # if libpng weren't available, but this is not attempted yet.
-AC_CHECK_LIB(png, png_create_info_struct)
+AC_CHECK_LIB(png, png_create_info_struct,
+			 [], [AC_MSG_ERROR(required library libpng not found)])
 
 # Don't bother checking, we can't build at all without these.
 #AC_CHECK_HEADERS([stdarg.h stdlib.h string.h getopt.h limits.h sys/stat.h])
