@@ -1,0 +1,22 @@
+How to build/install
+--------------------
+Once you have this source kit, you can either build using the supplied
+(handmade) Makefile:
+	# make
+	
+(The supplied Makefile is the easiest way to CROSS-build the Win32 programs,
+but this will interest you only if you have MinGW installed.)
+	
+OR you can use the conventional GNU 'configure' method (experimental for now):
+	# ./configure
+	# make
+and to put the program in a usual install directory:
+	# make install
+
+(This should also work for Cygwin, but is untested.)
+
+See './configure --help' for standard GNU options, such as changing 
+the program's final resting place, or compiler, or compiler options.
+
+
+Help is always available from support@telegraphics.com.au

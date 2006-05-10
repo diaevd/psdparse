@@ -90,6 +90,8 @@ void *checkmalloc(long n){
 	return NULL;
 }
 
+// Read a 4-byte signed binary value in BigEndian format. 
+// Assumes sizeof(long) == 4 (and two's complement CPU :)
 long get4B(FILE *f){
 	long n = fgetc(f)<<24;
 	n |= fgetc(f)<<16;
@@ -97,9 +99,18 @@ long get4B(FILE *f){
 	return n | fgetc(f);
 }
 
-short get2B(FILE *f){
-	short n = fgetc(f)<<8;
-	return n | fgetc(f);
+// Read a 2-byte signed binary value in BigEndian format. 
+// Meant to work even where sizeof(short) > 2
+int get2B(FILE *f){
+	unsigned n = fgetc(f)<<8;
+	n |= fgetc(f);
+	return n < 0x8000 ? n : n - 0x10000;
+}
+
+// Read a 2-byte unsigned binary value in BigEndian format. 
+unsigned get2Bu(FILE *f){
+	unsigned n = fgetc(f)<<8;
+	return n |= fgetc(f);
 }
 
 void skipblock(FILE *f,char *desc){
@@ -121,10 +132,10 @@ void dumprow(unsigned char *b,int n){
 
 int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 			  int rows, int cols, int depth, long **rowpos){
-	int j,k,ch,dumpit,comp;
+	int j,k,ch,dumpit;
 	long pos,chpos = ftell(f),chlen = 0;
 	unsigned char *rowbuf;
-	unsigned count,last,rb,n,*rlebuf = NULL;
+	unsigned count,rb,comp,last,n,*rlebuf = NULL;
 	static char *comptype[] = {"raw","RLE"};
 
 	if(li){
@@ -151,12 +162,12 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 
 	rb = (cols*depth + 7)/8;
 
-	comp = get2B(f);
+	comp = get2Bu(f);
 	chlen -= 2;
-	if(comp < RAWDATA || comp > RLECOMP){
+	if(comp > RLECOMP){
 		alwayswarn("## bad compression type %d\n",comp);
 		if(li){ // make a guess based on channel byte count
-			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
+			comp = chlen == (long)rows*(long)rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n",comptype[comp]);
 		}else{
 			alwayswarn("## skipping channel (%d bytes)\n",chlen);
@@ -181,7 +192,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 		for( ch = k = 0 ; ch < channels ; ++ch ){
 			last = rb;
 			for( j = 0 ; j < rows && !feof(f) ; ++j, ++k ){
-				count = (unsigned short)get2B(f);
+				count = get2Bu(f);
 				if(count > 2*rb) // this would be impossible
 					count = last;    // make a guess, to help recover
 				rlebuf[k] = last = count;
@@ -263,12 +274,11 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
 
-void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
+static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
 					 struct layer_info *li, long **rowpos, int startchan, 
 					 int channels, int rows, int cols, struct psd_header *h){
 	char pngname[FILENAME_MAX];
 	int i,ch;
-	FILE *png;
 
 	for( i = 0 ; i < channels ; ++i ){
 		// build PNG file name
@@ -281,14 +291,14 @@ void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			cols = li->mask.cols;
 		}else if(ch == -1)
 			strcat(pngname,li ? ".trans" : ".alpha");
-		else if(ch < strlen(channelsuffixes[h->mode]))
+		else if(ch < (int)strlen(channelsuffixes[h->mode]))
 			sprintf(pngname+strlen(pngname),".%c",channelsuffixes[h->mode][ch]);
 		else
 			sprintf(pngname+strlen(pngname),".%d",ch);
 			
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n",pngname);
-		else if( (png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,h)) )
+		else if(pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,h))
 			pngwriteimage(f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 	}
 }
@@ -298,7 +308,6 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	int ch,comp,startchan,pngchan,color_type,
 		*chcomp = checkmalloc(sizeof(int)*channels);
 	long **rowpos = checkmalloc(sizeof(long*)*channels);
-	FILE *png = NULL; /* handle to the output PNG file */
 
 	for( ch = 0 ; ch < channels ; ++ch ){
 		// is it a layer mask? if so, use special case row count
@@ -361,8 +370,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 			startchan = 0;
 			if(pngchan && !splitchannels){
 				// recognisable PNG mode, so spit out the merged image
-				if( (png = pngsetupwrite(f, pngdir, name, 
-										 cols, rows, pngchan, color_type, h)) )
+				if(pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h))
 					pngwriteimage(f,chcomp,NULL,rowpos,0,pngchan,rows,cols,h);
 				startchan += pngchan;
 			}
@@ -385,18 +393,17 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !splitchannels){
-				if( (png = pngsetupwrite(f, pngdir, name, 
-										 cols, rows, pngchan, color_type, h)) )
+				if(pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h))
 					pngwriteimage(f,chcomp,li,rowpos,0,pngchan,rows,cols,h);
 					// spit out any 'extra' channels (e.g. layer transparency)
 					for( ch = 0 ; ch < channels ; ++ch )
 						if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
 							writechannels(f, pngdir, name, chcomp, li, rowpos,
-									ch, 1, rows, cols, h);
+										  ch, 1, rows, cols, h);
 			}else{
 				UNQUIET("# writing layer as split channels...\n");
 				writechannels(f, pngdir, name, chcomp, li, rowpos,
-						0, channels, rows, cols, h);
+							  0, channels, rows, cols, h);
 			}
 		}
 	}
@@ -442,7 +449,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 				linfo[i].left = get4B(f);
 				linfo[i].bottom = get4B(f);
 				linfo[i].right = get4B(f);
-				linfo[i].channels = get2B(f);
+				linfo[i].channels = get2Bu(f);
 				
 				VERBOSE("\n");
 				UNQUIET("  layer %d: (%4ld,%4ld,%4ld,%4ld), %d channels (%4ld rows x %4ld cols)\n",
@@ -476,7 +483,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 						case -2: chidstr = " (layer mask)"; break;
 						case -1: chidstr = " (transparency mask)"; break;
 						default:
-							if(chid < strlen(channelsuffixes[h->mode]))
+							if(chid < (int)strlen(channelsuffixes[h->mode]))
 								sprintf(chidstr = tmp, " (%c)", channelsuffixes[h->mode][chid]); // it's a mode-ish channel
 							else
 								chidstr = ""; // can't explain it
@@ -611,28 +618,28 @@ int main(int argc,char *argv[]){
 	int i,indexptr,opt;
 	char *base,*ext;
 	static struct option longopts[] = {
+		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
 		{"quiet",    no_argument, &quiet, 1},
-		{"help",     no_argument, &help, 1},
-		{"pngdir",   required_argument, NULL, 'd'},
 		{"writepng", no_argument, &writepng, 1},
+		{"pngdir",   required_argument, NULL, 'd'},
 		{"makedirs", no_argument, &makedirs, 1},
 		{"list",     no_argument, &writelist, 1},
 		{"split",    no_argument, &splitchannels, 1},
 		{NULL,0,NULL,0}
 	};
 
-	while( (opt = getopt_long(argc,argv,"vqd:wmlsh",longopts,&indexptr)) != -1)
+	while( (opt = getopt_long(argc,argv,"hvqwd:mls",longopts,&indexptr)) != -1)
 		switch(opt){
+		case 'h':
+		default:  help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
-		case 'd': pngdir = optarg;
 		case 'w': writepng = 1; break;
+		case 'd': pngdir = optarg;
 		case 'm': makedirs = 1; break;
 		case 'l': writelist = 1; break;
 		case 's': splitchannels = 1; break;
-		case 'h':
-		default:  help = 1; break;
 		}
 
 	if(help || optind >= argc)
@@ -669,13 +676,13 @@ int main(int argc,char *argv[]){
 
 			// file header
 			fread(h.sig,1,4,f);
-			h.version  = get2B(f);
+			h.version  = get2Bu(f);
 			get4B(f); get2B(f); // reserved[6];
-			h.channels = get2B(f);
+			h.channels = get2Bu(f);
 			h.rows     = get4B(f);
 			h.cols     = get4B(f);
-			h.depth    = get2B(f);
-			h.mode     = get2B(f);
+			h.depth    = get2Bu(f);
+			h.mode     = get2Bu(f);
 
 			if(!feof(f) && !memcmp(h.sig,"8BPS",4) && h.version == 1){
 				UNQUIET("  channels = %d, rows = %ld, cols = %ld, depth = %d, mode = %d (%s)\n",

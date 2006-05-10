@@ -139,12 +139,11 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 
 void pngwriteimage(FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
 				   int startchan, int pngchan, int rows, int cols, struct psd_header *h){
-	int i,j,ch;
 	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrows[4],*rledata,*p;
 	short *q;
 	long savepos = ftell(psd);
-	int map[4];
+	int i,j,ch,map[4];
 
 	rowbuf = checkmalloc(rb*pngchan);
 	rledata = checkmalloc(2*rb);
@@ -222,11 +221,11 @@ void pngwriteimage(FILE *psd, int chcomp[], struct layer_info *li, long **rowpos
 		if(pngchan>1){ /* interleave channels */
 			
 			if(h->depth == 8)
-				for( i = 0, p = rowbuf ; i < rb ; ++i )
+				for( i = 0, p = rowbuf ; i < (int)rb ; ++i )
 					for( ch = 0 ; ch < pngchan ; ++ch )
 						*p++ = inrows[ch][i];
 			else
-				for( i = 0, q = (short*)rowbuf ; i < rb/2 ; ++i )
+				for( i = 0, q = (short*)rowbuf ; i < (int)rb/2 ; ++i )
 					for( ch = 0 ; ch < pngchan ; ++ch )
 						*q++ = ((short*)inrows[ch])[i];
 

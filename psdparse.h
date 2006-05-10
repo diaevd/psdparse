@@ -113,7 +113,8 @@ void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
 long get4B(FILE *f);
-short get2B(FILE *f);
+int get2B(FILE *f);
+unsigned get2Bu(FILE *f);
 void skipblock(FILE *f,char *desc);
 void dumprow(unsigned char *b,int n);
 int dochannel(FILE *f,struct layer_info *li,int idx,int channels,
