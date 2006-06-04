@@ -137,7 +137,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	return f;
 }
 
-void pngwriteimage(FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
+void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
 				   int startchan, int pngchan, int rows, int cols, struct psd_header *h){
 	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrows[4],*rledata,*p;
@@ -237,6 +237,7 @@ void pngwriteimage(FILE *psd, int chcomp[], struct layer_info *li, long **rowpos
 	png_write_end(png_ptr, NULL /*info_ptr*/);
 
 done:
+	fclose(png);
 	free(rowbuf);
 	free(rledata);
 	for(ch=0;ch<pngchan;++ch)

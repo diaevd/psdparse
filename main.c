@@ -36,7 +36,7 @@ extern struct resdesc rdesc[];
 #define DIRSUFFIX "_png"
 
 char dirsep[]={DIRSEP,0};
-int verbose = DEFAULT_VERBOSE,quiet = 0,makedirs = 0;
+int verbose = DEFAULT_VERBOSE,quiet = 0,makedirs = 0,numbered = 0;
 
 static int mergedalpha = 0,help = 0,splitchannels = 0;
 static char indir[PATH_MAX],*pngdir = indir;
@@ -277,6 +277,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
 					 struct layer_info *li, long **rowpos, int startchan, 
 					 int channels, int rows, int cols, struct psd_header *h){
+	FILE *png;
 	char pngname[FILENAME_MAX];
 	int i,ch;
 
@@ -298,13 +299,14 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n",pngname);
-		else if(pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,h))
-			pngwriteimage(f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
+		else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,h)))
+			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 	}
 }
 
 void doimage(FILE *f, struct layer_info *li, char *name,
 			 int channels, int rows, int cols, struct psd_header *h){
+	FILE *png;
 	int ch,comp,startchan,pngchan,color_type,
 		*chcomp = checkmalloc(sizeof(int)*channels);
 	long **rowpos = checkmalloc(sizeof(long*)*channels);
@@ -370,8 +372,8 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 			startchan = 0;
 			if(pngchan && !splitchannels){
 				// recognisable PNG mode, so spit out the merged image
-				if(pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h))
-					pngwriteimage(f,chcomp,NULL,rowpos,0,pngchan,rows,cols,h);
+				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h)))
+					pngwriteimage(png,f,chcomp,NULL,rowpos,0,pngchan,rows,cols,h);
 				startchan += pngchan;
 			}
 			if(startchan < channels){
@@ -393,8 +395,8 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !splitchannels){
-				if(pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h))
-					pngwriteimage(f,chcomp,li,rowpos,0,pngchan,rows,cols,h);
+				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h)))
+					pngwriteimage(png, f,chcomp,li,rowpos,0,pngchan,rows,cols,h);
 					// spit out any 'extra' channels (e.g. layer transparency)
 					for( ch = 0 ; ch < channels ; ++ch )
 						if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
@@ -418,7 +420,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 	long miscstart,misclen,layerlen,chlen,skip,extrastart,extralen;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
-	char **lname,*chidstr,tmp[10];
+	char **lname,**lnameno,*chidstr,tmp[10];
 	struct blend_mode_info bm;
 
 	if( (misclen = get4B(f)) ){
@@ -442,6 +444,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 			
 			linfo = checkmalloc(nlayers*sizeof(struct layer_info));
 			lname = checkmalloc(nlayers*sizeof(char*));
+			lnameno = checkmalloc(nlayers*sizeof(char*));
 
 			for( i=0 ; i < nlayers ; ++i ){
 				// process layer record
@@ -526,16 +529,19 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					skipblock(f,"layer blending ranges");
 					
 					// layer name
+					asprintf(&lnameno[i],"layer%d",i+1);
 					namelen = fgetc(f);
-					lname[i] = checkmalloc(PAD4(1+namelen)+16);
+					lname[i] = checkmalloc(PAD4(1+namelen));
 					fread(lname[i],1,PAD4(1+namelen),f);
 					if(namelen){
 						lname[i][namelen] = 0;
 						UNQUIET("    name: \"%s\"\n",lname[i]);
 						if(lname[i][0] == '.')
 							lname[i][0] = '_';
-					}else
-						sprintf(lname[i],"layer%d",i);
+					}else{
+						free(lname[i]);
+						lname[i] = lnameno[i];
+					}
 			
 					fseek(f,extrastart+extralen,SEEK_SET); // skip over any extra data
 				}
@@ -552,7 +558,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
 							lname[i], linfo[i].left, linfo[i].top, pixw, pixh);
 		
-				doimage(f, linfo+i, lname[i], linfo[i].channels, pixh, pixw, h);
+				doimage(f, linfo+i, numbered ? lnameno[i] : lname[i], linfo[i].channels, pixh, pixw, h);
 			}
 
 			if(listfile) fputs("}\n",listfile);
@@ -622,6 +628,7 @@ int main(int argc,char *argv[]){
 		{"verbose",  no_argument, &verbose, 1},
 		{"quiet",    no_argument, &quiet, 1},
 		{"writepng", no_argument, &writepng, 1},
+		{"numbered", no_argument, &numbered, 1},
 		{"pngdir",   required_argument, NULL, 'd'},
 		{"makedirs", no_argument, &makedirs, 1},
 		{"list",     no_argument, &writelist, 1},
@@ -629,13 +636,14 @@ int main(int argc,char *argv[]){
 		{NULL,0,NULL,0}
 	};
 
-	while( (opt = getopt_long(argc,argv,"hvqwd:mls",longopts,&indexptr)) != -1)
+	while( (opt = getopt_long(argc,argv,"hvqwnd:mls",longopts,&indexptr)) != -1)
 		switch(opt){
 		case 'h':
 		default:  help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
 		case 'w': writepng = 1; break;
+		case 'n': numbered = 1; break;
 		case 'd': pngdir = optarg;
 		case 'm': makedirs = 1; break;
 		case 'l': writelist = 1; break;
@@ -648,6 +656,7 @@ int main(int argc,char *argv[]){
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
+  -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
   -d, --pngdir dir   put PNGs in directory (implies --writepng)\n\
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\

@@ -30,6 +30,8 @@
   02-May-2006: 1.6b1 add ability to skip channels if data format error
   03-May-2006: 1.6b2,3,4 major improvements to handling corrupt RLE data (thanks Torsten Will)
   04-May-2006: 1.7b1 now extract layer masks, and use channel ids to identify masks, alphas
+  04-Jun-2006: 1.7b2 close PNG file after writing; add option to use 
+                     generic names for PNG layer files (thanks Tankko Omaskio)
 */
 
 #define VERSION_STR "1.7b2"  // <-- remember to change in configure.in!
