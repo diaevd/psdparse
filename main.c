@@ -527,7 +527,8 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					skipblock(f,"layer blending ranges");
 					
 					// layer name
-					asprintf(&linfo[i].nameno,"layer%d",i+1);
+					linfo[i].nameno = malloc(16);
+					sprintf(linfo[i].nameno,"layer%d",i+1);
 					namelen = fgetc(f);
 					linfo[i].name = checkmalloc(PAD4(1+namelen));
 					fread(linfo[i].name,1,PAD4(1+namelen),f);
