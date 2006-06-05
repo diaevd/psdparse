@@ -509,7 +509,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					//skipblock(f,"layer info: extra data");
 					extralen = get4B(f);
 					extrastart = ftell(f);
-					//printf("  (extra data: %d bytes @ %d)\n",extralen,extrastart);
+					VERBOSE("  (extra data: %ld bytes @ %ld)\n",extralen,extrastart);
 	
 					// layer mask data
 					if( (linfo[i].mask.size = get4B(f)) ){
