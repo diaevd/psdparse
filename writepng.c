@@ -27,7 +27,7 @@ static png_structp png_ptr;
 static png_infop info_ptr;
 
 FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
-					int channels, int color_type, struct psd_header *h){
+					int channels, int color_type, struct layer_info *li, struct psd_header *h){
 	char pngname[PATH_MAX],*last,d[PATH_MAX],*pngtype = NULL;
 	static FILE *f; // static, because it might get used post-longjmp()
 	unsigned char *palette;
@@ -132,7 +132,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 
 		}else alwayswarn("### can't open \"%s\" for writing\n",pngname);
 
-	}else alwayswarn("### skipping layer \"%s\" (%dx%d)\n",name,width,height);
+	}else alwayswarn("### skipping layer \"%s\" (%dx%d)\n",li->name,width,height);
 
 	return f;
 }

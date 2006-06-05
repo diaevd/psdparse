@@ -15,8 +15,9 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_INIT(main.c)
-AM_INIT_AUTOMAKE(psdparse, 1.7.2, support@telegraphics.com.au)
+AC_INIT(psdparse, 1.7.2)
+AC_CONFIG_SRCDIR(main.c)
+AM_INIT_AUTOMAKE
 
 AC_PROG_CC
 AC_PROG_INSTALL

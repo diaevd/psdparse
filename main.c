@@ -299,7 +299,7 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n",pngname);
-		else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,h)))
+		else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,li,h)))
 			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 	}
 }
@@ -372,7 +372,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 			startchan = 0;
 			if(pngchan && !splitchannels){
 				// recognisable PNG mode, so spit out the merged image
-				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h)))
+				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
 					pngwriteimage(png,f,chcomp,NULL,rowpos,0,pngchan,rows,cols,h);
 				startchan += pngchan;
 			}
@@ -395,7 +395,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !splitchannels){
-				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, h)))
+				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
 					pngwriteimage(png, f,chcomp,li,rowpos,0,pngchan,rows,cols,h);
 					// spit out any 'extra' channels (e.g. layer transparency)
 					for( ch = 0 ; ch < channels ; ++ch )
@@ -420,7 +420,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 	long miscstart,misclen,layerlen,chlen,skip,extrastart,extralen;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
-	char **lname,**lnameno,*chidstr,tmp[10];
+	char *chidstr,tmp[10];
 	struct blend_mode_info bm;
 
 	if( (misclen = get4B(f)) ){
@@ -443,8 +443,6 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 			}
 			
 			linfo = checkmalloc(nlayers*sizeof(struct layer_info));
-			lname = checkmalloc(nlayers*sizeof(char*));
-			lnameno = checkmalloc(nlayers*sizeof(char*));
 
 			for( i=0 ; i < nlayers ; ++i ){
 				// process layer record
@@ -529,18 +527,15 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					skipblock(f,"layer blending ranges");
 					
 					// layer name
-					asprintf(&lnameno[i],"layer%d",i+1);
+					asprintf(&linfo[i].nameno,"layer%d",i+1);
 					namelen = fgetc(f);
-					lname[i] = checkmalloc(PAD4(1+namelen));
-					fread(lname[i],1,PAD4(1+namelen),f);
+					linfo[i].name = checkmalloc(PAD4(1+namelen));
+					fread(linfo[i].name,1,PAD4(1+namelen),f);
+					linfo[i].name[namelen] = 0;
 					if(namelen){
-						lname[i][namelen] = 0;
-						UNQUIET("    name: \"%s\"\n",lname[i]);
-						if(lname[i][0] == '.')
-							lname[i][0] = '_';
-					}else{
-						free(lname[i]);
-						lname[i] = lnameno[i];
+						UNQUIET("    name: \"%s\"\n",linfo[i].name);
+						if(linfo[i].name[0] == '.')
+							linfo[i].name[0] = '_';
 					}
 			
 					fseek(f,extrastart+extralen,SEEK_SET); // skip over any extra data
@@ -552,13 +547,18 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 			for( i = 0 ; i < nlayers ; ++i ){
 				long pixw = linfo[i].right-linfo[i].left,
 					 pixh = linfo[i].bottom-linfo[i].top;
-				VERBOSE("\n  layer %d (\"%s\"):\n",i,lname[i]);
+				VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
 			  
-				if(listfile && pixw && pixh)
-					fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
-							lname[i], linfo[i].left, linfo[i].top, pixw, pixh);
-		
-				doimage(f, linfo+i, numbered ? lnameno[i] : lname[i], linfo[i].channels, pixh, pixw, h);
+				if(listfile && pixw && pixh){
+					if(numbered)
+						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
+								linfo[i].nameno, linfo[i].left, linfo[i].top, pixw, pixh, linfo[i].name);
+					else
+						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
+								linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
+				}
+				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
+						linfo[i].channels, pixh, pixw, h);
 			}
 
 			if(listfile) fputs("}\n",listfile);

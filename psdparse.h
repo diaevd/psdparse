@@ -89,6 +89,8 @@ struct layer_info{
 	int *chid;       // channel ids
 	int *chindex;    // lookup channel number by id (inverse of chid[])
 	struct layer_mask_info mask;
+	char *name;
+	char *nameno; // "layerNN"
 };
 
 struct blend_mode_info{
@@ -127,7 +129,7 @@ long doirb(FILE *f);
 void doimageresources(FILE *f);
 
 FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
-					int channels, int color_type, struct psd_header *h);
+					int channels, int color_type, struct layer_info *li, struct psd_header *h);
 void pngwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, long **rowpos,
 				   int startchan, int pngchan, int rows, int cols, struct psd_header *h);
 
