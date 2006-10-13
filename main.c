@@ -131,7 +131,8 @@ void dumprow(unsigned char *b,int n){
 }
 
 int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
-			  int rows, int cols, int depth, long **rowpos){
+			  int rows, int cols, int depth, long **rowpos)
+{
 	int j,k,ch,dumpit;
 	long pos,chpos = ftell(f),chlen = 0;
 	unsigned char *rowbuf;
@@ -276,7 +277,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 
 static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
 					 struct layer_info *li, long **rowpos, int startchan, 
-					 int channels, int rows, int cols, struct psd_header *h){
+					 int channels, int rows, int cols, struct psd_header *h)
+{
 	FILE *png;
 	char pngname[FILENAME_MAX];
 	int i,ch;
@@ -292,9 +294,9 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			cols = li->mask.cols;
 		}else if(ch == -1)
 			strcat(pngname,li ? ".trans" : ".alpha");
-		else if(ch < (int)strlen(channelsuffixes[h->mode]))
+		else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
 			sprintf(pngname+strlen(pngname),".%c",channelsuffixes[h->mode][ch]);
-		else
+		else // give up an use a number
 			sprintf(pngname+strlen(pngname),".%d",ch);
 			
 		if(chcomp[i] == -1)
@@ -305,16 +307,17 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 }
 
 void doimage(FILE *f, struct layer_info *li, char *name,
-			 int channels, int rows, int cols, struct psd_header *h){
+			 int channels, int rows, int cols, struct psd_header *h)
+{
 	FILE *png;
 	int ch,comp,startchan,pngchan,color_type,
-		*chcomp = checkmalloc(sizeof(int)*channels);
-	long **rowpos = checkmalloc(sizeof(long*)*channels);
+		*chcomp = checkmalloc(channels*sizeof(int));
+	long **rowpos = checkmalloc(channels*sizeof(long*));
 
 	for( ch = 0 ; ch < channels ; ++ch ){
 		// is it a layer mask? if so, use special case row count
 		int chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
-		rowpos[ch] = checkmalloc(sizeof(long)*(chrows+1));
+		rowpos[ch] = checkmalloc((chrows+1)*sizeof(long));
 	}
 
 	pngchan = color_type = 0;
@@ -416,7 +419,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
-void dolayermaskinfo(FILE *f,struct psd_header *h){
+void dolayers(FILE *f,struct psd_header *h){
 	long miscstart,misclen,layerlen,chlen,skip,extrastart,extralen;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
@@ -443,6 +446,8 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 			}
 			
 			linfo = checkmalloc(nlayers*sizeof(struct layer_info));
+
+			// load linfo[] array with each layer's info
 
 			for( i=0 ; i < nlayers ; ++i ){
 				// process layer record
@@ -471,6 +476,8 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					for( j = -2 ; j < linfo[i].channels ; ++j )
 						linfo[i].chindex[j] = -1;
 		
+					// fetch info on each of the layer's channels
+					
 					for( j=0 ; j < linfo[i].channels ; ++j ){
 						chid = linfo[i].chid[j] = get2B(f);
 						chlen = linfo[i].chlengths[j] = get4B(f);
@@ -511,7 +518,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					extrastart = ftell(f);
 					VERBOSE("  (extra data: %ld bytes @ %ld)\n",extralen,extrastart);
 	
-					// layer mask data
+					// fetch layer mask data
 					if( (linfo[i].mask.size = get4B(f)) ){
 						linfo[i].mask.top = get4B(f);
 						linfo[i].mask.left = get4B(f);
@@ -542,6 +549,10 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					fseek(f,extrastart+extralen,SEEK_SET); // skip over any extra data
 				}
 			}
+      
+      		// loop over each layer described by layer info section,
+      		// spit out a line in asset list if requested, and call
+      		// doimage() to process its image data
       
 			if(listfile) fputs("assetlist = {\n",listfile);
 				
@@ -683,6 +694,8 @@ int main(int argc,char *argv[]){
 				if( (listfile = fopen(fname,"w")) )
 					fprintf(listfile,"-- PSD file: %s\n",argv[i]);
 			}
+			
+			// start of PSD parsing:
 
 			// file header
 			fread(h.sig,1,4,f);
@@ -700,13 +713,14 @@ int main(int argc,char *argv[]){
 						h.mode, h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "???");
 				
 				if(h.channels <= 0 || h.channels > 64 || h.rows <= 0 || 
-					 h.cols <= 0 || h.depth < 0 || h.depth > 32 || h.mode < 0)
+				   h.cols <= 0 || h.depth <= 0 || h.depth > 32 || h.mode < 0)
 					alwayswarn("### something isn't right about that header, giving up now.\n");
 				else{
 					h.colormodepos = ftell(f);
+					
 					skipblock(f,"color mode data");
-					doimageresources(f); //skipblock(f,"image resources");
-					dolayermaskinfo(f,&h); //skipblock(f,"layer & mask info");
+					doimageresources(f); // process image resources block
+					dolayers(f,&h); // do all layer and channel processing
 	
 					// now process image data
 					base = strrchr(argv[i],DIRSEP);
@@ -719,6 +733,8 @@ int main(int argc,char *argv[]){
 
 			if(listfile) fclose(listfile);
 			fclose(f);
+			
+			// parsing completed.
 		}else
 			alwayswarn("# \"%s\": couldn't open\n",argv[i]);
 	}

@@ -26,8 +26,25 @@
 static png_structp png_ptr;
 static png_infop info_ptr;
 
+// Prepare to write the PNG file. This function:
+// - creates a directory for it, if needed
+// - builds the PNG file name and opens the file for writing
+// - checks colour mode and sets up libpng parameters
+// - fetches the colour palette for Indexed Mode images, and gives to libpng 
+
+// Parameters:
+// psd         file handle for input PSD
+// dir         pointer to output dir name
+// name        name for this PNG (e.g. layer name)
+// width,height  image dimensions (may not be the same as PSD header dimensions)
+// channels    channel count - this is purely informational
+// color_type  identified PNG colour type (determined by doimage())
+// li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
+// h           pointer to PSD file header struct
+
 FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
-					int channels, int color_type, struct layer_info *li, struct psd_header *h){
+					int channels, int color_type, struct layer_info *li, struct psd_header *h)
+{
 	char pngname[PATH_MAX],*last,d[PATH_MAX],*pngtype = NULL;
 	static FILE *f; // static, because it might get used post-longjmp()
 	unsigned char *palette;
@@ -137,8 +154,23 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	return f;
 }
 
+// Write image data out using libpng:
+// Read in data for each row, uncompress if needed, interleave multiple channels.
+
+// Parameters:
+// png         file handle for output PNG
+// psd         file handle for input PSD (to fetch the actual row data)
+// chcomp[]    each channel's compression type
+// li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
+// rowpos      each channel's row-offset array pointer
+// startchan   begin at this channel index
+// pngchan     how many channels to write in this call
+// rows, cols  image dimensions (may not be the same as PSD header dimensions)
+// h           pointer to PSD file header struct
+
 void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
-				   int startchan, int pngchan, int rows, int cols, struct psd_header *h){
+				   int startchan, int pngchan, int rows, int cols, struct psd_header *h)
+{
 	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrows[4],*rledata,*p;
 	short *q;
