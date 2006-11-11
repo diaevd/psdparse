@@ -194,8 +194,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 			last = rb;
 			for( j = 0 ; j < rows && !feof(f) ; ++j, ++k ){
 				count = get2Bu(f);
-				if(count > 2*rb) // this would be impossible
-					count = last;    // make a guess, to help recover
+				if(count > 2*rb)  // this would be impossible
+					count = last; // make a guess, to help recover
 				rlebuf[k] = last = count;
 				//printf("rowpos[%d][%3d]=%6d\n",ch,j,pos);
 				if(rowpos) rowpos[ch][j] = pos;
@@ -276,8 +276,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
 
 static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
-					 struct layer_info *li, long **rowpos, int startchan, 
-					 int channels, int rows, int cols, struct psd_header *h)
+						  struct layer_info *li, long **rowpos, int startchan, 
+						  int channels, int rows, int cols, struct psd_header *h)
 {
 	FILE *png;
 	char pngname[FILENAME_MAX];
