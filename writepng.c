@@ -26,6 +26,35 @@
 static png_structp png_ptr;
 static png_infop info_ptr;
 
+// construct the destination filename, and create enclosing directories
+// as needed (and if requested).
+
+void setupfile(char *dstname,char *dir,char *name,char *suffix){
+	char *last,d[PATH_MAX];
+
+	MKDIR(dir,0755);
+
+	if(strchr(name,DIRSEP)){
+		if(!makedirs)
+			alwayswarn("# warning: replaced %c's in filename (use --makedirs if you want subdirectories)\n",DIRSEP);
+		for(last = name; (last = strchr(last+1,'/')); )
+			if(makedirs){
+				last[0] = 0;
+				strcpy(d,dir);
+				strcat(d,dirsep);
+				strcat(d,name);
+				if(!MKDIR(d,0755)) VERBOSE("# made subdirectory \"%s\"\n",d);
+				last[0] = DIRSEP;
+			}else 
+				last[0] = '_';
+	}
+
+	strcpy(dstname,dir);
+	strcat(dstname,dirsep);
+	strcat(dstname,name);
+	strcat(dstname,suffix);
+}
+
 // Prepare to write the PNG file. This function:
 // - creates a directory for it, if needed
 // - builds the PNG file name and opens the file for writing
@@ -45,7 +74,7 @@ static png_infop info_ptr;
 FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
-	char pngname[PATH_MAX],*last,d[PATH_MAX],*pngtype = NULL;
+	char pngname[PATH_MAX],*pngtype = NULL;
 	static FILE *f; // static, because it might get used post-longjmp()
 	unsigned char *palette;
 	png_color *pngpal;
@@ -55,32 +84,12 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	f = NULL;
 	
 	if(width && height){
-
-		strcpy(pngname,dir);
-		strcat(pngname,dirsep);
-		strcat(pngname,name);
-		strcat(pngname,".png");
+		
+		setupfile(pngname,dir,name,".png");
 
 		if(channels < 1 || channels > 4){
 			alwayswarn("## (BUG) bad channel count (%d), writing PNG \"%s\"\n", channels, pngname);
 			return NULL;
-		}
-
-		MKDIR(dir,0755);
-
-		if(strchr(name,DIRSEP)){
-			if(!makedirs)
-				alwayswarn("# warning: replaced %c's in filename (use --makedirs if you want subdirectories)\n",DIRSEP);
-			for( last = name ; (last = strchr(last+1,'/')) ; )
-				if(makedirs){
-					last[0] = 0;
-					strcpy(d,dir);
-					strcat(d,dirsep);
-					strcat(d,name);
-					if(!MKDIR(d,0755)) VERBOSE("# made subdirectory \"%s\"\n",d);
-					last[0] = DIRSEP;
-				}else 
-					last[0] = '_';
 		}
 
 		switch(color_type){
@@ -101,7 +110,18 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 		}
 
 		if( (f = fopen(pngname,"wb")) ){
-
+			if(xmlfile){
+				fputs("\t\t<PNG NAME='",xmlfile);
+				fputxml(name,xmlfile);
+				fputc('\'',xmlfile);
+				fputs(" DIR='",xmlfile);
+				fputxml(dir,xmlfile);
+				fputc('\'',xmlfile);
+				fputs(" FILE='",xmlfile);
+				fputxml(pngname,xmlfile);
+				fputc('\'',xmlfile);
+				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' />\n",width,height,channels);
+			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
 			VERBOSE("#             %3dx%3d, depth=%d, channels=%d, type=%d(%s)\n", 
 					width,height,h->depth,channels,color_type,pngtype);
@@ -133,7 +153,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 				
 				n /= 3;
 				pngpal = checkmalloc(sizeof(png_color)*n);
-				for(i=0;i<n;++i){
+				for(i = 0; i < n; ++i){
 					pngpal[i].red   = palette[i];
 					pngpal[i].green = palette[i+n];
 					pngpal[i].blue  = palette[i+2*n];
@@ -154,22 +174,8 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	return f;
 }
 
-// Write image data out using libpng:
-// Read in data for each row, uncompress if needed, interleave multiple channels.
-
-// Parameters:
-// png         file handle for output PNG
-// psd         file handle for input PSD (to fetch the actual row data)
-// chcomp[]    each channel's compression type
-// li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
-// rowpos      each channel's row-offset array pointer
-// startchan   begin at this channel index
-// pngchan     how many channels to write in this call
-// rows, cols  image dimensions (may not be the same as PSD header dimensions)
-// h           pointer to PSD file header struct
-
 void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
-				   int startchan, int pngchan, int rows, int cols, struct psd_header *h)
+				   int startchan, int chancount, int rows, int cols, struct psd_header *h)
 {
 	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrows[4],*rledata,*p;
@@ -177,30 +183,30 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 	long savepos = ftell(psd);
 	int i,j,ch,map[4];
 
-	rowbuf = checkmalloc(rb*pngchan);
+	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);
 
-	for( ch = 0 ; ch < pngchan ; ++ch ){
+	for(ch = 0; ch < chancount; ++ch){
 		inrows[ch] = checkmalloc(rb);
 		// build mapping so that png channel 0 --> channel with id 0, etc
 		// and png alpha --> channel with id -1
-		map[ch] = li && pngchan>1 ? li->chindex[ch] : ch;
+		map[ch] = li && chancount>1 ? li->chindex[ch] : ch;
 	}
 	
 	// find the alpha channel, if needed
-	if(pngchan == 2 && li){ // grey+alpha
+	if(chancount == 2 && li){ // grey+alpha
 		if(li->chindex[-1] == -1)
 			alwayswarn("### writing Grey+Alpha PNG, but no alpha found?\n");
 		else
 			map[1] = li->chindex[-1];
-	}else if(pngchan == 4 && li){ // RGB+alpha
+	}else if(chancount == 4 && li){ // RGB+alpha
 		if(li->chindex[-1] == -1)
 			alwayswarn("### writing RGB+Alpha PNG, but no alpha found?\n");
 		else
 			map[3] = li->chindex[-1];
 	}
 	
-	//for( ch = 0 ; ch < pngchan ; ++ch )
+	//for( ch = 0 ; ch < chancount ; ++ch )
 	//	alwayswarn("# channel map[%d] -> %d\n",ch,map[ch]);
 
 	if( setjmp(png_jmpbuf(png_ptr)) )
@@ -209,8 +215,8 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 		goto done;
 	}
 
-	for( j = 0 ; j < rows ; ++j ){
-		for( i = 0 ; i < pngchan ; ++i ){
+	for(j = 0; j < rows; ++j){
+		for(i = 0; i < chancount; ++i){
 			// startchan must be zero for multichannel,
 			// and for single channel, map[0] always == 0
 			ch = startchan + map[i];
@@ -250,15 +256,14 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 			}
 		}
 
-		if(pngchan>1){ /* interleave channels */
-			
+		if(chancount>1){ /* interleave channels */
 			if(h->depth == 8)
-				for( i = 0, p = rowbuf ; i < (int)rb ; ++i )
-					for( ch = 0 ; ch < pngchan ; ++ch )
+				for(i = 0, p = rowbuf; i < (int)rb; ++i)
+					for(ch = 0; ch < chancount; ++ch)
 						*p++ = inrows[ch][i];
 			else
-				for( i = 0, q = (short*)rowbuf ; i < (int)rb/2 ; ++i )
-					for( ch = 0 ; ch < pngchan ; ++ch )
+				for(i = 0, q = (short*)rowbuf; i < (int)rb/2; ++i)
+					for(ch = 0; ch < chancount; ++ch)
 						*q++ = ((short*)inrows[ch])[i];
 
 			png_write_row(png_ptr, rowbuf);
@@ -272,7 +277,7 @@ done:
 	fclose(png);
 	free(rowbuf);
 	free(rledata);
-	for(ch=0;ch<pngchan;++ch)
+	for(ch = 0; ch < chancount; ++ch)
 		free(inrows[ch]);
 
 	fseek(psd,savepos,SEEK_SET); 

@@ -1,6 +1,24 @@
 How to build/install
 --------------------
 
+Prerequisites:
+
+* zlib (usually preinstalled on Linux or OS X)
+  Download via http://www.zlib.net/
+  Extract alongside psdparse directory, see Makefile
+* libpng
+  Download via http://www.libpng.org/pub/png/libpng.html
+  On OS X or Win32 (MinGW tools), Makefile statically links.
+  Extract alongside psdparse directory.
+
+If your system has these libraries as shared library packages,
+you can use those with appropriate changes to the Makefile.
+
+Mac OS X users: the Developer Tools must be installed 
+(see the CDs that came with your Mac, or download from 
+http://developer.apple.com/tools/download/).
+
+
 1. build using the supplied Makefile:
 	# make
 	
@@ -20,6 +38,18 @@ and to put the program in a usual install directory:
 
 See './configure --help' for standard GNU options, such as changing 
 the program's final resting place, or compiler, or compiler options.
+
+
+MPW (Mac OS 7,8,9,Classic) users:
+An MPW makefile is provided. Simply Build Program "psdparse".
+
+
+Windows users: use Cygwin http://cygwin.com/, MinGW http://mingw.org/,
+or upgrade to Linux. Alternatively, the code can probably be built 
+with a freely downloadable toolset such as:
+* http://www.borland.com/products/downloads/download_cbuilder.html
+* http://www.openwatcom.org/download/download_licenses.html
+* http://www.digitalmars.com/download/dmcpp.html
 
 
 Help is always available from support@telegraphics.com.au

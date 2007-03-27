@@ -110,15 +110,18 @@ struct resdesc {
 extern char *channelsuffixes[],*mode_names[],dirsep[];
 extern int verbose,quiet,makedirs;
 
+extern FILE *xmlfile;
+
 void fatal(char *s);
 void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
+void fputxml(char *str,FILE *f);
 long get4B(FILE *f);
 int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
 void skipblock(FILE *f,char *desc);
-void dumprow(unsigned char *b,int n);
+void dumprow(unsigned char *b,int n,int group);
 int dochannel(FILE *f,struct layer_info *li,int idx,int channels,
 			  int rows,int cols,int depth,long **rowpos);
 void doimage(FILE *f,struct layer_info *li,char *name,
@@ -128,9 +131,15 @@ char *finddesc(int id);
 long doirb(FILE *f);
 void doimageresources(FILE *f);
 
+void setupfile(char *dstname,char *dir,char *name,char *suffix);
 FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
 void pngwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, long **rowpos,
+				   int startchan, int pngchan, int rows, int cols, struct psd_header *h);
+
+FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
+					int channels, int color_type, struct layer_info *li, struct psd_header *h);
+void rawwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, long **rowpos,
 				   int startchan, int pngchan, int rows, int cols, struct psd_header *h);
 
 int unpackbits(unsigned char *outp,unsigned char *inp,int rowbytes,int inlen);

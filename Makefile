@@ -25,7 +25,7 @@
 #   and static link to it.
 
 # for OS X build, download and extract libpng archive, and define path to it:
-PNGDIR = ../libpng-1.2.8
+PNGDIR = ../libpng-1.2.15
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
 
 # The following line is only needed where libpng is typically not installed (OS X).
@@ -43,12 +43,12 @@ MINGW_AR      = i386-mingw32msvc-ar
 MINGW_RANLIB  = i386-mingw32msvc-ranlib
 MINGW_WINDRES = i386-mingw32msvc-windres
 
-CFLAGS   += -W -Wall -O2 -g
+CFLAGS   += -W -Wall -O2
 CPPFLAGS += -DDEFAULT_VERBOSE=0
 
-SRC    = main.c writepng.c unpackbits.c constants.c
-OBJ    = $(patsubst %.c, obj/%.o, $(SRC) )
-OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC) ) obj_w32/res.o
+SRC    = main.c writepng.c writeraw.c unpackbits.c constants.c
+OBJ    = $(patsubst %.c, obj/%.o, $(SRC))
+OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC)) obj_w32/res.o
 
 obj/%.o     : %.c ; $(CC)       -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 obj_w32/%.o : %.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)

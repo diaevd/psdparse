@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <ctype.h>
 
 #include "psdparse.h"
 
@@ -33,20 +34,19 @@ enum{
 
 extern struct resdesc rdesc[];
 
-#define DIRSUFFIX "_png"
-
-char dirsep[]={DIRSEP,0};
+char dirsep[] = {DIRSEP,0};
 int verbose = DEFAULT_VERBOSE,quiet = 0,makedirs = 0,numbered = 0;
 
 static int mergedalpha = 0,help = 0,splitchannels = 0;
 static char indir[PATH_MAX],*pngdir = indir;
 static FILE *listfile = NULL;
+FILE *xmlfile = NULL;
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
 	// giving us no way to specify a destination directory, so use a default
-	static int writepng = 1,writelist = 1;
+	static int writepng = 1,writelist = 1,writexml = 1;
 #else
-	static int writepng = 0,writelist = 0;
+	static int writepng = 0,writelist = 0,writexml = 0;
 #endif
 
 void fatal(char *s){
@@ -90,6 +90,27 @@ void *checkmalloc(long n){
 	return NULL;
 }
 
+// escape XML special characters to entities
+// see: http://www.w3.org/TR/xml/#sec-predefined-ent
+
+void fputxml(char *str,FILE *f){
+	char *p;
+
+	for(p = str; *p; p++)
+		switch(*p){
+		case '<':  fputs("&lt;",f); break;
+		case '>':  fputs("&gt;",f); break;
+		case '&':  fputs("&amp;",f); break;
+		case '\'': fputs("&apos;",f); break;
+		case '\"': fputs("&quot;",f); break;
+		default:
+			if(isascii(*p))
+				fputc(*p,f);
+			else
+				fprintf(f,"&#%d;",(unsigned char)*p);
+		}
+}
+
 // Read a 4-byte signed binary value in BigEndian format. 
 // Assumes sizeof(long) == 4 (and two's complement CPU :)
 long get4B(FILE *f){
@@ -122,18 +143,21 @@ void skipblock(FILE *f,char *desc){
 		VERBOSE("  (%s is empty)\n",desc);
 }
 
-void dumprow(unsigned char *b,int n){
-	int k,m = n>25 ? 25 : n;
-	for(k=0;k<m;++k) 
+void dumprow(unsigned char *b,int n,int group){
+	int k,m,cols = 50;
+	m = group ? group*((cols/2)/(group+1)) : cols/2;
+	for(k = 0; k < m; ++k){
+		if(group && !(k % group)) VERBOSE(" ");
 		VERBOSE("%02x",b[k]);
-	if(n>m) VERBOSE(" ...%d more",n-m);
+	}
+	if(n>m) VERBOSE(" ...%d more",group ? (n-m)/group : n-m);
 	VERBOSE("\n");
 }
 
 int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 			  int rows, int cols, int depth, long **rowpos)
 {
-	int j,k,ch,dumpit;
+	int j,k,ch,dumpit,samplebytes = depth > 8 ? depth/8 : 0;
 	long pos,chpos = ftell(f),chlen = 0;
 	unsigned char *rowbuf;
 	unsigned count,rb,comp,last,n,*rlebuf = NULL;
@@ -142,7 +166,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	if(li){
 		chlen = li->chlengths[idx];
 		VERBOSE(">>> dochannel %d/%d filepos=%7ld bytes=%7ld\n",
-					  idx,channels,chpos,chlen);
+				idx,channels,chpos,chlen);
 	}else{
 		VERBOSE(">>> dochannel %d/%d filepos=%7ld\n",idx,channels,chpos);
 	}
@@ -158,7 +182,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 		rows = li->mask.rows;
 		cols = li->mask.cols;
 		VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4d rows x %4d cols)\n",
-			li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
+				li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
 	}
 
 	rb = (cols*depth + 7)/8;
@@ -190,9 +214,9 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 		pos += rlecounts; /* image data starts after RLE counts */
 		rlebuf = checkmalloc(channels*rows*sizeof(unsigned));
 		/* accumulate RLE counts, to make array of row start positions */
-		for( ch = k = 0 ; ch < channels ; ++ch ){
+		for(ch = k = 0; ch < channels; ++ch){
 			last = rb;
-			for( j = 0 ; j < rows && !feof(f) ; ++j, ++k ){
+			for(j = 0; j < rows && !feof(f); ++j, ++k){
 				count = get2Bu(f);
 				if(count > 2*rb)  // this would be impossible
 					count = last; // make a guess, to help recover
@@ -207,8 +231,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 		}
 	}else if(rowpos){
 		/* make array of row start positions (uncompressed; each row is rb bytes) */
-		for(ch=0;ch<channels;++ch){
-			for(j=0;j<rows;++j){
+		for(ch = 0; ch < channels; ++ch){
+			for(j = 0; j < rows; ++j){
 				rowpos[ch][j] = pos;
 				pos += rb;
 			}
@@ -216,12 +240,12 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 		}
 	}
 
-	for(ch = k = 0 ; ch < channels ; ++ch){
+	for(ch = k = 0; ch < channels; ++ch){
 		
 		//if(channels>1)
 		VERBOSE("\n    channel %d (@ %7ld):\n",ch,ftell(f));
 
-		for( j = 0 ; j < rows ; ++j ){
+		for(j = 0; j < rows; ++j){
 			if(rows > 3*CONTEXTROWS){
 				if(j == rows-CONTEXTROWS) 
 					VERBOSE("    ...%d rows not shown...\n",rows-2*CONTEXTROWS);
@@ -239,7 +263,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				if(fread(rowbuf,1,n,f) == n){
 					if(dumpit){
 						VERBOSE("   %5d: <%5d> ",j,n);
-						dumprow(rowbuf,n);
+						dumprow(rowbuf,n,samplebytes);
 					}
 				}else{
 					memset(rowbuf,0,n);
@@ -250,7 +274,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				if(fread(rowbuf,1,rb,f) == rb){
 					if(dumpit){
 						VERBOSE("   %5d: ",j);
-						dumprow(rowbuf,rb);
+						dumprow(rowbuf,rb,samplebytes);
 					}
 				}else{
 					memset(rowbuf,0,rb);
@@ -283,7 +307,7 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 	char pngname[FILENAME_MAX];
 	int i,ch;
 
-	for( i = 0 ; i < channels ; ++i ){
+	for(i = 0; i < channels; ++i){
 		// build PNG file name
 		strcpy(pngname,name);
 		ch = li ? li->chid[startchan + i] : startchan + i;
@@ -301,7 +325,10 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n",pngname);
-		else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,li,h)))
+		else if(h->depth == 32){
+			if((png = rawsetupwrite(f,dir,pngname,cols,rows,1,0,li,h)))
+				rawwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
+		}else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,li,h)))
 			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 	}
 }
@@ -311,13 +338,13 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 {
 	FILE *png;
 	int ch,comp,startchan,pngchan,color_type,
-		*chcomp = checkmalloc(channels*sizeof(int));
-	long **rowpos = checkmalloc(channels*sizeof(long*));
+		*chcomp = checkmalloc(sizeof(int)*channels);
+	long **rowpos = checkmalloc(sizeof(long*)*channels);
 
-	for( ch = 0 ; ch < channels ; ++ch ){
+	for(ch = 0; ch < channels; ++ch){
 		// is it a layer mask? if so, use special case row count
 		int chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
-		rowpos[ch] = checkmalloc((chrows+1)*sizeof(long));
+		rowpos[ch] = checkmalloc(sizeof(long)*(chrows+1));
 	}
 
 	pngchan = color_type = 0;
@@ -367,16 +394,24 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		// channels per step 2)
 		
 		comp = dochannel(f,NULL,0/*no index*/,channels,rows,cols,h->depth,rowpos);
-		for( ch=0 ; ch < channels ; ++ch ) 
+		for(ch = 0; ch < channels; ++ch) 
 			chcomp[ch] = comp; /* merged channels share same compression type */
 		
+		if(xmlfile)
+			fprintf(xmlfile,"\t<COMPOSITE CHANNELS='%d' ROWS='%d' COLS='%d'>\n",
+					channels,rows,cols);
 		if(writepng){
 			nwarns = 0;
 			startchan = 0;
 			if(pngchan && !splitchannels){
-				// recognisable PNG mode, so spit out the merged image
-				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
-					pngwriteimage(png,f,chcomp,NULL,rowpos,0,pngchan,rows,cols,h);
+				if(h->depth == 32){
+					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
+						rawwriteimage(png, f, chcomp, NULL, rowpos, 0, channels, rows, cols, h);
+				}else{
+					// recognisable PNG mode, so spit out the merged image
+					if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
+						pngwriteimage(png, f, chcomp, NULL, rowpos, 0, pngchan, rows, cols, h);
+				}
 				startchan += pngchan;
 			}
 			if(startchan < channels){
@@ -386,25 +421,31 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 							  startchan, channels-startchan, rows, cols, h);
 			}
 		}
+		if(xmlfile) fputs("\t</COMPOSITE>\n",xmlfile);
 	}else{
 		// Process layer:
 		// for each channel, store its row pointers sequentially 
 		// in the rowpos[] array, and its compression type in chcomp[] array
 		// (pngwriteimage() will take care of interleaving this data for libpng)
-		for( ch = 0 ; ch < channels ; ++ch ){
+		for(ch = 0; ch < channels; ++ch){
 			VERBOSE("  channel %d:\n",ch);
 			chcomp[ch] = dochannel(f,li,ch,1/*count*/,rows,cols,h->depth,rowpos+ch);
 		}
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !splitchannels){
-				if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
-					pngwriteimage(png, f,chcomp,li,rowpos,0,pngchan,rows,cols,h);
-					// spit out any 'extra' channels (e.g. layer transparency)
-					for( ch = 0 ; ch < channels ; ++ch )
-						if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
-							writechannels(f, pngdir, name, chcomp, li, rowpos,
-										  ch, 1, rows, cols, h);
+				if(h->depth == 32){
+					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
+						rawwriteimage(png, f, chcomp, li, rowpos, 0, channels, rows, cols, h);
+				}else{
+					if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
+						pngwriteimage(png, f, chcomp, li, rowpos, 0, pngchan, rows, cols, h);
+				}
+				// spit out any 'extra' channels (e.g. layer transparency)
+				for(ch = 0; ch < channels; ++ch)
+					if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
+						writechannels(f, pngdir, name, chcomp, li, rowpos,
+									  ch, 1, rows, cols, h);
 			}else{
 				UNQUIET("# writing layer as split channels...\n");
 				writechannels(f, pngdir, name, chcomp, li, rowpos,
@@ -413,13 +454,13 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		}
 	}
 
-	for(ch=0;ch<channels;++ch) 
+	for(ch = 0; ch < channels; ++ch) 
 		free(rowpos[ch]);
 	free(rowpos);
 	free(chcomp);
 }
 
-void dolayers(FILE *f,struct psd_header *h){
+void dolayermaskinfo(FILE *f,struct psd_header *h){
 	long miscstart,misclen,layerlen,chlen,skip,extrastart,extralen;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
@@ -449,7 +490,7 @@ void dolayers(FILE *f,struct psd_header *h){
 
 			// load linfo[] array with each layer's info
 
-			for( i=0 ; i < nlayers ; ++i ){
+			for(i = 0; i < nlayers; ++i){
 				// process layer record
 				linfo[i].top = get4B(f);
 				linfo[i].left = get4B(f);
@@ -473,12 +514,12 @@ void dolayers(FILE *f,struct psd_header *h){
 					linfo[i].chindex = checkmalloc((linfo[i].channels+2)*sizeof(int));
 					linfo[i].chindex += 2; // so we can index array from [-2] (hackish)
 					
-					for( j = -2 ; j < linfo[i].channels ; ++j )
+					for(j = -2; j < linfo[i].channels; ++j)
 						linfo[i].chindex[j] = -1;
 		
 					// fetch info on each of the layer's channels
 					
-					for( j=0 ; j < linfo[i].channels ; ++j ){
+					for(j = 0; j < linfo[i].channels; ++j){
 						chid = linfo[i].chid[j] = get2B(f);
 						chlen = linfo[i].chlengths[j] = get4B(f);
 						
@@ -556,9 +597,9 @@ void dolayers(FILE *f,struct psd_header *h){
       
 			if(listfile) fputs("assetlist = {\n",listfile);
 				
-			for( i = 0 ; i < nlayers ; ++i ){
-				long pixw = linfo[i].right-linfo[i].left,
-					 pixh = linfo[i].bottom-linfo[i].top;
+			for(i = 0; i < nlayers; ++i){
+				long pixw = linfo[i].right - linfo[i].left,
+					 pixh = linfo[i].bottom - linfo[i].top;
 				VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
 			  
 				if(listfile && pixw && pixh){
@@ -569,8 +610,15 @@ void dolayers(FILE *f,struct psd_header *h){
 						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
 								linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
 				}
+				if(xmlfile){
+					fputs("\t<LAYER NAME='",xmlfile);
+					fputxml(linfo[i].name,xmlfile);
+					fprintf(xmlfile,"' POSX='%ld' POSY='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
+							linfo[i].left, linfo[i].top, pixw, pixh);
+				}
 				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
 						linfo[i].channels, pixh, pixw, h);
+				if(xmlfile) fputs("\t</LAYER>\n",xmlfile);
 			}
 
 			if(listfile) fputs("}\n",listfile);
@@ -580,7 +628,7 @@ void dolayers(FILE *f,struct psd_header *h){
 		// process global layer mask info section
 		skipblock(f,"global layer mask info");
 
-		skip = miscstart+misclen - ftell(f);
+		skip = miscstart + misclen - ftell(f);
 		if(skip){
 			warn("skipped %d bytes at end of misc data?",skip);
 			fseek(f,skip,SEEK_CUR);
@@ -625,7 +673,7 @@ long doirb(FILE *f){
 void doimageresources(FILE *f){
 	long len = get4B(f);
 	VERBOSE("\nImage resources (%ld bytes):\n",len);
-	while(len>0)
+	while(len > 0)
 		len -= doirb(f);
 	if(len != 0) warn("image resources overran expected size by %d bytes\n",-len);
 }
@@ -634,7 +682,7 @@ int main(int argc,char *argv[]){
 	struct psd_header h;
 	FILE *f;
 	int i,indexptr,opt;
-	char *base,*ext;
+	char *base,*ext,fname[PATH_MAX],*dirsuffix;
 	static struct option longopts[] = {
 		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
@@ -644,11 +692,12 @@ int main(int argc,char *argv[]){
 		{"pngdir",   required_argument, NULL, 'd'},
 		{"makedirs", no_argument, &makedirs, 1},
 		{"list",     no_argument, &writelist, 1},
+		{"xml",      no_argument, &writexml, 1},
 		{"split",    no_argument, &splitchannels, 1},
 		{NULL,0,NULL,0}
 	};
 
-	while( (opt = getopt_long(argc,argv,"hvqwnd:mls",longopts,&indexptr)) != -1)
+	while( (opt = getopt_long(argc,argv,"hvqwnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
 		case 'h':
 		default:  help = 1; break;
@@ -659,6 +708,7 @@ int main(int argc,char *argv[]){
 		case 'd': pngdir = optarg;
 		case 'm': makedirs = 1; break;
 		case 'l': writelist = 1; break;
+		case 'x': writexml = 1; break;
 		case 's': splitchannels = 1; break;
 		}
 
@@ -672,30 +722,14 @@ int main(int argc,char *argv[]){
   -d, --pngdir dir   put PNGs in directory (implies --writepng)\n\
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\
+  -x, --xml          write XML describing document and layers\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n", argv[0],DIRSEP);
 
-	for( i=optind ; i<argc ; ++i ){
+	for(i = optind; i < argc; ++i){
 		if( (f = fopen(argv[i],"rb")) ){
 			nwarns = 0;
 
 			UNQUIET("\"%s\"\n",argv[i]);
-
-			strcpy(indir,argv[i]);
-			ext = strrchr(indir,'.');
-			ext ? strcpy(ext,DIRSUFFIX) : strcat(indir,DIRSUFFIX);
-
-			if(writelist){
-				char fname[FILENAME_MAX];
-
-				strcpy(fname,pngdir);
-				MKDIR(fname,0755);
-				strcat(fname,dirsep);
-				strcat(fname,"list.txt");
-				if( (listfile = fopen(fname,"w")) )
-					fprintf(listfile,"-- PSD file: %s\n",argv[i]);
-			}
-			
-			// start of PSD parsing:
 
 			// file header
 			fread(h.sig,1,4,f);
@@ -707,20 +741,42 @@ int main(int argc,char *argv[]){
 			h.depth    = get2Bu(f);
 			h.mode     = get2Bu(f);
 
+			strcpy(indir,argv[i]);
+			ext = strrchr(indir,'.');
+			dirsuffix = h.depth < 32 ? "_png" : "_raw";
+			ext ? strcpy(ext,dirsuffix) : strcat(indir,dirsuffix);
+
+			if(writelist){
+				setupfile(fname,pngdir,"list",".txt");
+				listfile = fopen(fname,"w");
+			}
+			if(writexml){
+				setupfile(fname,pngdir,"psd",".xml");
+				if( (xmlfile = fopen(fname,"w")) )
+					fputs("<?xml version=\"1.0\"?>\n",xmlfile);
+			}
+
 			if(!feof(f) && !memcmp(h.sig,"8BPS",4) && h.version == 1){
+				if(listfile) fprintf(listfile,"-- PSD file: %s\n",argv[i]);
+				if(xmlfile){
+					fputs("<PSD NAME='",xmlfile);
+					fputxml(argv[i],xmlfile);
+					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
+							h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
+							h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");
+				}
 				UNQUIET("  channels = %d, rows = %ld, cols = %ld, depth = %d, mode = %d (%s)\n",
 						h.channels, h.rows, h.cols, h.depth,
 						h.mode, h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "???");
 				
 				if(h.channels <= 0 || h.channels > 64 || h.rows <= 0 || 
-				   h.cols <= 0 || h.depth <= 0 || h.depth > 32 || h.mode < 0)
+					 h.cols <= 0 || h.depth < 0 || h.depth > 32 || h.mode < 0)
 					alwayswarn("### something isn't right about that header, giving up now.\n");
 				else{
 					h.colormodepos = ftell(f);
-					
 					skipblock(f,"color mode data");
-					doimageresources(f); // process image resources block
-					dolayers(f,&h); // do all layer and channel processing
+					doimageresources(f); //skipblock(f,"image resources");
+					dolayermaskinfo(f,&h); //skipblock(f,"layer & mask info");
 	
 					// now process image data
 					base = strrchr(argv[i],DIRSEP);
@@ -728,10 +784,12 @@ int main(int argc,char *argv[]){
 	
 					UNQUIET("  done.\n\n");
 				}
+				if(xmlfile) fputs("</PSD>\n",xmlfile);
 			}else
 				alwayswarn("# \"%s\": couldn't read header, is not a PSD, or version is not 1!\n",argv[i]);
 
 			if(listfile) fclose(listfile);
+			if(xmlfile) fclose(xmlfile);
 			fclose(f);
 			
 			// parsing completed.

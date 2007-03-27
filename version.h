@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -32,18 +32,21 @@
   04-May-2006: 1.7b1 now extract layer masks, and use channel ids to identify masks, alphas
   04-Jun-2006: 1.7b2 close PNG file after writing; add option to use 
                      generic names for PNG layer files (thanks Tankko Omaskio)
+  30-Jan-2007: 1.8b1 for 32 bit PSD, don't try to write PNG - but write raw file instead
+  26-Mar-2007: 1.9b1 write XML description
 */
 
-#define VERSION_STR "1.7b2"  // <-- remember to change in configure.in!
-#define VERSION_NUM 1,0x70,beta,2
+#define VERSION_STR "1.9b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 1,0x90,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-6 http://www.telegraphics.com.au/" 
+	VERSION_STR ", Copyright (C) Toby Thain 2004-7 http://www.telegraphics.com.au/" 
 
 /* formatted for Win32 VERSIONINFO resource */
-#define VI_VERS_NUM 1,7,0,2
+// development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
+#define VI_VERS_NUM 1,9,0x60,1
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

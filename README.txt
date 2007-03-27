@@ -1,5 +1,5 @@
 psdparse 
-Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
 This utility parses and prints a description of various structures
 inside an Adobe Photoshop(TM) PSD format file.
@@ -14,40 +14,12 @@ Tested with PSDs created by PS 3.0, 5.5, 7.0, CS and CS2,
 in Bitmap, Indexed, Grey Scale, CMYK and RGB Colour modes
 and 8/16 bit depths, with up to 53 alpha channels.
 
+32-bit channels can be extracted, but only to 'raw' format files.
+
 This software uses zlib which is (C) Jean-loup Gailly and Mark Adler.
 
-BUILDING
 
-Prerequisites:
-* zlib (usually preinstalled on Linux or OS X)
-  Download via http://www.zlib.net/
-  Extract alongside psdparse directory, see Makefile
-* libpng
-  Download via http://www.libpng.org/pub/png/libpng.html
-  On OS X or Win32 (MinGW tools), Makefile statically links.
-  Extract alongside psdparse directory.
-
-If your system has these libraries as shared library packages,
-you can use those with appropriate changes to the Makefile.
-
-To build on a UNIX or UNIX compatible system, simply type "make" 
-in the source directory. 
-
-Mac OS X users: the Developer Tools must be installed 
-(see the CDs that came with your Mac, or download from 
-http://developer.apple.com/tools/download/).
-
-MPW (Mac OS 7,8,9,Classic) users:
-An MPW makefile is provided. Simply Build Program "psdparse".
-
-Windows users: use Cygwin http://cygwin.com/, MinGW http://mingw.org/,
-or upgrade to Linux. Alternatively, the code can probably be built 
-with a freely downloadable toolset such as:
-* http://www.borland.com/products/downloads/download_cbuilder.html
-* http://www.openwatcom.org/download/download_licenses.html
-* http://www.digitalmars.com/download/dmcpp.html
-
-USING
+USAGE
 
 To use the utility, run it giving the path name of the PSD file 
 you want to inspect:
@@ -66,6 +38,7 @@ you want to inspect:
   Subdirectories may be arbitrarily deep.
 * To write a text file describing layers, sizes and positions (list.txt),
   use option --list. This file is put in the same directory as PNGs.
+* To write an XML description of the document and its layers, use option --xml.
 * Normally, RGB images (and grey scale+alpha images) are written as composite
   PNG with channels combined in one file. To write individual PNG files
   for each channel, regardless of mode, use the --split option.

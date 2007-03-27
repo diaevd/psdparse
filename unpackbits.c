@@ -26,7 +26,7 @@ int unpackbits(unsigned char *outp,unsigned char *inp,int outlen,int inlen){
 	int i,len,val;
 
 	/* i counts output bytes; outlen = expected output size */
-	for(i = 0 ; inlen > 0 && i < outlen ; ){
+	for(i = 0; inlen > 0 && i < outlen;){
 		/* get flag byte */
 		len = *inp++; 
 		--inlen;
