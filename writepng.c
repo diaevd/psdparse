@@ -120,8 +120,8 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 				fputs(" FILE='",xmlfile);
 				fputxml(pngname,xmlfile);
 				fputc('\'',xmlfile);
-				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d'",
-						width,height,channels);
+				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' DEPTH='%d'",
+						width,height,channels,color_type,h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
 			VERBOSE("#             %3dx%3d, depth=%d, channels=%d, type=%d(%s)\n", 
