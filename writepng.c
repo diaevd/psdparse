@@ -120,7 +120,8 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 				fputs(" FILE='",xmlfile);
 				fputxml(pngname,xmlfile);
 				fputc('\'',xmlfile);
-				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' />\n",width,height,channels);
+				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d'",
+						width,height,channels);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
 			VERBOSE("#             %3dx%3d, depth=%d, channels=%d, type=%d(%s)\n", 
@@ -182,6 +183,9 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 	short *q;
 	long savepos = ftell(psd);
 	int i,j,ch,map[4];
+	
+	if(xmlfile)
+		fprintf(xmlfile," CHINDEX='%d' />\n",startchan);
 
 	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);

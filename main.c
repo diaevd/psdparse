@@ -759,7 +759,7 @@ int main(int argc,char *argv[]){
 			if(!feof(f) && !memcmp(h.sig,"8BPS",4) && h.version == 1){
 				if(listfile) fprintf(listfile,"-- PSD file: %s\n",argv[i]);
 				if(xmlfile){
-					fputs("<PSD NAME='",xmlfile);
+					fputs("<PSD FILE='",xmlfile);
 					fputxml(argv[i],xmlfile);
 					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
 							h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
