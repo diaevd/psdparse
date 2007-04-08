@@ -49,29 +49,27 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 		
 		// read font information
 		v = get2B(f);
-		fprintf(xmlfile, "\t\t\t<FONTINFO VERSION='%d'", v);
+		fprintf(xmlfile, "\t\t\t<FONTINFOVERSION>%d</FONTINFOVERSION>\n", v);
 		if(v <= 6){
-			fputs(">\n", xmlfile);
 			for(i = get2B(f); i--;){
 				mark = get2B(f);
 				type = get4B(f);
-				fprintf(xmlfile, "\t\t\t\t<FACE MARK='%d' TYPE='%d' FONTNAME='%s'", mark, type, getpstr(f));
+				fprintf(xmlfile, "\t\t\t<FACE MARK='%d' TYPE='%d' FONTNAME='%s'", mark, type, getpstr(f));
 				fprintf(xmlfile, " FONTFAMILY='%s'", getpstr(f));
 				fprintf(xmlfile, " FONTSTYLE='%s'", getpstr(f));
 				script = get2B(f);
 				fprintf(xmlfile, " SCRIPT='%d'>\n", script);
 				
 				// doc is unclear, but this may work:
-				fputs("\t\t\t\t\t<DESIGNVECTOR>", xmlfile);
+				fputs("\t\t\t\t<DESIGNVECTOR>", xmlfile);
 				for(j = get4B(f); j--;)
 					fprintf(xmlfile, " <AXIS>%ld</AXIS>", get4B(f));
 				fputs(" </DESIGNVECTOR>\n", xmlfile);
 
-				fprintf(xmlfile, "\t\t\t\t</FACE>\n");
+				fprintf(xmlfile, "\t\t\t</FACE>\n");
 			}
-			fputs("\t\t\t</FONTINFO>\n", xmlfile);
-			fputs("\t\t\t<STYLEINFO>\n", xmlfile);
-			j = get2B(f); printf("%d\n",j);//exit(1);
+
+			j = get2B(f);
 			for(; j--;){
 				mark = get2B(f);
 				facemark = get2B(f);
@@ -81,13 +79,12 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 				leading = FIXEDPT(get4B(f));
 				baseshift = FIXEDPT(get4B(f));
 				autokern = fgetc(f);
-				fprintf(xmlfile, "\t\t\t\t<STYLE MARK='%d' FACEMARK='%d' SIZE='%g' TRACKING='%g' KERNING='%g' LEADING='%g' BASESHIFT='%g' AUTOKERN='%d'",
+				fprintf(xmlfile, "\t\t\t<STYLE MARK='%d' FACEMARK='%d' SIZE='%g' TRACKING='%g' KERNING='%g' LEADING='%g' BASESHIFT='%g' AUTOKERN='%d'",
 						mark, facemark, size, tracking, kerning, leading, baseshift, autokern);
 				if(v <= 5)
 					fprintf(xmlfile, " EXTRA='%d'", fgetc(f));
 				fprintf(xmlfile, " ROTATE='%d' />\n", fgetc(f));
 			}
-			fputs("\t\t\t</STYLEINFO>\n", xmlfile);
 
 			type = get2B(f);
 			scaling = FIXEDPT(get4B(f));
