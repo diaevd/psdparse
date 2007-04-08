@@ -52,6 +52,8 @@ enum{RAWDATA,RLECOMP};
 #define VERBOSE if(verbose) printf
 #define UNQUIET if(!quiet) printf
 
+#define FIXEDPT(x) ((x)/65536.)
+
 struct psd_header{
 	char sig[4];
 	short version;
@@ -113,9 +115,10 @@ struct extra_data{
 	//char data[];
 };
 
-struct resdesc {
+struct dictentry{
 	int id;
-	char *str;
+	char *key,*tag,*desc;
+	void (*func)(FILE *f, FILE *xmlf, int printxml, struct dictentry *dict);
 };
 
 extern char *channelsuffixes[],*mode_names[],dirsep[];
@@ -145,8 +148,6 @@ int dochannel(FILE *f,struct layer_info *li,int idx,int channels,
 void doimage(FILE *f,struct layer_info *li,char *name,
 			 int channels,int rows,int cols,struct psd_header *h);
 void dolayermaskinfo(FILE *f,struct psd_header *h);
-char *finddesc(int id);
-long doirb(FILE *f);
 void doimageresources(FILE *f);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);

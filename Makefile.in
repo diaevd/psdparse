@@ -94,7 +94,7 @@ install_sh = @install_sh@
 
 bin_PROGRAMS = psdparse
 
-psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c \
+psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c resources.c \
 					extradata.c constants.c util.c psdparse.h version.h
 
 psdparse_CFLAGS = -W -Wall -O2
@@ -109,8 +109,9 @@ PROGRAMS = $(bin_PROGRAMS)
 
 am_psdparse_OBJECTS = psdparse-main.$(OBJEXT) \
 	psdparse-writepng.$(OBJEXT) psdparse-writeraw.$(OBJEXT) \
-	psdparse-unpackbits.$(OBJEXT) psdparse-extradata.$(OBJEXT) \
-	psdparse-constants.$(OBJEXT) psdparse-util.$(OBJEXT)
+	psdparse-unpackbits.$(OBJEXT) psdparse-resources.$(OBJEXT) \
+	psdparse-extradata.$(OBJEXT) psdparse-constants.$(OBJEXT) \
+	psdparse-util.$(OBJEXT)
 psdparse_OBJECTS = $(am_psdparse_OBJECTS)
 psdparse_DEPENDENCIES =
 psdparse_LDFLAGS =
@@ -125,6 +126,7 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/psdparse-constants.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/psdparse-extradata.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/psdparse-main.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/psdparse-resources.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/psdparse-unpackbits.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/psdparse-util.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/psdparse-writepng.Po \
@@ -187,6 +189,7 @@ psdparse-main.$(OBJEXT): main.c
 psdparse-writepng.$(OBJEXT): writepng.c
 psdparse-writeraw.$(OBJEXT): writeraw.c
 psdparse-unpackbits.$(OBJEXT): unpackbits.c
+psdparse-resources.$(OBJEXT): resources.c
 psdparse-extradata.$(OBJEXT): extradata.c
 psdparse-constants.$(OBJEXT): constants.c
 psdparse-util.$(OBJEXT): util.c
@@ -203,6 +206,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-constants.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-extradata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-resources.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-unpackbits.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-writepng.Po@am__quote@
@@ -270,6 +274,18 @@ psdparse-unpackbits.obj: unpackbits.c
 @AMDEP_TRUE@	depfile='$(DEPDIR)/psdparse-unpackbits.Po' tmpdepfile='$(DEPDIR)/psdparse-unpackbits.TPo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-unpackbits.obj `cygpath -w unpackbits.c`
+
+psdparse-resources.o: resources.c
+@AMDEP_TRUE@	source='resources.c' object='psdparse-resources.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/psdparse-resources.Po' tmpdepfile='$(DEPDIR)/psdparse-resources.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-resources.o `test -f 'resources.c' || echo '$(srcdir)/'`resources.c
+
+psdparse-resources.obj: resources.c
+@AMDEP_TRUE@	source='resources.c' object='psdparse-resources.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/psdparse-resources.Po' tmpdepfile='$(DEPDIR)/psdparse-resources.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-resources.obj `cygpath -w resources.c`
 
 psdparse-extradata.o: extradata.c
 @AMDEP_TRUE@	source='extradata.c' object='psdparse-extradata.o' libtool=no @AMDEPBACKSLASH@

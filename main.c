@@ -25,7 +25,6 @@
 
 #define CONTEXTROWS 3
 
-extern struct resdesc rdesc[];
 extern int nwarns;
 
 char dirsep[] = {DIRSEP,0};
@@ -579,46 +578,6 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 	
 }
 
-char *finddesc(int id){
-	/* dumb linear lookup of description string from resource id */
-	/* assumes array ends with a NULL string pointer */
-	struct resdesc *p = rdesc;
-	if(id >= 2000 && id < 2999) return "path"; // special case
-	while(p->str && p->id != id)
-		++p;
-	return p->str;
-}
-
-long doirb(FILE *f){
-	char type[4],name[0x100],*d;
-	int id,namelen;
-	long size;
-
-	fread(type,1,4,f);
-	id = get2B(f);
-	namelen = fgetc(f);
-	fread(name,1,PAD2(1+namelen)-1,f);
-	name[namelen] = 0;
-	size = get4B(f);
-	fseek(f,PAD2(size),SEEK_CUR);
-
-	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
-			type[0],type[1],type[2],type[3],id,name,size);
-	if( (d = finddesc(id)) ) 
-		UNQUIET(" [%s]",d);
-	UNQUIET("\n");
-
-	return 4+2+PAD2(1+namelen)+4+PAD2(size); /* returns total bytes in block */
-}
-
-void doimageresources(FILE *f){
-	long len = get4B(f);
-	VERBOSE("\nImage resources (%ld bytes):\n",len);
-	while(len > 0)
-		len -= doirb(f);
-	if(len != 0) warn("image resources overran expected size by %d bytes\n", -len);
-}
-
 int main(int argc,char *argv[]){
 	struct psd_header h;
 	FILE *f;
@@ -628,7 +587,7 @@ int main(int argc,char *argv[]){
 		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
 		{"quiet",    no_argument, &quiet, 1},
-		{"rsrc",     no_argument, &rsrc, 1},
+		{"resources",no_argument, &rsrc, 1},
 		{"extra",    no_argument, &extra, 1},
 		{"writepng", no_argument, &writepng, 1},
 		{"numbered", no_argument, &numbered, 1},
@@ -662,7 +621,7 @@ int main(int argc,char *argv[]){
   -h, --help         show this help\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
-  -r, --rsrc         process 'image resources' metadata\n\
+  -r, --resources    process 'image resources' metadata\n\
   -e, --extra        process 'extra data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
@@ -724,7 +683,7 @@ int main(int argc,char *argv[]){
 					skipblock(f,"color mode data");
 
 					if(rsrc)
-						doimageresources(f);
+						doimageresources(f, xmlfile);
 					else
 						skipblock(f,"image resources");
 

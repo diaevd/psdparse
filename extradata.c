@@ -30,13 +30,6 @@
  * One assumes they don't really encourage people to try and USE the info.
  */
 
-struct dictentry{
-	char *key,*tag,*desc;
-	void (*func)(FILE *f, FILE *xmlf, int printxml, struct dictentry *dict);
-};
-
-#define FIXEDPT(x) ((x)/65536.)
-
 void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;

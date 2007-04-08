@@ -46,7 +46,8 @@ MINGW_WINDRES = i386-mingw32msvc-windres
 CFLAGS   += -W -Wall -O2
 CPPFLAGS += -DDEFAULT_VERBOSE=0
 
-SRC    = main.c writepng.c writeraw.c unpackbits.c extradata.c constants.c util.c
+SRC    = main.c writepng.c writeraw.c unpackbits.c resources.c \
+		 extradata.c constants.c util.c
 OBJ    = $(patsubst %.c, obj/%.o, $(SRC))
 OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC)) obj_w32/res.o
 
