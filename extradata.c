@@ -30,9 +30,14 @@
  * One assumes they don't really encourage people to try and USE the info.
  */
 
+struct dictentry{
+	char *key,*tag,*desc;
+	void (*func)(FILE *f, FILE *xmlf, int printxml, struct dictentry *dict);
+};
+
 #define FIXEDPT(x) ((x)/65536.)
 
-void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
+void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
@@ -124,7 +129,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 		UNQUIET("    (Type tool, version = %d)\n", v);
 }
 
-void ed_unicodename(FILE *f, FILE *xmlfile, int printxml){
+void ed_unicodename(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	unsigned long len = get4B(f); // character count, not byte count
 
 	if(len > 0 && len < 1024){ // sanity check
@@ -140,15 +145,15 @@ void ed_unicodename(FILE *f, FILE *xmlfile, int printxml){
 	}
 }
 
-void ed_layerid(FILE *f, FILE *xmlfile, int printxml){
+void ed_4byte(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	unsigned long id = get4B(f);
 	if(printxml)
 		fprintf(xmlfile, "%lu", id);
 	else
-		UNQUIET("    (Layer ID = %lu)\n", id);
+		UNQUIET("    (%s = %lu)\n", dict->desc, id);
 }
 
-void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
+void ed_annotation(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	int i, j, major = get2B(f), minor = get2B(f), len, open, flags;
 	char type[4], key[4];
 	long datalen, len2;
@@ -212,23 +217,15 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 		UNQUIET("    (Annotation, version = %d.%d)\n", major, minor);
 }
 
-void ed_knockout(FILE *f, FILE *xmlfile, int printxml){
+void ed_1byte(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	int k = fgetc(f);
 	if(printxml)
 		fprintf(xmlfile, "%d", k);
 	else
-		UNQUIET("    (Knockout = %d)\n", k);
+		UNQUIET("    (%s = %d)\n", dict->desc, k);
 }
 
-void ed_protected(FILE *f, FILE *xmlfile, int printxml){
-	int k = get4B(f);
-	if(printxml)
-		fprintf(xmlfile, "%d", k);
-	else
-		UNQUIET("    (Protected = %d)\n", k);
-}
-
-void ed_referencepoint(FILE *f, FILE *xmlfile, int printxml){
+void ed_referencepoint(FILE *f, FILE *xmlfile, int printxml, struct dictentry *dict){
 	double x,y;
 
 	x = getdoubleB(f);
@@ -241,40 +238,46 @@ void ed_referencepoint(FILE *f, FILE *xmlfile, int printxml){
 
 void doextradata(FILE *f, long length, int printxml){
 	struct extra_data extra;
-	static struct dictentry{
-			char *key,*tag,*desc;
-			void (*func)(FILE *f, FILE *xmlf, int printxml);
-		} extradict[] = {
-			// v4.0
-			{"levl", "LEVELS", "Levels", NULL},
-			{"curv", "CURVES", "Curves", NULL},
-			{"brit", "BRIGHTNESSCONTRAST", "Brightness/contrast", NULL},
-			{"blnc", "COLORBALANCE", "Color balance", NULL},
-			{"hue ", "HUESATURATION4", "Old Hue/saturation, Photoshop 4.0", NULL},
-			{"hue2", "HUESATURATION5", "New Hue/saturation, Photoshop 5.0", NULL},
-			{"selc", "SELECTIVECOLOR", "Selective color", NULL},
-			{"thrs", "THRESHOLD", "Threshold", NULL},
-			{"nvrt", "INVERT", "Invert", NULL},
-			{"post", "POSTERIZE", "Posterize", NULL},
-			// v5.0
-			{"lrFX", "EFFECT", "Effects layer", NULL},
-			{"tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
-			{"TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // from CS doc
-			{"luni", "UNICODENAME", "Unicode layer name", ed_unicodename},
-			{"lyid", "LAYERID", "Layer ID", ed_layerid},
-			// v6.0
-			{"lfx2", "OBJECTEFFECT", "Object based effects layer", NULL},
-			{"Patt", "PATTERN", "Pattern", NULL},
-			{"Anno", "ANNOTATION", "Annotation", ed_annotation},
-			{"clbl", "BLENDCLIPPING", "Blend clipping", NULL},
-			{"infx", "BLENDINTERIOR", "Blend interior", NULL},
-			{"knko", "KNOCKOUT", "Knockout", ed_knockout},
-			{"lspf", "PROTECTED", "Protected", ed_protected},
-			{"lclr", "SHEETCOLOR", "Sheet color", NULL},
-			{"fxrp", "REFERENCEPOINT", "Reference point", ed_referencepoint},
-			{"grdm", "GRADIENT", "Gradient", NULL},
-			{NULL, NULL, NULL, NULL}
-		};
+	static struct dictentry extradict[] = {
+		// v4.0
+		{"levl", "LEVELS", "Levels", NULL},
+		{"curv", "CURVES", "Curves", NULL},
+		{"brit", "BRIGHTNESSCONTRAST", "Brightness/contrast", NULL},
+		{"blnc", "COLORBALANCE", "Color balance", NULL},
+		{"hue ", "HUESATURATION4", "Old Hue/saturation, Photoshop 4.0", NULL},
+		{"hue2", "HUESATURATION5", "New Hue/saturation, Photoshop 5.0", NULL},
+		{"selc", "SELECTIVECOLOR", "Selective color", NULL},
+		{"thrs", "THRESHOLD", "Threshold", NULL},
+		{"nvrt", "INVERT", "Invert", NULL},
+		{"post", "POSTERIZE", "Posterize", NULL},
+		// v5.0
+		{"lrFX", "EFFECT", "Effects layer", NULL},
+		{"tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
+		{"TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // from CS doc
+		{"luni", "UNICODENAME", "Unicode layer name", ed_unicodename},
+		{"lyid", "LAYERID", "Layer ID", ed_4byte},
+		// v6.0
+		{"lfx2", "OBJECTEFFECT", "Object based effects layer", NULL},
+		{"Patt", "PATTERN", "Pattern", NULL},
+		{"Anno", "ANNOTATION", "Annotation", ed_annotation},
+		{"clbl", "BLENDCLIPPING", "Blend clipping", ed_1byte},
+		{"infx", "BLENDINTERIOR", "Blend interior", ed_1byte},
+		{"knko", "KNOCKOUT", "Knockout", ed_1byte},
+		{"lspf", "PROTECTED", "Protected", ed_4byte},
+		{"lclr", "SHEETCOLOR", "Sheet color", NULL},
+		{"fxrp", "REFERENCEPOINT", "Reference point", ed_referencepoint},
+		{"grdm", "GRADIENT", "Gradient", NULL},
+		{"ffxi", "FOREIGNEFFECTID", "Foreign effect ID", ed_4byte}, // CS doc
+		{"lnsr", "LAYERNAMESOURCE", "Layer name source", ed_4byte}, // CS doc
+		// v7.0
+		{"lyvr", "LAYERVERSION", "Layer version", ed_4byte}, // CS doc
+		{"tsly", "TRANSPARENCYSHAPES", "Transparency shapes layer", ed_1byte}, // CS doc
+		{"lmgm", "LAYERMASKASGLOBALMASK", "Layer mask as global mask", ed_1byte}, // CS doc
+		{"vmgm", "VECTORMASKASGLOBALMASK", "Vector mask as global mask", ed_1byte}, // CS doc
+		// CS
+		{"lsct", "SECTION", "Section divider", ed_4byte},
+		{NULL, NULL, NULL, NULL}
+	};
 	struct dictentry *d;
 
 	while(length > 0){
@@ -292,7 +295,7 @@ void doextradata(FILE *f, long length, int printxml){
 					if(d->func){
 						long savepos = ftell(f);
 						if(printxml) fprintf(xmlfile, "\t\t<%s>", d->tag);
-						d->func(f, xmlfile, printxml);
+						d->func(f, xmlfile, printxml, d);
 						if(printxml) fprintf(xmlfile, "</%s>\n", d->tag);
 						fseek(f, savepos, SEEK_SET);
 					}else{

@@ -24,7 +24,7 @@ struct resdesc rdesc[] = {
 	{1001,"Macintosh print record"},
 	{1003,"PS2.0 indexed color table"},
 	{1005,"ResolutionInfo"},
-	{1006,"Names of the alpha channels"},
+	{1006,"Alpha names"},
 	{1007,"DisplayInfo"},
 	{1008,"Caption"},
 	{1009,"Border information"},
@@ -46,25 +46,25 @@ struct resdesc rdesc[] = {
 	{1028,"IPTC-NAA record (File Info)"},
 	{1029,"Image mode for raw format files"},
 	{1030,"JPEG quality"},
+	// v4.0
 	{1032,"Grid and guides info"},
 	{1033,"Thumbnail resource"},
-	// v4.0
 	{1034,"Copyright flag"},
 	{1035,"URL"},
 	// v5.0
-	{1036,"Thumbnail resource"},
+	{1036,"Thumbnail resource (5.0)"},
 	{1037,"Global Angle"},
 	{1038,"Color samplers resource"},
 	{1039,"ICC Profile"},
 	{1040,"Watermark"},
-	{1041,"ICC Untagged"},
+	{1041,"ICC Untagged Profile"},
 	{1042,"Effects visible"},
 	{1043,"Spot Halftone"},
 	{1044,"Document specific IDs"},
 	{1045,"Unicode Alpha Names"},
-	// v.6.0
+	// v6.0
 	{1046,"Indexed Color Table Count"},
-	{1047,"Transparent Index"},
+	{1047,"Transparency Index"},
 	{1049,"Global Altitude"},
 	{1050,"Slices"},
 	{1051,"Workflow URL"},
@@ -72,6 +72,18 @@ struct resdesc rdesc[] = {
 	{1053,"Alpha Identifiers"},
 	{1054,"URL List"},
 	{1057,"Version Info"},
+	// v7.0 - from CS doc
+	{1058,"EXIF data 1"},
+	{1059,"EXIF data 3"},
+	{1060,"XMP metadata"},
+	{1061,"Caption digest (RSA MD5)"},
+	{1062,"Print scale"},
+	// CS
+	{1064,"Pixel aspect ratio"},
+	{1065,"Layer comps"},
+	{1066,"Alternate duotone colors"},
+	{1067,"Alternate spot colors"},
+	
 	{2999,"Name of clipping path"},
 	{10000,"Print flags info"},
 	{0,NULL}
