@@ -602,11 +602,11 @@ long doirb(FILE *f){
 	size = get4B(f);
 	fseek(f,PAD2(size),SEEK_CUR);
 
-	VERBOSE("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
+	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
 			type[0],type[1],type[2],type[3],id,name,size);
 	if( (d = finddesc(id)) ) 
-		VERBOSE(" [%s]",d);
-	VERBOSE("\n");
+		UNQUIET(" [%s]",d);
+	UNQUIET("\n");
 
 	return 4+2+PAD2(1+namelen)+4+PAD2(size); /* returns total bytes in block */
 }
