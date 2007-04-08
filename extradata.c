@@ -118,7 +118,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 			}
 			fputs("\t\t\t</TEXT>\n", xmlfile);
 		}else
-			fputs(" /> <!-- don't know how to parse this version -->\n", xmlfile);
+			fputs("\t\t\t<!-- don't know how to parse this version -->\n", xmlfile);
 		fputs("\t\t", xmlfile);
 	}else
 		UNQUIET("    (Type tool, version = %d)\n", v);
