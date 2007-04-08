@@ -30,6 +30,27 @@
  * One assumes they don't really encourage people to try and USE the info.
  */
 
+struct dictentry *findbykey(FILE *f, struct dictentry *dict, char *key, int printxml){
+	struct dictentry *d;
+
+	for(d = dict; d->key; ++d)
+		if(!memcmp(key, d->key, 4)){
+			if(d->func){
+				long savepos = ftell(f);
+				if(printxml) fprintf(xmlfile, "\t\t<%s>", d->tag);
+				d->func(f, printxml, d);
+				if(printxml) fprintf(xmlfile, "</%s>\n", d->tag);
+				fseek(f, savepos, SEEK_SET);
+			}else{
+				// there is no function to parse this block
+				if(printxml)
+					fprintf(xmlfile, "\t\t<%s /> <!-- not parsed -->\n", d->tag);
+			}
+			return d;
+		}
+	return NULL;
+}
+
 void ed_typetool(FILE *f, int printxml, struct dictentry *dict){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;
@@ -229,6 +250,72 @@ void ed_referencepoint(FILE *f, int printxml, struct dictentry *dict){
 		UNQUIET("    (Reference point X=%g Y=%g)\n", x, y);
 }
 
+// CS doc
+void ed_descriptor(FILE *f, int printxml, struct dictentry *dict){
+	static struct dictentry descdict[] = {
+		{0, "obj ", "REFERENCE", "Reference", NULL},
+		{0, "Objc", "DESCRIPTOR", "Descriptor", NULL},
+		{0, "VlLs", "LIST", "List", NULL},
+		{0, "doub", "DOUBLE", "Double", NULL},
+		{0, "UntF", "UNITFLOAT", "Unit float", NULL},
+		{0, "TEXT", "STRING", "String", NULL},
+		{0, "enum", "ENUMERATED", "Enumerated", NULL},
+		{0, "long", "INTEGER", "Integer", NULL},
+		{0, "bool", "BOOLEAN", "Boolean", NULL},
+		{0, "GlbO", "GLOBALOBJECT", "GlobalObject same as Descriptor", NULL},
+		{0, "type", "CLASS", "Class", NULL},
+		{0, "GlbC", "CLASS", "Class", NULL},
+		{0, "alis", "ALIAS", "Alias", NULL},
+		{0, NULL, NULL, NULL, NULL}
+	};
+
+	if(printxml){
+		long j, count = get4B(f);
+		fputs("\n\t\t\t<CLASSID>", xmlfile);
+		if(count){
+			fputs("\n\t\t\t\t<UNICODE>", xmlfile);
+			while(count--)
+				fprintf(xmlfile, "%04x", get2B(f));
+			fputs("</UNICODE>\n", xmlfile);
+		}
+		count = get4B(f);
+		if(count){
+			fputs("\t\t\t\t<ASCII>", xmlfile);
+			while(count--)
+				fputc(fgetc(f), xmlfile);
+			fputs("</ASCII>\n", xmlfile);
+		}else
+			fprintf(xmlfile, "\t\t\t\t<ID>%ld</ID>\n", get4B(f));
+		fputs("\n\t\t\t<CLASSID>", xmlfile);
+		count = get4B(f);
+		while(count--){
+			char key[4];
+			j = get4B(f);
+			if(j){
+				fputs("\t\t\t\t<ITEM TYPE='", xmlfile);
+				while(j--)
+					fputcxml(fgetc(f), xmlfile);
+				fputs("' />\n", xmlfile);
+			}else{
+				fread(key, 1, 4, f);
+				findbykey(f, descdict, key, 1);
+			}
+		}
+	}
+}
+
+// CS doc
+void ed_versdesc(FILE *f, int printxml, struct dictentry *dict){
+	fprintf(xmlfile, "\t\t\t\t<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", get4B(f));
+	ed_descriptor(f, printxml, dict);
+}
+
+// CS doc
+void ed_objecteffects(FILE *f, int printxml, struct dictentry *dict){
+	fprintf(xmlfile, "\t\t\t\t<VERSION>%ld</VERSION>\n", get4B(f));
+	ed_versdesc(f, printxml, dict);
+}
+
 void doextradata(FILE *f, long length, int printxml){
 	struct extra_data extra;
 	static struct dictentry extradict[] = {
@@ -246,12 +333,12 @@ void doextradata(FILE *f, long length, int printxml){
 		// v5.0
 		{0, "lrFX", "EFFECT", "Effects layer", NULL},
 		{0, "tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
-		{0, "TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // from CS doc
 		{0, "luni", "UNICODENAME", "Unicode layer name", ed_unicodename},
 		{0, "lyid", "LAYERID", "Layer ID", ed_4byte},
 		// v6.0
-		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", NULL},
+		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", ed_objecteffects},
 		{0, "Patt", "PATTERN", "Pattern", NULL},
+		{0, "Pat2", "PATTERNCS", "Pattern (CS)", NULL},
 		{0, "Anno", "ANNOTATION", "Annotation", ed_annotation},
 		{0, "clbl", "BLENDCLIPPING", "Blend clipping", ed_1byte},
 		{0, "infx", "BLENDINTERIOR", "Blend interior", ed_1byte},
@@ -260,15 +347,25 @@ void doextradata(FILE *f, long length, int printxml){
 		{0, "lclr", "SHEETCOLOR", "Sheet color", NULL},
 		{0, "fxrp", "REFERENCEPOINT", "Reference point", ed_referencepoint},
 		{0, "grdm", "GRADIENT", "Gradient", NULL},
+		{0, "lsct", "SECTION", "Section divider", ed_4byte}, // CS doc
+		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", ed_versdesc}, // CS doc
+		{0, "PtFl", "PATTERNFILL", "Pattern fill", ed_versdesc}, // CS doc
+		{0, "GdFl", "GRADIENTFILL", "Gradient fill", ed_versdesc}, // CS doc
+		{0, "vmsk", "VECTORMASK", "Vector mask", NULL}, // CS doc
+		{0, "TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // CS doc
 		{0, "ffxi", "FOREIGNEFFECTID", "Foreign effect ID", ed_4byte}, // CS doc
 		{0, "lnsr", "LAYERNAMESOURCE", "Layer name source", ed_4byte}, // CS doc
+		{0, "shpa", "PATTERNDATA", "Pattern data", NULL}, // CS doc
+		{0, "shmd", "METADATASETTING", "Metadata setting", NULL}, // CS doc
+		{0, "brst", "BLENDINGRESTRICTIONS", "Channel blending restrictions", NULL}, // CS doc
 		// v7.0
 		{0, "lyvr", "LAYERVERSION", "Layer version", ed_4byte}, // CS doc
 		{0, "tsly", "TRANSPARENCYSHAPES", "Transparency shapes layer", ed_1byte}, // CS doc
 		{0, "lmgm", "LAYERMASKASGLOBALMASK", "Layer mask as global mask", ed_1byte}, // CS doc
 		{0, "vmgm", "VECTORMASKASGLOBALMASK", "Vector mask as global mask", ed_1byte}, // CS doc
 		// CS
-		{0, "lsct", "SECTION", "Section divider", ed_4byte},
+		{0, "mixr", "CHANNELMIXER", "Channel mixer", NULL}, // CS doc
+		{0, "phfl", "PHOTOFILTER", "Photo Filter", NULL}, // CS doc
 		{0, NULL, NULL, NULL, NULL}
 	};
 	struct dictentry *d;
@@ -283,24 +380,9 @@ void doextradata(FILE *f, long length, int printxml){
 					extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
 					extra.key[0],extra.key[1],extra.key[2],extra.key[3],
 					extra.length);
-			for(d = extradict; d->key; ++d)
-				if(!memcmp(extra.key, d->key, 4)){
-					if(d->func){
-						long savepos = ftell(f);
-						if(printxml) fprintf(xmlfile, "\t\t<%s>", d->tag);
-						d->func(f, printxml, d);
-						if(printxml) fprintf(xmlfile, "</%s>\n", d->tag);
-						fseek(f, savepos, SEEK_SET);
-					}else{
-						// there is no function to parse this block
-						if(printxml)
-							fprintf(xmlfile, "\t\t<%s /> <!-- not parsed -->\n", d->tag);
-						else
-							UNQUIET("    (%s data)\n", d->desc);
-					}
-					break;
-				}
-			
+			d = findbykey(f, extradict, extra.key, printxml);
+			if(d && !d->func && !printxml) // there is no function to parse this block
+				UNQUIET("    (%s data)\n", d->desc);
 			fseek(f, extra.length, SEEK_CUR);
 		}else{
 			warn("bad signature in layer's extra data, skipping the rest");

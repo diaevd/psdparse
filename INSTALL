@@ -20,11 +20,13 @@ http://developer.apple.com/tools/download/).
 
 
 1. build using the supplied Makefile:
-	# make
+	# make -f Makefile.osx
 	
-The supplied Makefile is the easiest way to:
-	- CROSS-build the Win32 programs, if you have MinGW installed;
-	- build on OS X (unless you have already installed libpng)
+The supplied Makefile is the easiest way to CROSS-build the Win32 programs,
+if you have MinGW installed;
+	# make -f Makefile.osx exe
+
+It's also an easy way to build on OS X (unless you have already installed libpng).
 See the Makefile for more information and prerequisites.
 	
 OR 
