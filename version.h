@@ -34,10 +34,11 @@
                      generic names for PNG layer files (thanks Tankko Omaskio)
   30-Jan-2007: 1.8b1 for 32 bit PSD, don't try to write PNG - but write raw file instead
   26-Mar-2007: 1.9b1 write XML description
+  07-Apr-2007: 2.0b1 add some support for parsing v4+ 'extra data' (non-image layers)
 */
 
-#define VERSION_STR "1.9b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 1,0x90,beta,2
+#define VERSION_STR "2.0b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x00,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -46,7 +47,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 1,9,0x60,2
+#define VI_VERS_NUM 2,0,0x60,1
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

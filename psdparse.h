@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -18,6 +18,8 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <limits.h>
 
 #ifndef PATH_MAX
@@ -91,6 +93,8 @@ struct layer_info{
 	struct layer_mask_info mask;
 	char *name;
 	char *nameno; // "layerNN"
+	long extradatapos;
+	long extradatalen;
 };
 
 struct blend_mode_info{
@@ -100,6 +104,13 @@ struct blend_mode_info{
 	unsigned char clipping;
 	unsigned char flags;
 	unsigned char filler;
+};
+
+struct extra_data{
+	char sig[4];
+	char key[4];
+	unsigned long length;
+	//char data[];
 };
 
 struct resdesc {
@@ -117,9 +128,13 @@ void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
 void fputxml(char *str,FILE *f);
+double getdoubleB(FILE *f);
 long get4B(FILE *f);
 int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
+
+void doextradata(FILE *f, long length, int printxml);
+
 void skipblock(FILE *f,char *desc);
 void dumprow(unsigned char *b,int n,int group);
 int dochannel(FILE *f,struct layer_info *li,int idx,int channels,

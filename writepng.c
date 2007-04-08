@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -120,8 +120,8 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 				fputs(" FILE='",xmlfile);
 				fputxml(pngname,xmlfile);
 				fputc('\'',xmlfile);
-				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' DEPTH='%d'",
-						width,height,channels,color_type,h->depth);
+				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+						width,height,channels,color_type,pngtype,h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
 			VERBOSE("#             %3dx%3d, depth=%d, channels=%d, type=%d(%s)\n", 

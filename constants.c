@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -48,8 +48,10 @@ struct resdesc rdesc[] = {
 	{1030,"JPEG quality"},
 	{1032,"Grid and guides info"},
 	{1033,"Thumbnail resource"},
+	// v4.0
 	{1034,"Copyright flag"},
 	{1035,"URL"},
+	// v5.0
 	{1036,"Thumbnail resource"},
 	{1037,"Global Angle"},
 	{1038,"Color samplers resource"},
@@ -60,6 +62,7 @@ struct resdesc rdesc[] = {
 	{1043,"Spot Halftone"},
 	{1044,"Document specific IDs"},
 	{1045,"Unicode Alpha Names"},
+	// v.6.0
 	{1046,"Indexed Color Table Count"},
 	{1047,"Transparent Index"},
 	{1049,"Global Altitude"},

@@ -30,7 +30,7 @@ PNGDIR = ../libpng-1.2.15
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
-#LIBPNGA = $(PNGDIR)/libpng.a
+LIBPNGA = $(PNGDIR)/libpng.a
 
 # if building with MinGW ('make exe'), extract zlib and libpng to these directories:
 ZLIBDIRW32 = ../zlib-1.2.3_w32
@@ -46,7 +46,7 @@ MINGW_WINDRES = i386-mingw32msvc-windres
 CFLAGS   += -W -Wall -O2
 CPPFLAGS += -DDEFAULT_VERBOSE=0
 
-SRC    = main.c writepng.c writeraw.c unpackbits.c constants.c
+SRC    = main.c writepng.c writeraw.c unpackbits.c extradata.c constants.c util.c
 OBJ    = $(patsubst %.c, obj/%.o, $(SRC))
 OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC)) obj_w32/res.o
 

@@ -17,26 +17,19 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 #include <getopt.h>
-#include <ctype.h>
 
 #include "psdparse.h"
 
 #include "png.h"
 
-enum{ 
-	CONTEXTROWS = 3, 
-	WARNLIMIT = 10
-};
+#define CONTEXTROWS 3
 
 extern struct resdesc rdesc[];
+extern int nwarns;
 
 char dirsep[] = {DIRSEP,0};
-int verbose = DEFAULT_VERBOSE,quiet = 0,makedirs = 0,numbered = 0;
-
+int verbose = DEFAULT_VERBOSE,quiet = 0,extra = 0,makedirs = 0,numbered = 0;
 static int mergedalpha = 0,help = 0,splitchannels = 0;
 static char indir[PATH_MAX],*pngdir = indir;
 static FILE *listfile = NULL;
@@ -48,91 +41,6 @@ FILE *xmlfile = NULL;
 #else
 	static int writepng = 0,writelist = 0,writexml = 0;
 #endif
-
-void fatal(char *s){
-	fflush(stdout);
-	fputs(s,stderr);
-	exit(EXIT_FAILURE);
-}
-
-static int nwarns = 0;
-
-void warn(char *fmt,...){
-	char s[0x200];
-	va_list v;
-
-	if(nwarns == WARNLIMIT) fputs("#   (further warnings suppressed)\n",stderr);
-	++nwarns;
-	if(nwarns <= WARNLIMIT){
-		va_start(v,fmt);
-		vsnprintf(s,0x200,fmt,v);
-		va_end(v);
-		fflush(stdout);
-		fprintf(stderr,"#   warning: %s\n",s);
-	}
-}
-
-void alwayswarn(char *fmt,...){
-	char s[0x200];
-	va_list v;
-
-	va_start(v,fmt);
-	vsnprintf(s,0x200,fmt,v);
-	va_end(v);
-	fflush(stdout);
-	fputs(s,stderr);
-}
-
-void *checkmalloc(long n){
-	void *p = malloc(n);
-	if(p) return p;
-	else fatal("can't get memory");
-	return NULL;
-}
-
-// escape XML special characters to entities
-// see: http://www.w3.org/TR/xml/#sec-predefined-ent
-
-void fputxml(char *str,FILE *f){
-	char *p;
-
-	for(p = str; *p; p++)
-		switch(*p){
-		case '<':  fputs("&lt;",f); break;
-		case '>':  fputs("&gt;",f); break;
-		case '&':  fputs("&amp;",f); break;
-		case '\'': fputs("&apos;",f); break;
-		case '\"': fputs("&quot;",f); break;
-		default:
-			if(isascii(*p))
-				fputc(*p,f);
-			else
-				fprintf(f,"&#%d;",(unsigned char)*p);
-		}
-}
-
-// Read a 4-byte signed binary value in BigEndian format. 
-// Assumes sizeof(long) == 4 (and two's complement CPU :)
-long get4B(FILE *f){
-	long n = fgetc(f)<<24;
-	n |= fgetc(f)<<16;
-	n |= fgetc(f)<<8;
-	return n | fgetc(f);
-}
-
-// Read a 2-byte signed binary value in BigEndian format. 
-// Meant to work even where sizeof(short) > 2
-int get2B(FILE *f){
-	unsigned n = fgetc(f)<<8;
-	n |= fgetc(f);
-	return n < 0x8000 ? n : n - 0x10000;
-}
-
-// Read a 2-byte unsigned binary value in BigEndian format. 
-unsigned get2Bu(FILE *f){
-	unsigned n = fgetc(f)<<8;
-	return n |= fgetc(f);
-}
 
 void skipblock(FILE *f,char *desc){
 	long n = get4B(f);
@@ -312,13 +220,17 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 		strcpy(pngname,name);
 		ch = li ? li->chid[startchan + i] : startchan + i;
 		if(ch == -2){
+			if(xmlfile)
+				fprintf(xmlfile,"\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld'>\n",
+						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols);
 			strcat(pngname,".lmask");
 			// layer mask channel is a special case, gets its own dimensions
 			rows = li->mask.rows;
 			cols = li->mask.cols;
-		}else if(ch == -1)
+		}else if(ch == -1){
+			if(xmlfile) fputs("\t\t<TRANSPARENCY>\n",xmlfile);
 			strcat(pngname,li ? ".trans" : ".alpha");
-		else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
+		}else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
 			sprintf(pngname+strlen(pngname),".%c",channelsuffixes[h->mode][ch]);
 		else // give up an use a number
 			sprintf(pngname+strlen(pngname),".%d",ch);
@@ -330,6 +242,12 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 				rawwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 		}else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,li,h)))
 			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
+
+		if(ch == -2){
+			if(xmlfile) fputs("\t\t</LAYERMASK>\n",xmlfile);
+		}else if(ch == -1){
+			if(xmlfile) fputs("\t\t</TRANSPARENCY>\n",xmlfile);
+		}
 	}
 }
 
@@ -398,7 +316,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 			chcomp[ch] = comp; /* merged channels share same compression type */
 		
 		if(xmlfile)
-			fprintf(xmlfile,"\t<COMPOSITE CHANNELS='%d' ROWS='%d' COLS='%d'>\n",
+			fprintf(xmlfile,"\t<COMPOSITE CHANNELS='%d' HEIGHT='%d' WIDTH='%d'>\n",
 					channels,rows,cols);
 		if(writepng){
 			nwarns = 0;
@@ -460,7 +378,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
-void dolayermaskinfo(FILE *f,struct psd_header *h){
+void dolayermaskinfo(FILE *f, struct psd_header *h){
 	long miscstart,misclen,layerlen,chlen,skip,extrastart,extralen;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
@@ -558,7 +476,7 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					extralen = get4B(f);
 					extrastart = ftell(f);
 					VERBOSE("  (extra data: %ld bytes @ %ld)\n",extralen,extrastart);
-	
+
 					// fetch layer mask data
 					if( (linfo[i].mask.size = get4B(f)) ){
 						linfo[i].mask.top = get4B(f);
@@ -570,7 +488,8 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 						fseek(f,linfo[i].mask.size-18,SEEK_CUR); // skip remainder
 						linfo[i].mask.rows = linfo[i].mask.bottom - linfo[i].mask.top;
 						linfo[i].mask.cols = linfo[i].mask.right - linfo[i].mask.left;
-					}
+					}else
+						VERBOSE("  (no layer mask)\n");
 			
 					skipblock(f,"layer blending ranges");
 					
@@ -578,16 +497,21 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 					linfo[i].nameno = malloc(16);
 					sprintf(linfo[i].nameno,"layer%d",i+1);
 					namelen = fgetc(f);
-					linfo[i].name = checkmalloc(PAD4(1+namelen));
-					fread(linfo[i].name,1,PAD4(1+namelen),f);
+					linfo[i].name = checkmalloc(PAD4(namelen+1));
+					fread(linfo[i].name,1,PAD4(namelen+1)-1,f);
 					linfo[i].name[namelen] = 0;
 					if(namelen){
 						UNQUIET("    name: \"%s\"\n",linfo[i].name);
 						if(linfo[i].name[0] == '.')
 							linfo[i].name[0] = '_';
 					}
+					
+					linfo[i].extradatapos = ftell(f);
+					linfo[i].extradatalen = extrastart + extralen - linfo[i].extradatapos;
+					if(extra)
+						doextradata(f, linfo[i].extradatalen, 0);
 			
-					fseek(f,extrastart+extralen,SEEK_SET); // skip over any extra data
+					fseek(f,extrastart+extralen,SEEK_SET);
 				}
 			}
       
@@ -599,7 +523,8 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 				
 			for(i = 0; i < nlayers; ++i){
 				long pixw = linfo[i].right - linfo[i].left,
-					 pixh = linfo[i].bottom - linfo[i].top;
+					 pixh = linfo[i].bottom - linfo[i].top,
+					 savepos;
 				VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
 			  
 				if(listfile && pixw && pixh){
@@ -613,11 +538,20 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 				if(xmlfile){
 					fputs("\t<LAYER NAME='",xmlfile);
 					fputxml(linfo[i].name,xmlfile);
-					fprintf(xmlfile,"' POSX='%ld' POSY='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
-							linfo[i].left, linfo[i].top, pixw, pixh);
+					fprintf(xmlfile,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
+							linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
 				}
 				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
 						linfo[i].channels, pixh, pixw, h);
+
+				if(extra){
+					// Process 'extra data' (non-image layer data,
+					// such as adjustments, effects, type tool).
+					savepos = ftell(f);
+					fseek(f, linfo[i].extradatapos, SEEK_SET);
+					doextradata(f, linfo[i].extradatalen, 1);
+					fseek(f, savepos, SEEK_SET); // restore file position
+				}
 				if(xmlfile) fputs("\t</LAYER>\n",xmlfile);
 			}
 
@@ -629,10 +563,17 @@ void dolayermaskinfo(FILE *f,struct psd_header *h){
 		skipblock(f,"global layer mask info");
 
 		skip = miscstart + misclen - ftell(f);
-		if(skip){
-			warn("skipped %d bytes at end of misc data?",skip);
-			fseek(f,skip,SEEK_CUR);
-		}
+		/*if(extra){
+			// skip undocumented block before 'global'(?) 'extra data'
+			int n = get2B(f); // I am guessing it's preceded by a count
+			fseek(f, n, SEEK_CUR);
+			printf("pos=%d n=%d skip=%d\n",ftell(f),n,skip);
+			doextradata(f, skip-2, 1);
+		}else*/
+			if(skip)
+				warn("skipped %d bytes of extra data at the end of misc info",skip);
+
+		fseek(f, miscstart + misclen, SEEK_SET);
 		
 	}else VERBOSE("  (misc info section is empty)\n");
 	
@@ -687,6 +628,7 @@ int main(int argc,char *argv[]){
 		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
 		{"quiet",    no_argument, &quiet, 1},
+		{"extra",    no_argument, &extra, 1},
 		{"writepng", no_argument, &writepng, 1},
 		{"numbered", no_argument, &numbered, 1},
 		{"pngdir",   required_argument, NULL, 'd'},
@@ -697,12 +639,13 @@ int main(int argc,char *argv[]){
 		{NULL,0,NULL,0}
 	};
 
-	while( (opt = getopt_long(argc,argv,"hvqwnd:mlxs",longopts,&indexptr)) != -1 )
+	while( (opt = getopt_long(argc,argv,"hvqewnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
 		case 'h':
 		default:  help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
+		case 'e': extra = 1; break;
 		case 'w': writepng = 1; break;
 		case 'n': numbered = 1; break;
 		case 'd': pngdir = optarg;
@@ -717,6 +660,7 @@ int main(int argc,char *argv[]){
   -h, --help         show this help\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
+  -e, --extra        process 'extra data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
   -d, --pngdir dir   put PNGs in directory (implies --writepng)\n\
@@ -761,7 +705,7 @@ int main(int argc,char *argv[]){
 				if(xmlfile){
 					fputs("<PSD FILE='",xmlfile);
 					fputxml(argv[i],xmlfile);
-					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
+					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
 							h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
 							h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");
 				}
