@@ -185,7 +185,7 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 			//optblocks = get2B(f);
 			//icont = get4B(f);  iconl = get4B(f);  iconb = get4B(f);  iconr = get4B(f);
 			//popupt = get4B(f); popupl = get4B(f); popupb = get4B(f); popupr = get4B(f);
-			fseek(f, 2+16+16+10, SEEK_CUR); // skip
+			fseek(f, 2+16+16+10, SEEK_CUR); // skip this mundane stuff
 			fprintf(xmlfile, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
 			fputsxml(getpstr2(f), xmlfile);
 			fputs("' NAME='", xmlfile);
@@ -210,15 +210,15 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 				fputs("</UNICODE>\n\t\t\t\t<ASCII>", xmlfile);
 				fputsxml(buf, xmlfile);
 				fputs("</ASCII>\n\t\t\t</TEXT>\n", xmlfile);
-				// doc says this is 4-byte padded, but it is lying; don't skip.
-				//fseek(f, 4 - (datalen & 3), SEEK_CUR);
+				len2 -= datalen; // we consumed this much from the file
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.
 				fprintf(xmlfile, " RATE='%d' BYTES='%d' />\n", datalen, len2-12);
-				fseek(f, PAD4(len2-12), SEEK_CUR);
 			}else
 				fputs(" /> <!-- don't know -->\n", xmlfile);
+
+			fseek(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
 		}
 		fputs("\t\t", xmlfile);
 	}else
