@@ -21,57 +21,60 @@
 
 #include "psdparse.h"
 
-void desc_class(FILE *f, int printxml, struct dictentry *dict);
-void desc_reference(FILE *f, int printxml, struct dictentry *dict);
-void desc_list(FILE *f, int printxml, struct dictentry *dict);
-void desc_double(FILE *f, int printxml, struct dictentry *dict);
-void desc_unitfloat(FILE *f, int printxml, struct dictentry *dict);
-void desc_unicodestr(FILE *f, int printxml, struct dictentry *dict);
-void desc_enumerated(FILE *f, int printxml, struct dictentry *dict);
-void desc_integer(FILE *f, int printxml, struct dictentry *dict);
-void desc_boolean(FILE *f, int printxml, struct dictentry *dict);
-void desc_alias(FILE *f, int printxml, struct dictentry *dict);
+void desc_class(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_reference(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_list(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_double(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_unitfloat(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_unicodestr(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_enumerated(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_integer(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_boolean(FILE *f, int level, int printxml, struct dictentry *parent);
+void desc_alias(FILE *f, int level, int printxml, struct dictentry *parent);
 
-void stringorid(FILE *f, char *tag){
+void stringorid(FILE *f, int level, char *tag){
 	long count = get4B(f);
-	fprintf(xmlfile, "\t\t\t\t<%s>", tag);
-	if(count){
-		fprintf(xmlfile, "\t\t\t\t\t<STRING>");
+	fprintf(xmlfile, "%s<%s>", tabs(level), tag);
+	if(count){if(count>1024) exit(1);
+		fprintf(xmlfile, " <STRING>");
 		while(count--)
 			fputcxml(fgetc(f), xmlfile);
-		fprintf(xmlfile, "</STRING>\n");
-	}else
-		fprintf(xmlfile, "\t\t\t\t\t<ID>%ld</ID>\n", get4B(f));
-	fprintf(xmlfile, "\t\t\t\t</%s>", tag);
+		fprintf(xmlfile, "</STRING>");
+	}else{
+		char id[4];
+		fread(id, 1, 4, f);
+		fprintf(xmlfile, " <ID>%c%c%c%c</ID>", id[0],id[1],id[2],id[3]);
+	}
+	fprintf(xmlfile, " </%s>\n", tag);
 }
 
-void ref_property(FILE *f, int printxml, struct dictentry *dict){
-	desc_class(f, printxml, dict);
-	stringorid(f, "KEY");
+void ref_property(FILE *f, int level, int printxml, struct dictentry *parent){
+	desc_class(f, level, printxml, parent);
+	stringorid(f, level, "KEY");
 }
 
-void ref_enumref(FILE *f, int printxml, struct dictentry *dict){
-	desc_class(f, printxml, dict);
-	desc_enumerated(f, printxml, dict);
+void ref_enumref(FILE *f, int level, int printxml, struct dictentry *parent){
+	desc_class(f, level, printxml, parent);
+	desc_enumerated(f, level, printxml, parent);
 }
 
-void ref_offset(FILE *f, int printxml, struct dictentry *dict){
-	desc_class(f, printxml, dict);
-	desc_integer(f, printxml, dict);
+void ref_offset(FILE *f, int level, int printxml, struct dictentry *parent){
+	desc_class(f, level, printxml, parent);
+	desc_integer(f, level, printxml, parent);
 }
 
-void desc_class(FILE *f, int printxml, struct dictentry *dict){
-	desc_unicodestr(f, printxml, dict);
-	stringorid(f, "CLASS");
+void desc_class(FILE *f, int level, int printxml, struct dictentry *parent){
+	desc_unicodestr(f, level, printxml, parent);
+	stringorid(f, level, "CLASS");
 }
 
-void desc_reference(FILE *f, int printxml, struct dictentry *dict){
+void desc_reference(FILE *f, int level, int printxml, struct dictentry *parent){
 	static struct dictentry refdict[] = {
 		// all functions must be present, for this to parse correctly
 		{0, "prop", "PROPERTY", "Property", ref_property},
 		{0, "Clss", "CLASS", "Class", desc_class},
 		{0, "Enmr", "ENUMREF", "Enumerated Reference", ref_enumref},
-		{0, "rele", "OFFSET", "Offset", ref_offset},
+		{0, "rele", "-OFFSET", "Offset", ref_offset}, // '-' prefix means keep tag value on one line
 		{0, "Idnt", "IDENTIFIER", "Identifier", NULL}, // doc is missing?!
 		{0, "indx", "INDEX", "Index", NULL}, // doc is missing?!
 		{0, "name", "NAME", "Name", NULL}, // doc is missing?!
@@ -81,107 +84,99 @@ void desc_reference(FILE *f, int printxml, struct dictentry *dict){
 	while(count--){
 		char key[4];
 		fread(key, 1, 4, f);
-		findbykey(f, refdict, key, printxml); // FIXME: if this returns NULL, we got problems
+		findbykey(f, level, refdict, key, printxml); // FIXME: if this returns NULL, we got problems
 	}
 }
 
-void keytype(FILE *f){
+void item(FILE *f, int level){
 	static struct dictentry descdict[] = {
 		{0, "obj ", "REFERENCE", "Reference", desc_reference},
 		{0, "Objc", "DESCRIPTOR", "Descriptor", NULL}, // doc missing?!
+		{0, "list", "LIST", "List", desc_list}, // not documented?
 		{0, "VlLs", "LIST", "List", desc_list},
-		{0, "doub", "DOUBLE", "Double", desc_double},
-		{0, "UntF", "UNITFLOAT", "Unit float", desc_unitfloat},
-		{0, "TEXT", "STRING", "String", desc_unicodestr},
+		{0, "doub", "-DOUBLE", "Double", desc_double}, // '-' prefix means keep tag value on one line
+		{0, "UntF", "-UNITFLOAT", "Unit float", desc_unitfloat},
+		{0, "TEXT", "-STRING", "String", desc_unicodestr},
 		{0, "enum", "ENUMERATED", "Enumerated", desc_enumerated}, // Enmr? (see v6 rel2)
-		{0, "long", "INTEGER", "Integer", desc_integer},
-		{0, "bool", "BOOLEAN", "Boolean", desc_boolean},
+		{0, "long", "-INTEGER", "Integer", desc_integer},
+		{0, "bool", "-BOOLEAN", "Boolean", desc_boolean},
 		{0, "GlbO", "GLOBALOBJECT", "GlobalObject same as Descriptor", NULL},
 		{0, "type", "CLASS", "Class", NULL},  // doc missing?! - Clss? (see v6 rel2)
 		{0, "GlbC", "CLASS", "Class", NULL}, // doc missing?!
-		{0, "alis", "ALIAS", "Alias", desc_alias},
+		{0, "alis", "-ALIAS", "Alias", desc_alias},
 		{0, NULL, NULL, NULL, NULL}
 	};
-	char key[4];
+	char type[4];
 
-	fread(key, 1, 4, f);
-	findbykey(f, descdict, key, 1);
+	fread(type, 1, 4, f);
+	findbykey(f, level, descdict, type, 1);
 }
 
-void desc_list(FILE *f, int printxml, struct dictentry *dict){
+void desc_list(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
-		keytype(f);
+		item(f, level);
 }
 
-void descriptor(FILE *f, int printxml, struct dictentry *dict){
-	long j, count;
+void descriptor(FILE *f, int level, int printxml, struct dictentry *parent){
+	long count;
 
-	desc_class(f, printxml, dict);
+	fprintf(xmlfile, "%s<DESCRIPTOR>\n", tabs(level));
+	desc_class(f, level+1, printxml, parent);
 	count = get4B(f);
+	fprintf(xmlfile, "%s<!--count:%ld-->\n", tabs(level), count);
 	while(count--){
-		j = get4B(f);
-		if(j){
-			fputs("\t\t\t\t<ITEM KEY='", xmlfile);
-			while(j--)
-				fputcxml(fgetc(f), xmlfile);
-			fputs("' />\n", xmlfile);
-		}else
-			keytype(f);
+		stringorid(f, level+1, "KEY");
+		item(f, level+1);
 	}
+	fprintf(xmlfile, "%s</DESCRIPTOR>\n", tabs(level));
 }
 
-void desc_double(FILE *f, int printxml, struct dictentry *dict){
+void desc_double(FILE *f, int level, int printxml, struct dictentry *parent){
 	fprintf(xmlfile, "%g", getdoubleB(f));
 };
 
-void desc_unitfloat(FILE *f, int printxml, struct dictentry *dict){
+void desc_unitfloat(FILE *f, int level, int printxml, struct dictentry *parent){
 	static struct dictentry ufdict[] = {
-		{0, "#Ang", "ANGLE", "angle: base degrees", desc_double},
-		{0, "#Rsl", "DENSITY", "density: base per inch", desc_double},
-		{0, "#Rlt", "DISTANCE", "distance: base 72ppi", desc_double},
-		{0, "#Nne", "NONE", "none: coerced", desc_double},
-		{0, "#Prc", "PERCENT", "percent: tagged unit value", desc_double},
-		{0, "#Pxl", "PIXELS", "pixels: tagged unit value", desc_double},
+		{0, "#Ang", "-ANGLE", "angle: base degrees", desc_double},
+		{0, "#Rsl", "-DENSITY", "density: base per inch", desc_double},
+		{0, "#Rlt", "-DISTANCE", "distance: base 72ppi", desc_double},
+		{0, "#Nne", "-NONE", "none: coerced", desc_double},
+		{0, "#Prc", "-PERCENT", "percent: tagged unit value", desc_double},
+		{0, "#Pxl", "-PIXELS", "pixels: tagged unit value", desc_double},
 		{0, NULL, NULL, NULL, NULL}
 	};
 	char key[4];
 	
 	fread(key, 1, 4, f);
-	findbykey(f, ufdict, key, 1); // FIXME: check for NULL return
+	findbykey(f, level, ufdict, key, 1); // FIXME: check for NULL return
 }
 
-void desc_unicodestr(FILE *f, int printxml, struct dictentry *dict){
-	long count = get4B(f);
+void desc_unicodestr(FILE *f, int level, int printxml, struct dictentry *parent){
+	long count = get4B(f);if(count>1024) exit(1);
 	if(count){
-		fputs("\n\t\t\t\t<UNICODE>", xmlfile);
+		fprintf(xmlfile, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
 		while(count--)
 			fprintf(xmlfile, "%04x", get2B(f));
-		fputs("</UNICODE>\n", xmlfile);
+		fprintf(xmlfile, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 	}
 }
 
-void desc_enumerated(FILE *f, int printxml, struct dictentry *dict){
-	stringorid(f, "TYPE");
-	stringorid(f, "ENUM");
+void desc_enumerated(FILE *f, int level, int printxml, struct dictentry *parent){
+	stringorid(f, level, "TYPE");
+	stringorid(f, level, "ENUM");
 }
 
-void desc_integer(FILE *f, int printxml, struct dictentry *dict){
+void desc_integer(FILE *f, int level, int printxml, struct dictentry *parent){
 	fprintf(xmlfile, " <VALUE>%ld</VALUE> ", get4B(f));
 }
 
-void desc_boolean(FILE *f, int printxml, struct dictentry *dict){
+void desc_boolean(FILE *f, int level, int printxml, struct dictentry *parent){
 	fprintf(xmlfile, " <VALUE>%d</VALUE> ", fgetc(f));
 }
 
-void desc_alias(FILE *f, int printxml, struct dictentry *dict){
+void desc_alias(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
 	fprintf(xmlfile, " <!-- %ld bytes alias data --> ", count);
 	fseek(f, count, SEEK_CUR); // skip over
-}
-
-// CS doc
-void ed_descriptor(FILE *f, int printxml, struct dictentry *dict){
-	if(printxml)
-		descriptor(f, printxml, dict); // TODO: pass flag to extract value data
 }

@@ -117,8 +117,8 @@ struct extra_data{
 
 struct dictentry{
 	int id;
-	char *key,*tag,*desc;
-	void (*func)(FILE *f, int printxml, struct dictentry *dict);
+	char *key, *tag, *desc;
+	void (*func)(FILE *f, int level, int printxml, struct dictentry *dict);
 };
 
 extern char *channelsuffixes[],*mode_names[],dirsep[];
@@ -138,9 +138,12 @@ double getdoubleB(FILE *f);
 long get4B(FILE *f);
 int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
+const char *tabs(int n);
 
-struct dictentry *findbykey(FILE *f, struct dictentry *dict, char *key, int printxml);
-void doextradata(FILE *f, long length, int printxml);
+struct dictentry *findbykey(FILE *f, int level, struct dictentry *dict, char *key, int printxml);
+void doextradata(FILE *f, int level, long length, int printxml);
+
+void descriptor(FILE *f, int level, int printxml, struct dictentry *dict);
 
 void skipblock(FILE *f,char *desc);
 void dumprow(unsigned char *b,int n,int group);

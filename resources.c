@@ -21,9 +21,9 @@
 
 #include "psdparse.h"
 
-extern void ed_descriptor(FILE *f, int printxml, struct dictentry *dict);
+extern void ed_versdesc(FILE *f, int level, int printxml, struct dictentry *parent);
 
-void ir_resolution(FILE *f, int len, struct dictentry *dict){
+void ir_resolution(FILE *f, int level, int len, struct dictentry *parent){
 	double hres, vres;
 	
 	hres = FIXEDPT(get4B(f));
@@ -34,35 +34,35 @@ void ir_resolution(FILE *f, int len, struct dictentry *dict){
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hres, vres);
 }
 
-void ir_pstring(FILE *f, int len, struct dictentry *dict){
+void ir_pstring(FILE *f, int level, int len, struct dictentry *parent){
 	fputsxml(getpstr(f), xmlfile);
 }
 
-void ir_1byte(FILE *f, int len, struct dictentry *dict){
+void ir_1byte(FILE *f, int level, int len, struct dictentry *parent){
 	fprintf(xmlfile, "%d", fgetc(f));
 }
 
-void ir_2byte(FILE *f, int len, struct dictentry *dict){
+void ir_2byte(FILE *f, int level, int len, struct dictentry *parent){
 	fprintf(xmlfile, "%d", get2B(f));
 }
 
-void ir_4byte(FILE *f, int len, struct dictentry *dict){
+void ir_4byte(FILE *f, int level, int len, struct dictentry *parent){
 	fprintf(xmlfile, "%ld", get4B(f));
 }
 
-void ir_digest(FILE *f, int len, struct dictentry *dict){
+void ir_digest(FILE *f, int level, int len, struct dictentry *parent){
 	while(len--)
 		fprintf(xmlfile, "%02x", fgetc(f));
 }
 
-void ir_pixelaspect(FILE *f, int len, struct dictentry *dict){
+void ir_pixelaspect(FILE *f, int level, int len, struct dictentry *parent){
 	int v = get4B(f);
 	double ratio = getdoubleB(f);
 	fprintf(xmlfile, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
 	UNQUIET("    (Version = %d, Ratio = %g)\n", v, ratio);
 }
 
-void ir_unicodestr(FILE *f, int len, struct dictentry *dict){
+void ir_unicodestr(FILE *f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
 		fprintf(xmlfile, "%04x", get2B(f));
@@ -130,7 +130,7 @@ static struct dictentry rdesc[] = {
 	{1062, NULL, NULL, "Print scale", NULL},
 	// CS
 	{1064, NULL, "PIXELASPECTRATIO", "Pixel aspect ratio", ir_pixelaspect},
-	{1065, NULL, "LAYERCOMPS", "Layer comps", ed_descriptor},
+	{1065, NULL, "LAYERCOMPS", "Layer comps", NULL /*ed_versdesc*/},
 	{1066, NULL, NULL, "Alternate duotone colors", NULL},
 	{1067, NULL, NULL, "Alternate spot colors", NULL},
 	
@@ -179,7 +179,7 @@ static long doirb(FILE *f){
 		if(d->func){
 			long pos = ftell(f);
 			fprintf(xmlfile, ">\n\t\t<%s>", d->tag);
-			d->func(f, size, d);
+			d->func(f, 3, size, d);
 			fseek(f, pos, SEEK_SET); // restore file position
 			fprintf(xmlfile, "</%s>\n\t</RESOURCE>\n", d->tag);
 		}else{

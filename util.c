@@ -155,3 +155,9 @@ unsigned get2Bu(FILE *f){
 	unsigned n = fgetc(f)<<8;
 	return n |= fgetc(f);
 }
+
+// return pointer to a string of n tabs
+const char *tabs(int n){
+	static const char forty[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+	return forty + (sizeof(forty) - 1 - n);
+}
