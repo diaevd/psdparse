@@ -30,40 +30,22 @@
  * One assumes they don't really encourage people to try and USE the info.
  */
 
-// fetch Pascal string (length byte followed by text)
-char *getpstr(FILE *f){
-	static char pstr[0x100];
-	int len = fgetc(f) & 0xff;
-	fread(pstr, 1, len, f);
-	pstr[len] = 0;
-	return pstr;
-}
-
-// Pascal string, aligned to 2 byte
-char *getpstr2(FILE *f){
-	static char pstr[0x100];
-	int len = fgetc(f) & 0xff;
-	fread(pstr, 1, len + !(len & 1), f); // if length is even, read an extra byte
-	pstr[len] = 0;
-	return pstr;
-}
-
 #define FIXEDPT(x) ((x)/65536.)
 
 void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
+	static char *coeff[] = {"XX","XY","YX","YY","TX","TY"}; // from CS doc
 
 	if(printxml){
 		fprintf(xmlfile, "\n\t\t\t<VERSION>%d</VERSION>\n", v);
-		
-		
+
 		// read transform (6 doubles)
-		fputs("\t\t\t<TRANSFORM>\n", xmlfile);
-		for(i = 6; i--;)
-			fprintf(xmlfile, "\t\t\t\t<COEFF>%g</COEFF>\n", getdoubleB(f));
-		fputs("\t\t\t</TRANSFORM>\n", xmlfile);
+		fputs("\t\t\t<TRANSFORM>", xmlfile);
+		for(i = 0; i < 6; ++i)
+			fprintf(xmlfile, " <%s>%g</%s>", coeff[i], getdoubleB(f), coeff[i]);
+		fputs(" </TRANSFORM>\n", xmlfile);
 		
 		// read font information
 		v = get2B(f);
@@ -141,7 +123,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 }
 
 void ed_unicodename(FILE *f, FILE *xmlfile, int printxml){
-	unsigned long len = get4B(f);
+	unsigned long len = get4B(f); // character count, not byte count
 
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml) // FIXME: what's the right way to represent a Unicode string in XML? UTF-8?
@@ -194,7 +176,7 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 			fputsxml(getpstr2(f), xmlfile);
 			fputc('\'', xmlfile);
 
-			len2 = get4B(f); //printf(" len2=%d\n", len2);
+			len2 = get4B(f); // remaining bytes in annotation, from this field inclusive
 			fread(key, 1, 4, f);
 			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%d\n", key[0],key[1],key[2],key[3],datalen);
 			if(!memcmp(key, "txtC", 4)){
@@ -214,7 +196,7 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.
-				fprintf(xmlfile, " RATE='%d' BYTES='%d' />\n", datalen, len2-12);
+				fprintf(xmlfile, " RATE='%ld' BYTES='%ld' />\n", datalen, len2-12);
 			}else
 				fputs(" /> <!-- don't know -->\n", xmlfile);
 
@@ -271,8 +253,8 @@ void doextradata(FILE *f, long length, int printxml){
 			{"post", "POSTERIZE", "Posterize", NULL},
 			// v5.0
 			{"lrFX", "EFFECT", "Effects layer", NULL},
-			{"tySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool},
-			{"TySh", "TYPETOOL", "Type tool", ed_typetool},
+			{"tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
+			{"TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool},
 			{"luni", "UNICODENAME", "Unicode layer name", ed_unicodename},
 			{"lyid", "LAYERID", "Layer ID", ed_layerid},
 			// v6.0
