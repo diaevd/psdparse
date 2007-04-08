@@ -76,7 +76,7 @@ void fputcxml(char c,FILE *f){
 	case '\'': fputs("&apos;",f); break;
 	case '\"': fputs("&quot;",f); break;
 	default:
-		if(isascii(c))
+		if(isprint(c))
 			fputc(c,f);
 		else
 			fprintf(f,"&#%d;",c & 0xff);
@@ -102,7 +102,7 @@ char *getpstr(FILE *f){
 char *getpstr2(FILE *f){
 	static char pstr[0x100];
 	int len = fgetc(f) & 0xff;
-	fread(pstr, 1, len + !(len & 1), f); // if length is even, read an extra byte
+	fread(pstr, 1, PAD2(len+1)-1, f);
 	pstr[len] = 0;
 	return pstr;
 }
