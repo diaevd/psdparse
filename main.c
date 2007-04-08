@@ -29,8 +29,8 @@ extern struct resdesc rdesc[];
 extern int nwarns;
 
 char dirsep[] = {DIRSEP,0};
-int verbose = DEFAULT_VERBOSE,quiet = 0,extra = 0,makedirs = 0,numbered = 0;
-static int mergedalpha = 0,help = 0,splitchannels = 0;
+int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
+	makedirs = 0, numbered = 0, mergedalpha = 0, help = 0, split = 0;
 static char indir[PATH_MAX],*pngdir = indir;
 static FILE *listfile = NULL;
 FILE *xmlfile = NULL;
@@ -321,7 +321,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		if(writepng){
 			nwarns = 0;
 			startchan = 0;
-			if(pngchan && !splitchannels){
+			if(pngchan && !split){
 				if(h->depth == 32){
 					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
 						rawwriteimage(png, f, chcomp, NULL, rowpos, 0, channels, rows, cols, h);
@@ -351,7 +351,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		}
 		if(writepng){
 			nwarns = 0;
-			if(pngchan && !splitchannels){
+			if(pngchan && !split){
 				if(h->depth == 32){
 					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
 						rawwriteimage(png, f, chcomp, li, rowpos, 0, channels, rows, cols, h);
@@ -627,6 +627,7 @@ int main(int argc,char *argv[]){
 		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
 		{"quiet",    no_argument, &quiet, 1},
+		{"rsrc",     no_argument, &rsrc, 1},
 		{"extra",    no_argument, &extra, 1},
 		{"writepng", no_argument, &writepng, 1},
 		{"numbered", no_argument, &numbered, 1},
@@ -634,16 +635,17 @@ int main(int argc,char *argv[]){
 		{"makedirs", no_argument, &makedirs, 1},
 		{"list",     no_argument, &writelist, 1},
 		{"xml",      no_argument, &writexml, 1},
-		{"split",    no_argument, &splitchannels, 1},
+		{"split",    no_argument, &split, 1},
 		{NULL,0,NULL,0}
 	};
 
-	while( (opt = getopt_long(argc,argv,"hvqewnd:mlxs",longopts,&indexptr)) != -1 )
+	while( (opt = getopt_long(argc,argv,"hvqrewnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
 		case 'h':
 		default:  help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
+		case 'r': rsrc = 1; break;
 		case 'e': extra = 1; break;
 		case 'w': writepng = 1; break;
 		case 'n': numbered = 1; break;
@@ -651,7 +653,7 @@ int main(int argc,char *argv[]){
 		case 'm': makedirs = 1; break;
 		case 'l': writelist = 1; break;
 		case 'x': writexml = 1; break;
-		case 's': splitchannels = 1; break;
+		case 's': split = 1; break;
 		}
 
 	if(help || optind >= argc)
@@ -659,6 +661,7 @@ int main(int argc,char *argv[]){
   -h, --help         show this help\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
+  -r, --rsrc         process 'image resources' metadata\n\
   -e, --extra        process 'extra data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
@@ -718,7 +721,10 @@ int main(int argc,char *argv[]){
 				else{
 					h.colormodepos = ftell(f);
 					skipblock(f,"color mode data");
-					doimageresources(f); //skipblock(f,"image resources");
+					if(rsrc)
+						doimageresources(f);
+					else
+						skipblock(f,"image resources");
 					dolayermaskinfo(f,&h); //skipblock(f,"layer & mask info");
 	
 					// now process image data

@@ -82,13 +82,32 @@ void fputcxml(char c,FILE *f){
 			fprintf(f,"&#%d;",c & 0xff);
 	}
 }
+
 void fputsxml(char *str,FILE *f){
 	char *p = str;
 	while(*p)
 		fputcxml(*p++, f);
 }
 
-int platform_is_LittleEndian(){
+// fetch Pascal string (length byte followed by text)
+char *getpstr(FILE *f){
+	static char pstr[0x100];
+	int len = fgetc(f) & 0xff;
+	fread(pstr, 1, len, f);
+	pstr[len] = 0;
+	return pstr;
+}
+
+// Pascal string, aligned to 2 byte
+char *getpstr2(FILE *f){
+	static char pstr[0x100];
+	int len = fgetc(f) & 0xff;
+	fread(pstr, 1, len + !(len & 1), f); // if length is even, read an extra byte
+	pstr[len] = 0;
+	return pstr;
+}
+
+static int platform_is_LittleEndian(){
 	union{ int a; char b; } u;
 	u.a = 1;
 	return u.b;

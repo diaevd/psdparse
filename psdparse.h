@@ -129,6 +129,8 @@ void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
+char *getpstr(FILE *f);
+char *getpstr2(FILE *f);
 double getdoubleB(FILE *f);
 long get4B(FILE *f);
 int get2B(FILE *f);
