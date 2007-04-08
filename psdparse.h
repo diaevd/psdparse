@@ -118,7 +118,7 @@ struct extra_data{
 struct dictentry{
 	int id;
 	char *key,*tag,*desc;
-	void (*func)(FILE *f, FILE *xmlf, int printxml, struct dictentry *dict);
+	void (*func)(FILE *f, int printxml, struct dictentry *dict);
 };
 
 extern char *channelsuffixes[],*mode_names[],dirsep[];

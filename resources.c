@@ -22,11 +22,14 @@
 #include "psdparse.h"
 
 void ir_resolution(FILE *f, int printxml, struct dictentry *dict){
-	double res;
-
-	fprintf(xmlfile, " <HRES>%g</HRES>", FIXEDPT(get4B(f)));
-	get2B(f); get2B(f);
-	fprintf(xmlfile, " <VRES>%g</VRES> ", FIXEDPT(get4B(f)));
+	double hres, vres;
+	
+	hres = FIXEDPT(get4B(f));
+	get2B(f);
+	get2B(f);
+	vres = FIXEDPT(get4B(f));
+	fprintf(xmlfile, " <HRES>%g</HRES> <VRES>%g</VRES> ", hres, vres);
+	UNQUIET("    Resolution %g x %g pixels per inch\n", hres, vres);
 }
 
 // id, key, tag, desc, func
@@ -139,7 +142,7 @@ static long doirb(FILE *f){
 		if(d->func){
 			long pos = ftell(f);
 			fprintf(xmlfile, ">\n\t\t<%s>", d->tag);
-			d->func(f, xmlfile, 1, d);
+			d->func(f, 1, d);
 			fseek(f, pos, SEEK_SET); // restore file position
 			fprintf(xmlfile, "</%s>\n\t</RESOURCE>\n", d->tag);
 		}else{

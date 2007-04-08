@@ -683,7 +683,7 @@ int main(int argc,char *argv[]){
 					skipblock(f,"color mode data");
 
 					if(rsrc)
-						doimageresources(f, xmlfile);
+						doimageresources(f);
 					else
 						skipblock(f,"image resources");
 
