@@ -30,6 +30,8 @@
  * One assumes they don't really encourage people to try and USE the info.
  */
 
+extern void ed_descriptor(FILE *f, int printxml, struct dictentry *dict);
+
 struct dictentry *findbykey(FILE *f, struct dictentry *dict, char *key, int printxml){
 	struct dictentry *d;
 
@@ -248,60 +250,6 @@ void ed_referencepoint(FILE *f, int printxml, struct dictentry *dict){
 		fprintf(xmlfile, " <X>%g</X> <Y>%g</Y> ", x, y);
 	else
 		UNQUIET("    (Reference point X=%g Y=%g)\n", x, y);
-}
-
-// CS doc
-void ed_descriptor(FILE *f, int printxml, struct dictentry *dict){
-	static struct dictentry descdict[] = {
-		{0, "obj ", "REFERENCE", "Reference", NULL},
-		{0, "Objc", "DESCRIPTOR", "Descriptor", NULL},
-		{0, "VlLs", "LIST", "List", NULL},
-		{0, "doub", "DOUBLE", "Double", NULL},
-		{0, "UntF", "UNITFLOAT", "Unit float", NULL},
-		{0, "TEXT", "STRING", "String", NULL},
-		{0, "enum", "ENUMERATED", "Enumerated", NULL},
-		{0, "long", "INTEGER", "Integer", NULL},
-		{0, "bool", "BOOLEAN", "Boolean", NULL},
-		{0, "GlbO", "GLOBALOBJECT", "GlobalObject same as Descriptor", NULL},
-		{0, "type", "CLASS", "Class", NULL},
-		{0, "GlbC", "CLASS", "Class", NULL},
-		{0, "alis", "ALIAS", "Alias", NULL},
-		{0, NULL, NULL, NULL, NULL}
-	};
-
-	if(printxml){
-		long j, count = get4B(f);
-		fputs("\n\t\t\t<CLASSID>", xmlfile);
-		if(count){
-			fputs("\n\t\t\t\t<UNICODE>", xmlfile);
-			while(count--)
-				fprintf(xmlfile, "%04x", get2B(f));
-			fputs("</UNICODE>\n", xmlfile);
-		}
-		count = get4B(f);
-		if(count){
-			fputs("\t\t\t\t<ASCII>", xmlfile);
-			while(count--)
-				fputc(fgetc(f), xmlfile);
-			fputs("</ASCII>\n", xmlfile);
-		}else
-			fprintf(xmlfile, "\t\t\t\t<ID>%ld</ID>\n", get4B(f));
-		fputs("\n\t\t\t<CLASSID>", xmlfile);
-		count = get4B(f);
-		while(count--){
-			char key[4];
-			j = get4B(f);
-			if(j){
-				fputs("\t\t\t\t<ITEM TYPE='", xmlfile);
-				while(j--)
-					fputcxml(fgetc(f), xmlfile);
-				fputs("' />\n", xmlfile);
-			}else{
-				fread(key, 1, 4, f);
-				findbykey(f, descdict, key, 1);
-			}
-		}
-	}
 }
 
 // CS doc

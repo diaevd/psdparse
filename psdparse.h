@@ -139,6 +139,7 @@ long get4B(FILE *f);
 int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
 
+struct dictentry *findbykey(FILE *f, struct dictentry *dict, char *key, int printxml);
 void doextradata(FILE *f, long length, int printxml);
 
 void skipblock(FILE *f,char *desc);
