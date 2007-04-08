@@ -100,19 +100,24 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
 			fprintf(xmlfile, "\t\t\t<TEXT TYPE='%d' SCALING='%g' CHARCOUNT='%d' HPLACEMENT='%g' VPLACEMENT='%g' SELSTART='%d' SELEND='%d'>\n",
 					type, scaling, charcount, hplace, vplace, selstart, selend);
 			for(i = linecount; i--;){
+				char *buf;
 				charcount = get4B(f);
+				buf = malloc(charcount+1);
 				orient = get2B(f);
 				align = get2B(f);
 				fprintf(xmlfile, "\t\t\t\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", orient, align);
-				for(j = charcount; j--;){
-					wchar_t wc = get2B(f);
+				for(j = 0; j < charcount; ++j){
+					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
 					style = get2B(f);
 					fprintf(xmlfile, "\t\t\t\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", style, wc); // FIXME
-					if(isprint(wc))
-						fprintf(xmlfile, " <!--%c-->", wc);
+					//if(isprint(wc)) fprintf(xmlfile, " <!--%c-->", wc);
 					fputc('\n', xmlfile);
 				}
-				fputs("\t\t\t\t</LINE>\n", xmlfile);
+				buf[j] = 0;
+				fputs("\t\t\t\t\t<ASCII>", xmlfile);
+				fputsxml(buf, xmlfile);
+				fputs("</ASCII>\n\t\t\t\t</LINE>\n", xmlfile);
+				free(buf);
 			}
 			fputs("\t\t\t</TEXT>\n", xmlfile);
 		}else
@@ -180,19 +185,22 @@ void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
 			fread(key, 1, 4, f);
 			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%d\n", key[0],key[1],key[2],key[3],datalen);
 			if(!memcmp(key, "txtC", 4)){
+				// Once again, the doc lets us down:
+				// - it says "ASCII or Unicode," but doesn't say how each is distinguished;
+				// - one might think it has something to do with the mysterious four bytes
+				//   stuck to the beginning of the data.
 				char *buf = malloc(datalen/2+1);
 				fputs(">\n\t\t\t\t<UNICODE>", xmlfile);
 				for(j = 0; j < datalen/2; ++j){
-					wchar_t wc = get2B(f);
+					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
 					fprintf(xmlfile, "%04x", wc);
-					buf[j] = wc;
 				}
 				buf[j] = 0;
-				free(buf);
 				fputs("</UNICODE>\n\t\t\t\t<ASCII>", xmlfile);
 				fputsxml(buf, xmlfile);
 				fputs("</ASCII>\n\t\t\t</TEXT>\n", xmlfile);
 				len2 -= datalen; // we consumed this much from the file
+				free(buf);
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.
@@ -254,7 +262,7 @@ void doextradata(FILE *f, long length, int printxml){
 			// v5.0
 			{"lrFX", "EFFECT", "Effects layer", NULL},
 			{"tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
-			{"TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool},
+			{"TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // from CS doc
 			{"luni", "UNICODENAME", "Unicode layer name", ed_unicodename},
 			{"lyid", "LAYERID", "Layer ID", ed_layerid},
 			// v6.0
