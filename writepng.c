@@ -112,13 +112,13 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 		if( (f = fopen(pngname,"wb")) ){
 			if(xmlfile){
 				fputs("\t\t<PNG NAME='",xmlfile);
-				fputxml(name,xmlfile);
+				fputsxml(name,xmlfile);
 				fputc('\'',xmlfile);
 				fputs(" DIR='",xmlfile);
-				fputxml(dir,xmlfile);
+				fputsxml(dir,xmlfile);
 				fputc('\'',xmlfile);
 				fputs(" FILE='",xmlfile);
-				fputxml(pngname,xmlfile);
+				fputsxml(pngname,xmlfile);
 				fputc('\'',xmlfile);
 				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
 						width,height,channels,color_type,pngtype,h->depth);

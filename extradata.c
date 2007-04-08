@@ -21,20 +21,38 @@
 
 #include "psdparse.h"
 
+/* 'Extra data' handling. *Work in progress*
+ * 
+ * There's guesswork and trial-and-error in here,
+ * due to many errors and omissions in Adobe's documentation on this (PS6 SDK).
+ * It's amazing that they would try to describe a hierarchical format
+ * as a flat list of fields. Reminds me of Jasc's PSP format docs, too.
+ * One assumes they don't really encourage people to try and USE the info.
+ */
+
+// fetch Pascal string (length byte followed by text)
 char *getpstr(FILE *f){
 	static char pstr[0x100];
-
 	int len = fgetc(f) & 0xff;
 	fread(pstr, 1, len, f);
 	pstr[len] = 0;
 	return pstr;
 }
 
+// Pascal string, aligned to 2 byte
+char *getpstr2(FILE *f){
+	static char pstr[0x100];
+	int len = fgetc(f) & 0xff;
+	fread(pstr, 1, len + !(len & 1), f); // if length is even, read an extra byte
+	pstr[len] = 0;
+	return pstr;
+}
+
 #define FIXEDPT(x) ((x)/65536.)
 
-void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
-	int i, j, v = get2B(f), mark, type, script, count, dvector, facemark,
-		autokern, rotate, charcount, selstart, selend, linecount, orient, align, style;
+void ed_typetool(FILE *f, FILE *xmlfile, int printxml){
+	int i, j, v = get2B(f), mark, type, script, facemark,
+		autokern, charcount, selstart, selend, linecount, orient, align, style;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
 
 	if(printxml){
@@ -64,7 +82,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 				// doc is unclear, but this may work:
 				fputs("\t\t\t\t\t<DESIGNVECTOR>", xmlfile);
 				for(j = get4B(f); j--;)
-					fprintf(xmlfile, " <AXIS>%d</AXIS>", get4B(f));
+					fprintf(xmlfile, " <AXIS>%ld</AXIS>", get4B(f));
 				fputs(" </DESIGNVECTOR>\n", xmlfile);
 
 				fprintf(xmlfile, "\t\t\t\t</FACE>\n");
@@ -75,7 +93,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 			for(; j--;){
 				mark = get2B(f);
 				facemark = get2B(f);
-				size = FIXEDPT(get4B(f));
+				size = FIXEDPT(get4B(f)); // of course, this representation is undocumented
 				tracking = FIXEDPT(get4B(f));
 				kerning = FIXEDPT(get4B(f));
 				leading = FIXEDPT(get4B(f));
@@ -107,7 +125,7 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 				for(j = charcount; j--;){
 					wchar_t wc = get2B(f);
 					style = get2B(f);
-					fprintf(xmlfile, "\t\t\t\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", style, wc);
+					fprintf(xmlfile, "\t\t\t\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", style, wc); // FIXME
 					if(isprint(wc))
 						fprintf(xmlfile, " <!--%c-->", wc);
 					fputc('\n', xmlfile);
@@ -122,9 +140,8 @@ void ed_typetool(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 		UNQUIET("    (Type tool, version = %d)\n", v);
 }
 
-void ed_unicodename(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
+void ed_unicodename(FILE *f, FILE *xmlfile, int printxml){
 	unsigned long len = get4B(f);
-	unsigned i;
 
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml) // FIXME: what's the right way to represent a Unicode string in XML? UTF-8?
@@ -139,7 +156,7 @@ void ed_unicodename(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr
 	}
 }
 
-void ed_layerid(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
+void ed_layerid(FILE *f, FILE *xmlfile, int printxml){
 	unsigned long id = get4B(f);
 	if(printxml)
 		fprintf(xmlfile, "%lu", id);
@@ -147,15 +164,68 @@ void ed_layerid(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 		UNQUIET("    (Layer ID = %lu)\n", id);
 }
 
-void ed_annotation(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
-	int major = get2B(f), minor = get2B(f);
-	if(printxml)
-		fprintf(xmlfile, "<VERSION MAJOR='%d' MINOR='%d' />\n", major, minor);
-	else
+void ed_annotation(FILE *f, FILE *xmlfile, int printxml){
+	int i, j, major = get2B(f), minor = get2B(f), len, open, flags;
+	char type[4], key[4];
+	long datalen, len2;
+
+	if(printxml){
+		fprintf(xmlfile, "\n\t\t\t<VERSION MAJOR='%d' MINOR='%d' />\n", major, minor);
+		for(i = get4B(f); i--;){
+			len = get4B(f);
+			fread(type, 1, 4, f);
+			if(!memcmp(type, "txtA", 4))
+				fprintf(xmlfile, "\t\t\t<TEXT");
+			else if(!memcmp(type, "sndA", 4))
+				fprintf(xmlfile, "\t\t\t<SOUND");
+			else
+				fprintf(xmlfile, "\t\t\t<UNKNOWN");
+			open = fgetc(f);
+			flags = fgetc(f);
+			//optblocks = get2B(f);
+			//icont = get4B(f);  iconl = get4B(f);  iconb = get4B(f);  iconr = get4B(f);
+			//popupt = get4B(f); popupl = get4B(f); popupb = get4B(f); popupr = get4B(f);
+			fseek(f, 2+16+16+10, SEEK_CUR); // skip
+			fprintf(xmlfile, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
+			fputsxml(getpstr2(f), xmlfile);
+			fputs("' NAME='", xmlfile);
+			fputsxml(getpstr2(f), xmlfile);
+			fputs("' MODDATE='", xmlfile);
+			fputsxml(getpstr2(f), xmlfile);
+			fputc('\'', xmlfile);
+
+			len2 = get4B(f); //printf(" len2=%d\n", len2);
+			fread(key, 1, 4, f);
+			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%d\n", key[0],key[1],key[2],key[3],datalen);
+			if(!memcmp(key, "txtC", 4)){
+				char *buf = malloc(datalen/2+1);
+				fputs(">\n\t\t\t\t<UNICODE>", xmlfile);
+				for(j = 0; j < datalen/2; ++j){
+					wchar_t wc = get2B(f);
+					fprintf(xmlfile, "%04x", wc);
+					buf[j] = wc;
+				}
+				buf[j] = 0;
+				free(buf);
+				fputs("</UNICODE>\n\t\t\t\t<ASCII>", xmlfile);
+				fputsxml(buf, xmlfile);
+				fputs("</ASCII>\n\t\t\t</TEXT>\n", xmlfile);
+				// doc says this is 4-byte padded, but it is lying; don't skip.
+				//fseek(f, 4 - (datalen & 3), SEEK_CUR);
+			}else if(!memcmp(key, "sndM", 4)){
+				// Perhaps the 'length' field is actually a sampling rate?
+				// Documentation says something different, natch.
+				fprintf(xmlfile, " RATE='%d' BYTES='%d' />\n", datalen, len2-12);
+				fseek(f, PAD4(len2-12), SEEK_CUR);
+			}else
+				fputs(" /> <!-- don't know -->\n", xmlfile);
+		}
+		fputs("\t\t", xmlfile);
+	}else
 		UNQUIET("    (Annotation, version = %d.%d)\n", major, minor);
 }
 
-void ed_knockout(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
+void ed_knockout(FILE *f, FILE *xmlfile, int printxml){
 	int k = fgetc(f);
 	if(printxml)
 		fprintf(xmlfile, "%d", k);
@@ -163,7 +233,7 @@ void ed_knockout(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 		UNQUIET("    (Knockout = %d)\n", k);
 }
 
-void ed_protected(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
+void ed_protected(FILE *f, FILE *xmlfile, int printxml){
 	int k = get4B(f);
 	if(printxml)
 		fprintf(xmlfile, "%d", k);
@@ -171,7 +241,7 @@ void ed_protected(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
 		UNQUIET("    (Protected = %d)\n", k);
 }
 
-void ed_referencepoint(FILE *f, FILE *xmlfile, int printxml, struct extra_data *hdr){
+void ed_referencepoint(FILE *f, FILE *xmlfile, int printxml){
 	double x,y;
 
 	x = getdoubleB(f);
@@ -186,7 +256,7 @@ void doextradata(FILE *f, long length, int printxml){
 	struct extra_data extra;
 	static struct dictentry{
 			char *key,*tag,*desc;
-			void (*func)(FILE *f, FILE *xmlf, int printxml, struct extra_data *hdr);
+			void (*func)(FILE *f, FILE *xmlf, int printxml);
 		} extradict[] = {
 			// v4.0
 			{"levl", "LEVELS", "Levels", NULL},
@@ -226,17 +296,16 @@ void doextradata(FILE *f, long length, int printxml){
 		extra.length = get4B(f);
 		length -= 12 + extra.length;
 		if(!memcmp(extra.sig, "8BIM", 4)){
-			if(!printxml)
-				VERBOSE("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5lu\n",
-						extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
-						extra.key[0],extra.key[1],extra.key[2],extra.key[3],
-						extra.length);
+			VERBOSE("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5lu\n",
+					extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
+					extra.key[0],extra.key[1],extra.key[2],extra.key[3],
+					extra.length);
 			for(d = extradict; d->key; ++d)
 				if(!memcmp(extra.key, d->key, 4)){
 					if(d->func){
 						long savepos = ftell(f);
 						if(printxml) fprintf(xmlfile, "\t\t<%s>", d->tag);
-						d->func(f, xmlfile, printxml, &extra);
+						d->func(f, xmlfile, printxml);
 						if(printxml) fprintf(xmlfile, "</%s>\n", d->tag);
 						fseek(f, savepos, SEEK_SET);
 					}else{

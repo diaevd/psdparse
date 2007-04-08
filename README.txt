@@ -39,6 +39,9 @@ you want to inspect:
 * To write a text file describing layers, sizes and positions (list.txt),
   use option --list. This file is put in the same directory as PNGs.
 * To write an XML description of the document and its layers, use option --xml.
+* To process 'extra data', which is generally layer types supported by
+  Photoshop 4.0 and later, as well as objects such as patterns and annotations,
+  use the option --extra.
 * Normally, RGB images (and grey scale+alpha images) are written as composite
   PNG with channels combined in one file. To write individual PNG files
   for each channel, regardless of mode, use the --split option.

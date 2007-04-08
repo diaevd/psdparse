@@ -68,22 +68,24 @@ void *checkmalloc(long n){
 // escape XML special characters to entities
 // see: http://www.w3.org/TR/xml/#sec-predefined-ent
 
-void fputxml(char *str,FILE *f){
-	char *p;
-
-	for(p = str; *p; p++)
-		switch(*p){
-		case '<':  fputs("&lt;",f); break;
-		case '>':  fputs("&gt;",f); break;
-		case '&':  fputs("&amp;",f); break;
-		case '\'': fputs("&apos;",f); break;
-		case '\"': fputs("&quot;",f); break;
-		default:
-			if(isascii(*p))
-				fputc(*p,f);
-			else
-				fprintf(f,"&#%d;",(unsigned char)*p);
-		}
+void fputcxml(char c,FILE *f){
+	switch(c){
+	case '<':  fputs("&lt;",f); break;
+	case '>':  fputs("&gt;",f); break;
+	case '&':  fputs("&amp;",f); break;
+	case '\'': fputs("&apos;",f); break;
+	case '\"': fputs("&quot;",f); break;
+	default:
+		if(isascii(c))
+			fputc(c,f);
+		else
+			fprintf(f,"&#%d;",c & 0xff);
+	}
+}
+void fputsxml(char *str,FILE *f){
+	char *p = str;
+	while(*p)
+		fputcxml(*p++, f);
 }
 
 int platform_is_LittleEndian(){

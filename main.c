@@ -537,7 +537,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 				}
 				if(xmlfile){
 					fputs("\t<LAYER NAME='",xmlfile);
-					fputxml(linfo[i].name,xmlfile);
+					fputsxml(linfo[i].name,xmlfile);
 					fprintf(xmlfile,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
 							linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
 				}
@@ -563,13 +563,12 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 		skipblock(f,"global layer mask info");
 
 		skip = miscstart + misclen - ftell(f);
-		/*if(extra){
+		if(extra){
 			// skip undocumented block before 'global'(?) 'extra data'
 			int n = get2B(f); // I am guessing it's preceded by a count
 			fseek(f, n, SEEK_CUR);
-			printf("pos=%d n=%d skip=%d\n",ftell(f),n,skip);
 			doextradata(f, skip-2, 1);
-		}else*/
+		}else
 			if(skip)
 				warn("skipped %d bytes of extra data at the end of misc info",skip);
 
@@ -616,7 +615,7 @@ void doimageresources(FILE *f){
 	VERBOSE("\nImage resources (%ld bytes):\n",len);
 	while(len > 0)
 		len -= doirb(f);
-	if(len != 0) warn("image resources overran expected size by %d bytes\n",-len);
+	if(len != 0) warn("image resources overran expected size by %d bytes\n", -len);
 }
 
 int main(int argc,char *argv[]){
@@ -704,7 +703,7 @@ int main(int argc,char *argv[]){
 				if(listfile) fprintf(listfile,"-- PSD file: %s\n",argv[i]);
 				if(xmlfile){
 					fputs("<PSD FILE='",xmlfile);
-					fputxml(argv[i],xmlfile);
+					fputsxml(argv[i],xmlfile);
 					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
 							h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
 							h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");

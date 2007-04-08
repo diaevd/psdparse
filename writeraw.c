@@ -47,13 +47,13 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 		if( (f = fopen(rawname,"wb")) ){
 			if(xmlfile){
 				fputs("\t\t<RAW NAME='",xmlfile);
-				fputxml(name,xmlfile);
+				fputsxml(name,xmlfile);
 				fputc('\'',xmlfile);
 				fputs(" DIR='",xmlfile);
-				fputxml(dir,xmlfile);
+				fputsxml(dir,xmlfile);
 				fputc('\'',xmlfile);
 				fputs(" FILE='",xmlfile);
-				fputxml(rawname,xmlfile);
+				fputsxml(rawname,xmlfile);
 				fputc('\'',xmlfile);
 				fprintf(xmlfile," ROWS='%d' COLS='%d' CHANNELS='%d' />\n",height,width,channels);
 			}
