@@ -34,6 +34,7 @@ int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 static char indir[PATH_MAX],*pngdir = indir;
 static FILE *listfile = NULL;
 FILE *xmlfile = NULL;
+
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
 	// giving us no way to specify a destination directory, so use a default
@@ -721,10 +722,12 @@ int main(int argc,char *argv[]){
 				else{
 					h.colormodepos = ftell(f);
 					skipblock(f,"color mode data");
+
 					if(rsrc)
 						doimageresources(f);
 					else
 						skipblock(f,"image resources");
+
 					dolayermaskinfo(f,&h); //skipblock(f,"layer & mask info");
 	
 					// now process image data
