@@ -84,7 +84,7 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 
 	if(printxml){
-		fprintf(xmlfile, "\n%s<VERSION>%d</VERSION>\n", indent, v);
+		fprintf(xmlfile, "%s<VERSION>%d</VERSION>\n", indent, v);
 
 		// read transform (6 doubles)
 		fprintf(xmlfile, "%s<TRANSFORM>", indent);
@@ -156,15 +156,14 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 					fputc('\n', xmlfile);
 				}
 				buf[j] = 0;
-				fprintf(xmlfile, "%s\t\t<ASCII>", indent);
+				fprintf(xmlfile, "%s\t\t<STRING>", indent);
 				fputsxml(buf, xmlfile);
-				fprintf(xmlfile, "</ASCII>\n%s\t</LINE>\n", indent);
+				fprintf(xmlfile, "</STRING>\n%s\t</LINE>\n", indent);
 				free(buf);
 			}
 			fprintf(xmlfile, "%s</TEXT>\n", indent);
 		}else
 			fprintf(xmlfile, "%s<!-- don't know how to parse this version -->\n", indent);
-		fputs(indent+1, xmlfile);
 	}else
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
@@ -209,7 +208,7 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 	long datalen, len2;
 
 	if(printxml){
-		fprintf(xmlfile, "\n%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
+		fprintf(xmlfile, "%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
 		for(i = get4B(f); i--;){
 			len = get4B(f);
 			fread(type, 1, 4, f);
@@ -248,9 +247,9 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 					fprintf(xmlfile, "%04x", wc);
 				}
 				buf[j] = 0;
-				fprintf(xmlfile, "</UNICODE>\n%s\t<ASCII>", indent);
+				fprintf(xmlfile, "</UNICODE>\n%s\t<STRING>", indent);
 				fputsxml(buf, xmlfile);
-				fprintf(xmlfile, "</ASCII>\n%s</TEXT>\n", indent);
+				fprintf(xmlfile, "</STRING>\n%s</TEXT>\n", indent);
 				len2 -= datalen; // we consumed this much from the file
 				free(buf);
 			}else if(!memcmp(key, "sndM", 4)){
@@ -262,7 +261,6 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 
 			fseek(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
 		}
-		fputs(indent+1, xmlfile);
 	}else
 		UNQUIET("    (%s, version = %d.%d)\n", parent->desc, major, minor);
 }

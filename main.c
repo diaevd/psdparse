@@ -567,7 +567,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 			// skip undocumented block before 'global'(?) 'extra data'
 			int n = get2B(f); // I am guessing it's preceded by a count
 			fseek(f, n, SEEK_CUR);
-			doextradata(f, 0, skip-2, 1);
+			doextradata(f, 1, skip-2, 1);
 		}else
 			if(skip)
 				warn("skipped %d bytes of extra data at the end of misc info",skip);
