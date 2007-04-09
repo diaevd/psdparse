@@ -73,10 +73,10 @@ static struct dictentry rdesc[] = {
 	{1000, NULL, NULL, "PS2.0 mode data", NULL},
 	{1001, NULL, NULL, "Macintosh print record", NULL},
 	{1003, NULL, NULL, "PS2.0 indexed color table", NULL},
-	{1005, NULL, "RESOLUTION", "ResolutionInfo", ir_resolution},
+	{1005, NULL, "-RESOLUTION", "ResolutionInfo", ir_resolution},
 	{1006, NULL, NULL, "Alpha names", NULL},
 	{1007, NULL, NULL, "DisplayInfo", NULL},
-	{1008, NULL, "CAPTION", "Caption", ir_pstring},
+	{1008, NULL, "-CAPTION", "Caption", ir_pstring},
 	{1009, NULL, NULL, "Border information", NULL},
 	{1010, NULL, NULL, "Background color", NULL},
 	{1011, NULL, NULL, "Print flags", NULL},
@@ -90,7 +90,7 @@ static struct dictentry rdesc[] = {
 	{1019, NULL, NULL, "B&W values for the dot range", NULL},
 	{1021, NULL, NULL, "EPS options", NULL},
 	{1022, NULL, NULL, "Quick Mask info", NULL},
-	{1024, NULL, "TARGETLAYER", "Layer state info", ir_2byte},
+	{1024, NULL, "-TARGETLAYER", "Layer state info", ir_2byte},
 	{1025, NULL, NULL, "Working path", NULL},
 	{1026, NULL, NULL, "Layers group info", NULL},
 	{1028, NULL, NULL, "IPTC-NAA record (File Info)", NULL},
@@ -99,25 +99,25 @@ static struct dictentry rdesc[] = {
 	// v4.0
 	{1032, NULL, NULL, "Grid and guides info", NULL},
 	{1033, NULL, NULL, "Thumbnail resource", NULL},
-	{1034, NULL, "COPYRIGHTFLAG", "Copyright flag", ir_1byte},
-	{1035, NULL, "URL", "URL", ir_pstring},
+	{1034, NULL, "-COPYRIGHTFLAG", "Copyright flag", ir_1byte},
+	{1035, NULL, "-URL", "URL", ir_pstring},
 	// v5.0
 	{1036, NULL, NULL, "Thumbnail resource (5.0)", NULL},
-	{1037, NULL, "GLOBALANGLE", "Global Angle", ir_4byte},
+	{1037, NULL, "-GLOBALANGLE", "Global Angle", ir_4byte},
 	{1038, NULL, NULL, "Color samplers resource", NULL},
 	{1039, NULL, NULL, "ICC Profile", NULL},
-	{1040, NULL, "WATERMARK", "Watermark", ir_1byte},
-	{1041, NULL, "ICCUNTAGGED", "ICC Untagged Profile", ir_1byte},
-	{1042, NULL, "EFFECTSVISIBLE", "Effects visible", ir_1byte},
+	{1040, NULL, "-WATERMARK", "Watermark", ir_1byte},
+	{1041, NULL, "-ICCUNTAGGED", "ICC Untagged Profile", ir_1byte},
+	{1042, NULL, "-EFFECTSVISIBLE", "Effects visible", ir_1byte},
 	{1043, NULL, NULL, "Spot Halftone", NULL},
-	{1044, NULL, "DOCUMENTIDSEED", "Document specific IDs", ir_4byte},
+	{1044, NULL, "-DOCUMENTIDSEED", "Document specific IDs", ir_4byte},
 	{1045, NULL, NULL, "Unicode Alpha Names", NULL},
 	// v6.0
-	{1046, NULL, "COLORTABLECOUNT", "Indexed Color Table Count", ir_2byte},
-	{1047, NULL, "TRANSPARENTINDEX", "Transparent Index", ir_2byte},
-	{1049, NULL, "GLOBALALTITUDE", "Global Altitude", ir_4byte},
+	{1046, NULL, "-COLORTABLECOUNT", "Indexed Color Table Count", ir_2byte},
+	{1047, NULL, "-TRANSPARENTINDEX", "Transparent Index", ir_2byte},
+	{1049, NULL, "-GLOBALALTITUDE", "Global Altitude", ir_4byte},
 	{1050, NULL, NULL, "Slices", NULL},
-	{1051, NULL, "WORKFLOWURL", "Workflow URL", ir_unicodestr},
+	{1051, NULL, "-WORKFLOWURL", "Workflow URL", ir_unicodestr},
 	{1052, NULL, NULL, "Jump To XPEP", NULL},
 	{1053, NULL, NULL, "Alpha Identifiers", NULL},
 	{1054, NULL, NULL, "URL List", NULL},
@@ -126,10 +126,10 @@ static struct dictentry rdesc[] = {
 	{1058, NULL, NULL, "EXIF data 1", NULL},
 	{1059, NULL, NULL, "EXIF data 3", NULL},
 	{1060, NULL, NULL, "XMP metadata", NULL},
-	{1061, NULL, "CAPTIONDIGEST", "Caption digest (RSA MD5)", ir_digest},
+	{1061, NULL, "-CAPTIONDIGEST", "Caption digest (RSA MD5)", ir_digest},
 	{1062, NULL, NULL, "Print scale", NULL},
 	// CS
-	{1064, NULL, "PIXELASPECTRATIO", "Pixel aspect ratio", ir_pixelaspect},
+	{1064, NULL, "-PIXELASPECTRATIO", "Pixel aspect ratio", ir_pixelaspect},
 	{1065, NULL, "LAYERCOMPS", "Layer comps", NULL /*ed_versdesc*/},
 	{1066, NULL, NULL, "Alternate duotone colors", NULL},
 	{1067, NULL, NULL, "Alternate spot colors", NULL},
@@ -154,6 +154,7 @@ static struct dictentry *findbyid(int id){
 }
 
 static long doirb(FILE *f){
+	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
 	char type[4],name[0x100];
 	int id,namelen;
 	long size;
@@ -177,11 +178,9 @@ static long doirb(FILE *f){
 				type[0],type[1],type[2],type[3], id);
 		if(namelen) fprintf(xmlfile, " NAME='%s'", name);
 		if(d->func){
-			long pos = ftell(f);
-			fprintf(xmlfile, ">\n\t\t<%s>", d->tag);
-			d->func(f, 3, size, d);
-			fseek(f, pos, SEEK_SET); // restore file position
-			fprintf(xmlfile, "</%s>\n\t</RESOURCE>\n", d->tag);
+			fputs(">\n", xmlfile);
+			entertag(f, 2, 1, &resource, d);
+			fputs("\t</RESOURCE>\n", xmlfile);
 		}else{
 			fputs(" />\n", xmlfile);
 		}

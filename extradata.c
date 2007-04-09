@@ -32,35 +32,40 @@
 
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
 
+void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
+	long savepos = ftell(f);
+	int oneline = d->tag[0] == '-';
+	char *tagname = d->tag + (d->tag[0] == '-');
+
+	if(printxml){
+		// check parent's one-line-ness, because what precedes our <TAG>
+		// belongs to our parent.
+		fprintf(xmlfile, "%s<%s>", parent->tag[0] == '-' ? " " : tabs(level), tagname);
+		if(!oneline)
+			fputc('\n', xmlfile);
+	}
+	
+	d->func(f, level+1, printxml, d); // parse contents of this datum
+	
+	if(printxml){
+		fprintf(xmlfile, "%s</%s>", oneline ? "" : tabs(level), tagname);
+		// if parent's not one-line, then we can safely newline after our tag.
+		fputc(parent->tag[0] == '-' ? ' ' : '\n', xmlfile);
+	}
+
+	fseek(f, savepos, SEEK_SET);
+}
+
 struct dictentry *findbykey(FILE *f, int level, struct dictentry *parent, char *key, int printxml){
 	struct dictentry *d;
 
 	for(d = parent; d->key; ++d)
 		if(!memcmp(key, d->key, 4)){
 			char *tagname = d->tag + (d->tag[0] == '-');
-			int oneline = d->tag[0] == '-';
 			//fprintf(stderr, "matched tag %s\n", d->tag);
-			if(d->func){
-				long savepos = ftell(f);
-
-				if(printxml){
-					// check parent's one-line-ness, because what comes before our <TAG>
-					// belongs to our parent.
-					fprintf(xmlfile, "%s<%s>", parent->tag[0] == '-' ? " " : tabs(level), tagname);
-					if(!oneline)
-						fputc('\n', xmlfile);
-				}
-				
-				d->func(f, level+1, printxml, d); // parse contents of this datum
-				
-				if(printxml){
-					fprintf(xmlfile, "%s</%s>", oneline ? "" : tabs(level), tagname);
-					// if parent's not one-line, then we can safely newline after our tag.
-					fputc(parent->tag[0] == '-' ? ' ' : '\n', xmlfile);
-				}
-
-				fseek(f, savepos, SEEK_SET);
-			}else{
+			if(d->func)
+				entertag(f, level, printxml, parent, d);
+			else{
 				// there is no function to parse this block.
 				// because tag is empty in this case, we only need to consider
 				// parent's one-line-ness.
@@ -324,7 +329,7 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		{0, "luni", "-UNICODENAME", "Unicode layer name", ed_unicodename},
 		{0, "lyid", "-LAYERID", "Layer ID", ed_long}, // '-' prefix means keep tag value on one line
 		// v6.0
-		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", NULL /*ed_objecteffects*/},
+		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", ed_objecteffects},
 		{0, "Patt", "PATTERN", "Pattern", NULL},
 		{0, "Pat2", "PATTERNCS", "Pattern (CS)", NULL},
 		{0, "Anno", "ANNOTATION", "Annotation", ed_annotation},
@@ -336,9 +341,9 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		{0, "fxrp", "-REFERENCEPOINT", "Reference point", ed_referencepoint},
 		{0, "grdm", "GRADIENT", "Gradient", NULL},
 		{0, "lsct", "-SECTION", "Section divider", ed_long}, // CS doc
-		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", NULL /*ed_versdesc*/}, // CS doc
-		{0, "PtFl", "PATTERNFILL", "Pattern fill", NULL /*ed_versdesc*/}, // CS doc
-		{0, "GdFl", "GRADIENTFILL", "Gradient fill", NULL /*ed_versdesc*/}, // CS doc
+		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", ed_versdesc}, // CS doc
+		{0, "PtFl", "PATTERNFILL", "Pattern fill", ed_versdesc}, // CS doc
+		{0, "GdFl", "GRADIENTFILL", "Gradient fill", ed_versdesc}, // CS doc
 		{0, "vmsk", "VECTORMASK", "Vector mask", NULL}, // CS doc
 		{0, "TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // CS doc
 		{0, "ffxi", "-FOREIGNEFFECTID", "Foreign effect ID", ed_long}, // CS doc (this is probably a key too, who knows)

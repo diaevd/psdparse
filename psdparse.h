@@ -140,6 +140,7 @@ int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
 const char *tabs(int n);
 
+void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
 struct dictentry *findbykey(FILE *f, int level, struct dictentry *dict, char *key, int printxml);
 void doextradata(FILE *f, int level, long length, int printxml);
 
