@@ -110,17 +110,17 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 		}
 
 		if( (f = fopen(pngname,"wb")) ){
-			if(xmlfile){
-				fputs("\t\t<PNG NAME='",xmlfile);
-				fputsxml(name,xmlfile);
-				fputc('\'',xmlfile);
-				fputs(" DIR='",xmlfile);
-				fputsxml(dir,xmlfile);
-				fputc('\'',xmlfile);
-				fputs(" FILE='",xmlfile);
-				fputsxml(pngname,xmlfile);
-				fputc('\'',xmlfile);
-				fprintf(xmlfile," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+			if(xml){
+				fputs("\t\t<PNG NAME='",xml);
+				fputsxml(name,xml);
+				fputc('\'',xml);
+				fputs(" DIR='",xml);
+				fputsxml(dir,xml);
+				fputc('\'',xml);
+				fputs(" FILE='",xml);
+				fputsxml(pngname,xml);
+				fputc('\'',xml);
+				fprintf(xml," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
 						width,height,channels,color_type,pngtype,h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
@@ -184,8 +184,8 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 	long savepos = ftell(psd);
 	int i,j,ch,map[4];
 	
-	if(xmlfile)
-		fprintf(xmlfile," CHINDEX='%d' />\n",startchan);
+	if(xml)
+		fprintf(xml," CHINDEX='%d' />\n",startchan);
 
 	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);

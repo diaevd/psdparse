@@ -30,42 +30,42 @@ void ir_resolution(FILE *f, int level, int len, struct dictentry *parent){
 	get2B(f);
 	get2B(f);
 	vres = FIXEDPT(get4B(f));
-	fprintf(xmlfile, " <HRES>%g</HRES> <VRES>%g</VRES> ", hres, vres);
+	fprintf(xml, " <HRES>%g</HRES> <VRES>%g</VRES> ", hres, vres);
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hres, vres);
 }
 
 void ir_pstring(FILE *f, int level, int len, struct dictentry *parent){
-	fputsxml(getpstr(f), xmlfile);
+	fputsxml(getpstr(f), xml);
 }
 
 void ir_1byte(FILE *f, int level, int len, struct dictentry *parent){
-	fprintf(xmlfile, "%d", fgetc(f));
+	fprintf(xml, "%d", fgetc(f));
 }
 
 void ir_2byte(FILE *f, int level, int len, struct dictentry *parent){
-	fprintf(xmlfile, "%d", get2B(f));
+	fprintf(xml, "%d", get2B(f));
 }
 
 void ir_4byte(FILE *f, int level, int len, struct dictentry *parent){
-	fprintf(xmlfile, "%ld", get4B(f));
+	fprintf(xml, "%ld", get4B(f));
 }
 
 void ir_digest(FILE *f, int level, int len, struct dictentry *parent){
 	while(len--)
-		fprintf(xmlfile, "%02x", fgetc(f));
+		fprintf(xml, "%02x", fgetc(f));
 }
 
 void ir_pixelaspect(FILE *f, int level, int len, struct dictentry *parent){
 	int v = get4B(f);
 	double ratio = getdoubleB(f);
-	fprintf(xmlfile, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
+	fprintf(xml, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
 	UNQUIET("    (Version = %d, Ratio = %g)\n", v, ratio);
 }
 
 void ir_unicodestr(FILE *f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
-		fprintf(xmlfile, "%04x", get2B(f));
+		fprintf(xml, "%04x", get2B(f));
 }
 
 // id, key, tag, desc, func
@@ -173,16 +173,16 @@ static long doirb(FILE *f){
 		UNQUIET(" [%s]", d->desc);
 	UNQUIET("\n");
 
-	if(xmlfile && d && d->tag){
-		fprintf(xmlfile, "\t<RESOURCE TYPE='%c%c%c%c' ID='%d'",
+	if(xml && d && d->tag){
+		fprintf(xml, "\t<RESOURCE TYPE='%c%c%c%c' ID='%d'",
 				type[0],type[1],type[2],type[3], id);
-		if(namelen) fprintf(xmlfile, " NAME='%s'", name);
+		if(namelen) fprintf(xml, " NAME='%s'", name);
 		if(d->func){
-			fputs(">\n", xmlfile);
+			fputs(">\n", xml);
 			entertag(f, 2, 1, &resource, d);
-			fputs("\t</RESOURCE>\n", xmlfile);
+			fputs("\t</RESOURCE>\n", xml);
 		}else{
-			fputs(" />\n", xmlfile);
+			fputs(" />\n", xml);
 		}
 	}
 	fseek(f,PAD2(size),SEEK_CUR); // skip resource block data

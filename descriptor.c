@@ -34,18 +34,18 @@ void desc_alias(FILE *f, int level, int printxml, struct dictentry *parent);
 
 void stringorid(FILE *f, int level, char *tag){
 	long count = get4B(f);
-	fprintf(xmlfile, "%s<%s>", tabs(level), tag);
+	fprintf(xml, "%s<%s>", tabs(level), tag);
 	if(count){if(count>1024) exit(1);
-		fprintf(xmlfile, " <STRING>");
+		fprintf(xml, " <STRING>");
 		while(count--)
-			fputcxml(fgetc(f), xmlfile);
-		fprintf(xmlfile, "</STRING>");
+			fputcxml(fgetc(f), xml);
+		fprintf(xml, "</STRING>");
 	}else{
 		char id[4];
 		fread(id, 1, 4, f);
-		fprintf(xmlfile, " <ID>%c%c%c%c</ID>", id[0],id[1],id[2],id[3]);
+		fprintf(xml, " <ID>%c%c%c%c</ID>", id[0],id[1],id[2],id[3]);
 	}
-	fprintf(xmlfile, " </%s>\n", tag);
+	fprintf(xml, " </%s>\n", tag);
 }
 
 void ref_property(FILE *f, int level, int printxml, struct dictentry *parent){
@@ -121,19 +121,19 @@ void desc_list(FILE *f, int level, int printxml, struct dictentry *parent){
 void descriptor(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count;
 
-	fprintf(xmlfile, "%s<DESCRIPTOR>\n", tabs(level));
+	fprintf(xml, "%s<DESCRIPTOR>\n", tabs(level));
 	desc_class(f, level+1, printxml, parent);
 	count = get4B(f);
-	fprintf(xmlfile, "%s<!--count:%ld-->\n", tabs(level), count);
+	fprintf(xml, "%s<!--count:%ld-->\n", tabs(level), count);
 	while(count--){
 		stringorid(f, level+1, "KEY");
 		item(f, level+1);
 	}
-	fprintf(xmlfile, "%s</DESCRIPTOR>\n", tabs(level));
+	fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
 }
 
 void desc_double(FILE *f, int level, int printxml, struct dictentry *parent){
-	fprintf(xmlfile, "%g", getdoubleB(f));
+	fprintf(xml, "%g", getdoubleB(f));
 };
 
 void desc_unitfloat(FILE *f, int level, int printxml, struct dictentry *parent){
@@ -155,10 +155,10 @@ void desc_unitfloat(FILE *f, int level, int printxml, struct dictentry *parent){
 void desc_unicodestr(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);if(count>1024) exit(1);
 	if(count){
-		fprintf(xmlfile, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
+		fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
 		while(count--)
-			fprintf(xmlfile, "%04x", get2B(f));
-		fprintf(xmlfile, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
+			fprintf(xml, "%04x", get2B(f));
+		fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 	}
 }
 
@@ -168,15 +168,15 @@ void desc_enumerated(FILE *f, int level, int printxml, struct dictentry *parent)
 }
 
 void desc_integer(FILE *f, int level, int printxml, struct dictentry *parent){
-	fprintf(xmlfile, " <VALUE>%ld</VALUE> ", get4B(f));
+	fprintf(xml, " <VALUE>%ld</VALUE> ", get4B(f));
 }
 
 void desc_boolean(FILE *f, int level, int printxml, struct dictentry *parent){
-	fprintf(xmlfile, " <VALUE>%d</VALUE> ", fgetc(f));
+	fprintf(xml, " <VALUE>%d</VALUE> ", fgetc(f));
 }
 
 void desc_alias(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	fprintf(xmlfile, " <!-- %ld bytes alias data --> ", count);
+	fprintf(xml, " <!-- %ld bytes alias data --> ", count);
 	fseek(f, count, SEEK_CUR); // skip over
 }

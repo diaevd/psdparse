@@ -40,17 +40,17 @@ void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct
 	if(printxml){
 		// check parent's one-line-ness, because what precedes our <TAG>
 		// belongs to our parent.
-		fprintf(xmlfile, "%s<%s>", parent->tag[0] == '-' ? " " : tabs(level), tagname);
+		fprintf(xml, "%s<%s>", parent->tag[0] == '-' ? " " : tabs(level), tagname);
 		if(!oneline)
-			fputc('\n', xmlfile);
+			fputc('\n', xml);
 	}
 	
 	d->func(f, level+1, printxml, d); // parse contents of this datum
 	
 	if(printxml){
-		fprintf(xmlfile, "%s</%s>", oneline ? "" : tabs(level), tagname);
+		fprintf(xml, "%s</%s>", oneline ? "" : tabs(level), tagname);
 		// if parent's not one-line, then we can safely newline after our tag.
-		fputc(parent->tag[0] == '-' ? ' ' : '\n', xmlfile);
+		fputc(parent->tag[0] == '-' ? ' ' : '\n', xml);
 	}
 
 	fseek(f, savepos, SEEK_SET);
@@ -71,9 +71,9 @@ struct dictentry *findbykey(FILE *f, int level, struct dictentry *parent, char *
 				// parent's one-line-ness.
 				if(printxml){
 					if(parent->tag[0] == '-')
-						fprintf(xmlfile, " <%s /> <!-- not parsed --> ", tagname);
+						fprintf(xml, " <%s /> <!-- not parsed --> ", tagname);
 					else
-						fprintf(xmlfile, "%s<%s /> <!-- not parsed -->\n", tabs(level), tagname);
+						fprintf(xml, "%s<%s /> <!-- not parsed -->\n", tabs(level), tagname);
 				}
 			}
 			return d;
@@ -89,34 +89,34 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 
 	if(printxml){
-		fprintf(xmlfile, "%s<VERSION>%d</VERSION>\n", indent, v);
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, v);
 
 		// read transform (6 doubles)
-		fprintf(xmlfile, "%s<TRANSFORM>", indent);
+		fprintf(xml, "%s<TRANSFORM>", indent);
 		for(i = 0; i < 6; ++i)
-			fprintf(xmlfile, " <%s>%g</%s>", coeff[i], getdoubleB(f), coeff[i]);
-		fputs(" </TRANSFORM>\n", xmlfile);
+			fprintf(xml, " <%s>%g</%s>", coeff[i], getdoubleB(f), coeff[i]);
+		fputs(" </TRANSFORM>\n", xml);
 		
 		// read font information
 		v = get2B(f);
-		fprintf(xmlfile, "%s<FONTINFOVERSION>%d</FONTINFOVERSION>\n", indent, v);
+		fprintf(xml, "%s<FONTINFOVERSION>%d</FONTINFOVERSION>\n", indent, v);
 		if(v <= 6){
 			for(i = get2B(f); i--;){
 				mark = get2B(f);
 				type = get4B(f);
-				fprintf(xmlfile, "%s<FACE MARK='%d' TYPE='%d' FONTNAME='%s'", indent, mark, type, getpstr(f));
-				fprintf(xmlfile, " FONTFAMILY='%s'", getpstr(f));
-				fprintf(xmlfile, " FONTSTYLE='%s'", getpstr(f));
+				fprintf(xml, "%s<FACE MARK='%d' TYPE='%d' FONTNAME='%s'", indent, mark, type, getpstr(f));
+				fprintf(xml, " FONTFAMILY='%s'", getpstr(f));
+				fprintf(xml, " FONTSTYLE='%s'", getpstr(f));
 				script = get2B(f);
-				fprintf(xmlfile, " SCRIPT='%d'>\n", script);
+				fprintf(xml, " SCRIPT='%d'>\n", script);
 				
 				// doc is unclear, but this may work:
-				fprintf(xmlfile, "%s\t<DESIGNVECTOR>", indent);
+				fprintf(xml, "%s\t<DESIGNVECTOR>", indent);
 				for(j = get4B(f); j--;)
-					fprintf(xmlfile, " <AXIS>%ld</AXIS>", get4B(f));
-				fputs(" </DESIGNVECTOR>\n", xmlfile);
+					fprintf(xml, " <AXIS>%ld</AXIS>", get4B(f));
+				fputs(" </DESIGNVECTOR>\n", xml);
 
-				fprintf(xmlfile, "%s</FACE>\n", indent);
+				fprintf(xml, "%s</FACE>\n", indent);
 			}
 
 			j = get2B(f);
@@ -129,11 +129,11 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 				leading = FIXEDPT(get4B(f));   // a punt
 				baseshift = FIXEDPT(get4B(f)); // on these
 				autokern = fgetc(f);
-				fprintf(xmlfile, "%s<STYLE MARK='%d' FACEMARK='%d' SIZE='%g' TRACKING='%g' KERNING='%g' LEADING='%g' BASESHIFT='%g' AUTOKERN='%d'",
+				fprintf(xml, "%s<STYLE MARK='%d' FACEMARK='%d' SIZE='%g' TRACKING='%g' KERNING='%g' LEADING='%g' BASESHIFT='%g' AUTOKERN='%d'",
 						indent, mark, facemark, size, tracking, kerning, leading, baseshift, autokern);
 				if(v <= 5)
-					fprintf(xmlfile, " EXTRA='%d'", fgetc(f));
-				fprintf(xmlfile, " ROTATE='%d' />\n", fgetc(f));
+					fprintf(xml, " EXTRA='%d'", fgetc(f));
+				fprintf(xml, " ROTATE='%d' />\n", fgetc(f));
 			}
 
 			type = get2B(f);
@@ -144,7 +144,7 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 			selstart = get4B(f);
 			selend = get4B(f);
 			linecount = get2B(f);
-			fprintf(xmlfile, "%s<TEXT TYPE='%d' SCALING='%g' CHARCOUNT='%d' HPLACEMENT='%g' VPLACEMENT='%g' SELSTART='%d' SELEND='%d'>\n",
+			fprintf(xml, "%s<TEXT TYPE='%d' SCALING='%g' CHARCOUNT='%d' HPLACEMENT='%g' VPLACEMENT='%g' SELSTART='%d' SELEND='%d'>\n",
 					indent, type, scaling, charcount, hplace, vplace, selstart, selend);
 			for(i = linecount; i--;){
 				char *buf;
@@ -152,23 +152,23 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 				buf = malloc(charcount+1);
 				orient = get2B(f);
 				align = get2B(f);
-				fprintf(xmlfile, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
+				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
 				for(j = 0; j < charcount; ++j){
 					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
 					style = get2B(f);
-					fprintf(xmlfile, "%s\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", indent, style, wc); // FIXME
+					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", indent, style, wc); // FIXME
 					//if(isprint(wc)) fprintf(xmlfile, " <!--%c-->", wc);
-					fputc('\n', xmlfile);
+					fputc('\n', xml);
 				}
 				buf[j] = 0;
-				fprintf(xmlfile, "%s\t\t<STRING>", indent);
-				fputsxml(buf, xmlfile);
-				fprintf(xmlfile, "</STRING>\n%s\t</LINE>\n", indent);
+				fprintf(xml, "%s\t\t<STRING>", indent);
+				fputsxml(buf, xml);
+				fprintf(xml, "</STRING>\n%s\t</LINE>\n", indent);
 				free(buf);
 			}
-			fprintf(xmlfile, "%s</TEXT>\n", indent);
+			fprintf(xml, "%s</TEXT>\n", indent);
 		}else
-			fprintf(xmlfile, "%s<!-- don't know how to parse this version -->\n", indent);
+			fprintf(xml, "%s<!-- don't know how to parse this version -->\n", indent);
 	}else
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
@@ -179,7 +179,7 @@ void ed_unicodename(FILE *f, int level, int printxml, struct dictentry *parent){
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml) // FIXME: what's the right way to represent a Unicode string in XML? UTF-8?
 			while(len--)
-				fprintf(xmlfile,"%04x",get2B(f));
+				fprintf(xml,"%04x",get2B(f));
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
@@ -192,7 +192,7 @@ void ed_unicodename(FILE *f, int level, int printxml, struct dictentry *parent){
 void ed_long(FILE *f, int level, int printxml, struct dictentry *parent){
 	unsigned long id = get4B(f);
 	if(printxml)
-		fprintf(xmlfile, "%lu", id);
+		fprintf(xml, "%lu", id);
 	else
 		UNQUIET("    (%s = %lu)\n", parent->desc, id);
 }
@@ -201,7 +201,7 @@ void ed_key(FILE *f, int level, int printxml, struct dictentry *parent){
 	char key[4];
 	fread(key, 1, 4, f);
 	if(printxml)
-		fprintf(xmlfile, "%c%c%c%c", key[0],key[1],key[2],key[3]);
+		fprintf(xml, "%c%c%c%c", key[0],key[1],key[2],key[3]);
 	else
 		UNQUIET("    (%s = '%c%c%c%c')\n", parent->desc, key[0],key[1],key[2],key[3]);
 }
@@ -213,29 +213,29 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 	long datalen, len2;
 
 	if(printxml){
-		fprintf(xmlfile, "%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
+		fprintf(xml, "%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
 		for(i = get4B(f); i--;){
 			len = get4B(f);
 			fread(type, 1, 4, f);
 			if(!memcmp(type, "txtA", 4))
-				fprintf(xmlfile, "%s<TEXT", indent);
+				fprintf(xml, "%s<TEXT", indent);
 			else if(!memcmp(type, "sndA", 4))
-				fprintf(xmlfile, "%s<SOUND", indent);
+				fprintf(xml, "%s<SOUND", indent);
 			else
-				fprintf(xmlfile, "%s<UNKNOWN", indent);
+				fprintf(xml, "%s<UNKNOWN", indent);
 			open = fgetc(f);
 			flags = fgetc(f);
 			//optblocks = get2B(f);
 			//icont = get4B(f);  iconl = get4B(f);  iconb = get4B(f);  iconr = get4B(f);
 			//popupt = get4B(f); popupl = get4B(f); popupb = get4B(f); popupr = get4B(f);
 			fseek(f, 2+16+16+10, SEEK_CUR); // skip this mundane stuff
-			fprintf(xmlfile, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
-			fputsxml(getpstr2(f), xmlfile);
-			fputs("' NAME='", xmlfile);
-			fputsxml(getpstr2(f), xmlfile);
-			fputs("' MODDATE='", xmlfile);
-			fputsxml(getpstr2(f), xmlfile);
-			fputc('\'', xmlfile);
+			fprintf(xml, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
+			fputsxml(getpstr2(f), xml);
+			fputs("' NAME='", xml);
+			fputsxml(getpstr2(f), xml);
+			fputs("' MODDATE='", xml);
+			fputsxml(getpstr2(f), xml);
+			fputc('\'', xml);
 
 			len2 = get4B(f); // remaining bytes in annotation, from this field inclusive
 			fread(key, 1, 4, f);
@@ -246,23 +246,23 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 				// - one might think it has something to do with the mysterious four bytes
 				//   stuck to the beginning of the data.
 				char *buf = malloc(datalen/2+1);
-				fprintf(xmlfile, ">\n%s\t<UNICODE>", indent);
+				fprintf(xml, ">\n%s\t<UNICODE>", indent);
 				for(j = 0; j < datalen/2; ++j){
 					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
-					fprintf(xmlfile, "%04x", wc);
+					fprintf(xml, "%04x", wc);
 				}
 				buf[j] = 0;
-				fprintf(xmlfile, "</UNICODE>\n%s\t<STRING>", indent);
-				fputsxml(buf, xmlfile);
-				fprintf(xmlfile, "</STRING>\n%s</TEXT>\n", indent);
+				fprintf(xml, "</UNICODE>\n%s\t<STRING>", indent);
+				fputsxml(buf, xml);
+				fprintf(xml, "</STRING>\n%s</TEXT>\n", indent);
 				len2 -= datalen; // we consumed this much from the file
 				free(buf);
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.
-				fprintf(xmlfile, " RATE='%ld' BYTES='%ld' />\n", datalen, len2-12);
+				fprintf(xml, " RATE='%ld' BYTES='%ld' />\n", datalen, len2-12);
 			}else
-				fputs(" /> <!-- don't know -->\n", xmlfile);
+				fputs(" /> <!-- don't know -->\n", xml);
 
 			fseek(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
 		}
@@ -273,7 +273,7 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 void ed_byte(FILE *f, int level, int printxml, struct dictentry *parent){
 	int k = fgetc(f);
 	if(printxml)
-		fprintf(xmlfile, "%d", k);
+		fprintf(xml, "%d", k);
 	else
 		UNQUIET("    (%s = %d)\n", parent->desc, k);
 }
@@ -284,7 +284,7 @@ void ed_referencepoint(FILE *f, int level, int printxml, struct dictentry *paren
 	x = getdoubleB(f);
 	y = getdoubleB(f);
 	if(printxml)
-		fprintf(xmlfile, " <X>%g</X> <Y>%g</Y> ", x, y);
+		fprintf(xml, " <X>%g</X> <Y>%g</Y> ", x, y);
 	else
 		UNQUIET("    (%s X=%g Y=%g)\n", parent->desc, x, y);
 }
@@ -298,14 +298,14 @@ void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent){
 // CS doc
 void ed_versdesc(FILE *f, int level, int printxml, struct dictentry *parent){
 	if(printxml)
-		fprintf(xmlfile, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), get4B(f));
 	ed_descriptor(f, level, printxml, parent);
 }
 
 // CS doc
 void ed_objecteffects(FILE *f, int level, int printxml, struct dictentry *parent){
 	if(printxml)
-		fprintf(xmlfile, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
 	ed_versdesc(f, level, printxml, parent);
 }
 

@@ -45,17 +45,17 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 		// now write the raw binary
 		setupfile(rawname,dir,name,".raw");
 		if( (f = fopen(rawname,"wb")) ){
-			if(xmlfile){
-				fputs("\t\t<RAW NAME='",xmlfile);
-				fputsxml(name,xmlfile);
-				fputc('\'',xmlfile);
-				fputs(" DIR='",xmlfile);
-				fputsxml(dir,xmlfile);
-				fputc('\'',xmlfile);
-				fputs(" FILE='",xmlfile);
-				fputsxml(rawname,xmlfile);
-				fputc('\'',xmlfile);
-				fprintf(xmlfile," ROWS='%d' COLS='%d' CHANNELS='%d' />\n",height,width,channels);
+			if(xml){
+				fputs("\t\t<RAW NAME='",xml);
+				fputsxml(name,xml);
+				fputc('\'',xml);
+				fputs(" DIR='",xml);
+				fputsxml(dir,xml);
+				fputc('\'',xml);
+				fputs(" FILE='",xml);
+				fputsxml(rawname,xml);
+				fputc('\'',xml);
+				fprintf(xml," ROWS='%d' COLS='%d' CHANNELS='%d' />\n",height,width,channels);
 			}
 			UNQUIET("# writing raw \"%s\"\n# metadata in \"%s\"\n",rawname,txtname);
 		}else alwayswarn("### can't open \"%s\" for writing\n",rawname);

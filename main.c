@@ -32,7 +32,7 @@ int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	makedirs = 0, numbered = 0, mergedalpha = 0, help = 0, split = 0;
 static char indir[PATH_MAX],*pngdir = indir;
 static FILE *listfile = NULL;
-FILE *xmlfile = NULL;
+FILE *xml = NULL;
 
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
@@ -220,15 +220,15 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 		strcpy(pngname,name);
 		ch = li ? li->chid[startchan + i] : startchan + i;
 		if(ch == -2){
-			if(xmlfile)
-				fprintf(xmlfile,"\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld'>\n",
+			if(xml)
+				fprintf(xml,"\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld'>\n",
 						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols);
 			strcat(pngname,".lmask");
 			// layer mask channel is a special case, gets its own dimensions
 			rows = li->mask.rows;
 			cols = li->mask.cols;
 		}else if(ch == -1){
-			if(xmlfile) fputs("\t\t<TRANSPARENCY>\n",xmlfile);
+			if(xml) fputs("\t\t<TRANSPARENCY>\n",xml);
 			strcat(pngname,li ? ".trans" : ".alpha");
 		}else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
 			sprintf(pngname+strlen(pngname),".%c",channelsuffixes[h->mode][ch]);
@@ -244,9 +244,9 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
 
 		if(ch == -2){
-			if(xmlfile) fputs("\t\t</LAYERMASK>\n",xmlfile);
+			if(xml) fputs("\t\t</LAYERMASK>\n",xml);
 		}else if(ch == -1){
-			if(xmlfile) fputs("\t\t</TRANSPARENCY>\n",xmlfile);
+			if(xml) fputs("\t\t</TRANSPARENCY>\n",xml);
 		}
 	}
 }
@@ -315,8 +315,8 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 		for(ch = 0; ch < channels; ++ch) 
 			chcomp[ch] = comp; /* merged channels share same compression type */
 		
-		if(xmlfile)
-			fprintf(xmlfile,"\t<COMPOSITE CHANNELS='%d' HEIGHT='%d' WIDTH='%d'>\n",
+		if(xml)
+			fprintf(xml,"\t<COMPOSITE CHANNELS='%d' HEIGHT='%d' WIDTH='%d'>\n",
 					channels,rows,cols);
 		if(writepng){
 			nwarns = 0;
@@ -339,7 +339,7 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 							  startchan, channels-startchan, rows, cols, h);
 			}
 		}
-		if(xmlfile) fputs("\t</COMPOSITE>\n",xmlfile);
+		if(xml) fputs("\t</COMPOSITE>\n",xml);
 	}else{
 		// Process layer:
 		// for each channel, store its row pointers sequentially 
@@ -535,10 +535,10 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
 								linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
 				}
-				if(xmlfile){
-					fputs("\t<LAYER NAME='",xmlfile);
-					fputsxml(linfo[i].name,xmlfile);
-					fprintf(xmlfile,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
+				if(xml){
+					fputs("\t<LAYER NAME='",xml);
+					fputsxml(linfo[i].name,xml);
+					fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
 							linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
 				}
 				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
@@ -552,7 +552,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					doextradata(f, 2, linfo[i].extradatalen, 1);
 					fseek(f, savepos, SEEK_SET); // restore file position
 				}
-				if(xmlfile) fputs("\t</LAYER>\n",xmlfile);
+				if(xml) fputs("\t</LAYER>\n",xml);
 			}
 
 			if(listfile) fputs("}\n",listfile);
@@ -658,16 +658,16 @@ int main(int argc,char *argv[]){
 			}
 			if(writexml){
 				setupfile(fname,pngdir,"psd",".xml");
-				if( (xmlfile = fopen(fname,"w")) )
-					fputs("<?xml version=\"1.0\"?>\n",xmlfile);
+				if( (xml = fopen(fname,"w")) )
+					fputs("<?xml version=\"1.0\"?>\n",xml);
 			}
 
 			if(!feof(f) && !memcmp(h.sig,"8BPS",4) && h.version == 1){
 				if(listfile) fprintf(listfile,"-- PSD file: %s\n",argv[i]);
-				if(xmlfile){
-					fputs("<PSD FILE='",xmlfile);
-					fputsxml(argv[i],xmlfile);
-					fprintf(xmlfile,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
+				if(xml){
+					fputs("<PSD FILE='",xml);
+					fputsxml(argv[i],xml);
+					fprintf(xml,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
 							h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
 							h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");
 				}
@@ -695,12 +695,12 @@ int main(int argc,char *argv[]){
 	
 					UNQUIET("  done.\n\n");
 				}
-				if(xmlfile) fputs("</PSD>\n",xmlfile);
+				if(xml) fputs("</PSD>\n",xml);
 			}else
 				alwayswarn("# \"%s\": couldn't read header, is not a PSD, or version is not 1!\n",argv[i]);
 
 			if(listfile) fclose(listfile);
-			if(xmlfile) fclose(xmlfile);
+			if(xml) fclose(xml);
 			fclose(f);
 			
 			// parsing completed.

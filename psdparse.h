@@ -124,7 +124,7 @@ struct dictentry{
 extern char *channelsuffixes[],*mode_names[],dirsep[];
 extern int verbose,quiet,makedirs;
 
-extern FILE *xmlfile;
+extern FILE *xml;
 
 void fatal(char *s);
 void warn(char *fmt,...);
