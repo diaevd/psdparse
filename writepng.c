@@ -71,7 +71,7 @@ void setupfile(char *dstname,char *dir,char *name,char *suffix){
 // li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
 // h           pointer to PSD file header struct
 
-FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
+FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
 	char pngname[PATH_MAX],*pngtype = NULL;
@@ -120,11 +120,11 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 				fputs(" FILE='",xml);
 				fputsxml(pngname,xml);
 				fputc('\'',xml);
-				fprintf(xml," WIDTH='%d' HEIGHT='%d' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+				fprintf(xml," WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
 						width,height,channels,color_type,pngtype,h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
-			VERBOSE("#             %3dx%3d, depth=%d, channels=%d, type=%d(%s)\n", 
+			VERBOSE("#             %3ldx%3ld, depth=%d, channels=%d, type=%d(%s)\n", 
 					width,height,h->depth,channels,color_type,pngtype);
 
 			if( !(info_ptr = png_create_info_struct(png_ptr)) || setjmp(png_jmpbuf(png_ptr)) )
@@ -175,14 +175,13 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	return f;
 }
 
-void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
-				   int startchan, int chancount, int rows, int cols, struct psd_header *h)
+void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_size_t **rowpos,
+				   int startchan, int chancount, psd_rle_t rows, psd_rle_t cols, struct psd_header *h)
 {
-	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
-	unsigned char *rowbuf,*inrows[4],*rledata,*p;
-	short *q;
 	long savepos = ftell(psd);
-	int i,j,ch,map[4];
+	psd_rle_t rlebytes, n, i, j, rb = (h->depth*cols+7)/8, *q;
+	unsigned char *rowbuf, *inrows[4], *rledata, *p;
+	int ch, map[4];
 	
 	if(xml)
 		fprintf(xml," CHINDEX='%d' />\n",startchan);
@@ -220,7 +219,7 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 	}
 
 	for(j = 0; j < rows; ++j){
-		for(i = 0; i < chancount; ++i){
+		for(i = 0; i < (unsigned)chancount; ++i){
 			// startchan must be zero for multichannel,
 			// and for single channel, map[0] always == 0
 			ch = startchan + map[i];
@@ -262,13 +261,13 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, lo
 
 		if(chancount>1){ /* interleave channels */
 			if(h->depth == 8)
-				for(i = 0, p = rowbuf; i < (int)rb; ++i)
+				for(i = 0, p = rowbuf; i < rb; ++i)
 					for(ch = 0; ch < chancount; ++ch)
 						*p++ = inrows[ch][i];
 			else
-				for(i = 0, q = (short*)rowbuf; i < (int)rb/2; ++i)
+				for(i = 0, q = (psd_rle_t*)rowbuf; i < rb/2; ++i)
 					for(ch = 0; ch < chancount; ++ch)
-						*q++ = ((short*)inrows[ch])[i];
+						*q++ = ((psd_rle_t*)inrows[ch])[i];
 
 			png_write_row(png_ptr, rowbuf);
 		}else

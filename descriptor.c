@@ -118,6 +118,8 @@ void desc_list(FILE *f, int level, int printxml, struct dictentry *parent){
 		item(f, level);
 }
 
+// FIXME: this does not work yet. Trial and error needed, docs aren't good enough.
+
 void descriptor(FILE *f, int level, int printxml, struct dictentry *parent){
 	long count;
 

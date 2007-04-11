@@ -23,7 +23,7 @@
 
 #include "psdparse.h"
 
-FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
+FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h){
 	char rawname[PATH_MAX],txtname[PATH_MAX];
 	FILE *f;
@@ -65,12 +65,12 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height,
 	return f;
 }
 
-void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, long **rowpos,
-				   int startchan, int chancount, int rows, int cols, struct psd_header *h){
-	unsigned n,rb = (h->depth*cols+7)/8,rlebytes;
+void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_size_t **rowpos,
+				   int startchan, int chancount, psd_rle_t rows, psd_rle_t cols, struct psd_header *h){
+	psd_rle_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrow,*rledata;
 	long savepos = ftell(psd);
-	int i,j;
+	int i;
 
 	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);

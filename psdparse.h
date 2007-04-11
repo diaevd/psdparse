@@ -19,11 +19,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <limits.h>
 
 #ifndef PATH_MAX
 	#define PATH_MAX FILENAME_MAX
+#endif
+
+#ifdef PSBSUPPORT
+	typedef uint64_t psd_size_t;
+	typedef unsigned long psd_rle_t;
+#else
+	typedef uint32_t psd_size_t;
+	typedef unsigned psd_rle_t;
 #endif
 
 enum{RAWDATA,RLECOMP};
@@ -59,8 +68,8 @@ struct psd_header{
 	short version;
 	char reserved[6];
 	short channels;
-	long rows;
-	long cols;
+	unsigned long rows;
+	unsigned long cols;
 	short depth;
 	short mode;
 	// following fields are for our purposes, not actual header fields
@@ -68,7 +77,7 @@ struct psd_header{
 };
 
 struct layer_mask_info{
-	long size;
+	psd_size_t size;
 	long top;
 	long left;
 	long bottom;
@@ -78,7 +87,7 @@ struct layer_mask_info{
 	//char reserved[2];
 	
 	// runtime data
-	long rows,cols;
+	psd_rle_t rows,cols;
 };
 
 struct layer_info{
@@ -89,7 +98,7 @@ struct layer_info{
 	short channels;
 	
 	// runtime data (not in file)
-	long *chlengths; // array of channel lengths
+	psd_size_t *chlengths; // array of channel lengths
 	int *chid;       // channel ids
 	int *chindex;    // lookup channel number by id (inverse of chid[])
 	struct layer_mask_info mask;
@@ -136,6 +145,8 @@ char *getpstr(FILE *f);
 char *getpstr2(FILE *f);
 double getdoubleB(FILE *f);
 long get4B(FILE *f);
+#define get4Bu(f) ((unsigned long)get4B(f))
+uint64_t get8Bu(FILE *f);
 int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
 const char *tabs(int n);
@@ -147,26 +158,26 @@ void doextradata(FILE *f, int level, long length, int printxml);
 void descriptor(FILE *f, int level, int printxml, struct dictentry *dict);
 
 void skipblock(FILE *f,char *desc);
-void dumprow(unsigned char *b,int n,int group);
+void dumprow(unsigned char *b,long n,int group);
 int dochannel(FILE *f,struct layer_info *li,int idx,int channels,
-			  int rows,int cols,int depth,long **rowpos);
+			  psd_rle_t rows,psd_rle_t cols,int depth,psd_size_t **rowpos,struct psd_header *h);
 void doimage(FILE *f,struct layer_info *li,char *name,
-			 int channels,int rows,int cols,struct psd_header *h);
+			 int channels,psd_rle_t rows,psd_rle_t cols,struct psd_header *h);
 void dolayermaskinfo(FILE *f,struct psd_header *h);
 void doimageresources(FILE *f);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
-FILE* pngsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
+FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void pngwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, long **rowpos,
-				   int startchan, int pngchan, int rows, int cols, struct psd_header *h);
+void pngwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, psd_size_t **rowpos,
+				   int startchan, int pngchan, psd_rle_t rows, psd_rle_t cols, struct psd_header *h);
 
-FILE* rawsetupwrite(FILE *psd, char *dir, char *name, int width, int height, 
+FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void rawwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, long **rowpos,
-				   int startchan, int pngchan, int rows, int cols, struct psd_header *h);
+void rawwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, psd_size_t **rowpos,
+				   int startchan, int pngchan, psd_rle_t rows, psd_rle_t cols, struct psd_header *h);
 
-int unpackbits(unsigned char *outp,unsigned char *inp,int rowbytes,int inlen);
+int unpackbits(unsigned char *outp,unsigned char *inp,psd_rle_t rowbytes,psd_rle_t inlen);
 
 #ifdef WIN32
 	#include <direct.h>

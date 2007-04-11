@@ -22,8 +22,11 @@
 
 #include "psdparse.h"
 
-int unpackbits(unsigned char *outp,unsigned char *inp,int outlen,int inlen){
-	int i,len,val;
+int unpackbits(unsigned char *outp, unsigned char *inp,
+			   psd_rle_t outlen, psd_rle_t inlen)
+{
+	psd_rle_t i,len;
+	int val;
 
 	/* i counts output bytes; outlen = expected output size */
 	for(i = 0; inlen > 0 && i < outlen;){
