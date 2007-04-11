@@ -329,7 +329,7 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		{0, "luni", "-UNICODENAME", "Unicode layer name", ed_unicodename},
 		{0, "lyid", "-LAYERID", "Layer ID", ed_long}, // '-' prefix means keep tag value on one line
 		// v6.0
-		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", ed_objecteffects},
+		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", NULL /*ed_objecteffects*/},
 		{0, "Patt", "PATTERN", "Pattern", NULL},
 		{0, "Pat2", "PATTERNCS", "Pattern (CS)", NULL},
 		{0, "Anno", "ANNOTATION", "Annotation", ed_annotation},
@@ -341,9 +341,9 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		{0, "fxrp", "-REFERENCEPOINT", "Reference point", ed_referencepoint},
 		{0, "grdm", "GRADIENT", "Gradient", NULL},
 		{0, "lsct", "-SECTION", "Section divider", ed_long}, // CS doc
-		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", ed_versdesc}, // CS doc
-		{0, "PtFl", "PATTERNFILL", "Pattern fill", ed_versdesc}, // CS doc
-		{0, "GdFl", "GRADIENTFILL", "Gradient fill", ed_versdesc}, // CS doc
+		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", NULL /*ed_versdesc*/}, // CS doc
+		{0, "PtFl", "PATTERNFILL", "Pattern fill", NULL /*ed_versdesc*/}, // CS doc
+		{0, "GdFl", "GRADIENTFILL", "Gradient fill", NULL /*ed_versdesc*/}, // CS doc
 		{0, "vmsk", "VECTORMASK", "Vector mask", NULL}, // CS doc
 		{0, "TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // CS doc
 		{0, "ffxi", "-FOREIGNEFFECTID", "Foreign effect ID", ed_long}, // CS doc (this is probably a key too, who knows)
