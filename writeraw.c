@@ -65,11 +65,11 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 	return f;
 }
 
-void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, off_t **rowpos,
+void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h){
 	psd_pixels_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrow,*rledata;
-	off_t savepos = ftello(psd);
+	psd_bytes_t savepos = ftello(psd);
 	int i;
 
 	rowbuf = checkmalloc(rb*chancount);
@@ -125,7 +125,8 @@ done:
 	free(rledata);
 	free(inrow);
 
-	fseeko(psd, savepos, SEEK_SET); 
-	VERBOSE(">>> restoring filepos= %lld\n",savepos);
+	fseeko(psd, savepos, SEEK_SET);
+	VERBOSE(LL_L(">>> restoring filepos= %lld\n",
+				 ">>> restoring filepos= %ld\n"),savepos);
 }
 

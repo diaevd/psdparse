@@ -33,7 +33,7 @@
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
 
 void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
-	off_t savepos = ftello(f);
+	psd_bytes_t savepos = ftello(f);
 	int oneline = d->tag[0] == '-';
 	char *tagname = d->tag + (d->tag[0] == '-');
 
@@ -370,7 +370,8 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		length -= 12 + extra.length;
 		if(!memcmp(extra.sig, "8BIM", 4)){
 			if(!printxml)
-				VERBOSE("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5ld\n",
+				VERBOSE(LL_L("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5lld\n",
+							 "    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5ld\n"),
 						extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
 						extra.key[0],extra.key[1],extra.key[2],extra.key[3],
 						extra.length);

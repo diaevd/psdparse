@@ -79,7 +79,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 	unsigned char *palette;
 	png_color *pngpal;
 	int i,n;
-	off_t savepos;
+	psd_bytes_t savepos;
 
 	f = NULL;
 	
@@ -175,10 +175,10 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 	return f;
 }
 
-void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, off_t **rowpos,
+void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
-	off_t savepos = ftello(psd);
+	psd_bytes_t savepos = ftello(psd);
 	psd_pixels_t rlebytes, n, i, j, rb = (h->depth*cols+7)/8, *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
@@ -283,8 +283,9 @@ done:
 	for(ch = 0; ch < chancount; ++ch)
 		free(inrows[ch]);
 
-	fseeko(psd, savepos, SEEK_SET); 
-	VERBOSE(">>> restoring filepos= %lld\n",savepos);
+	fseeko(psd, savepos, SEEK_SET);
+	VERBOSE(LL_L(">>> restoring filepos= %lld\n",
+				 ">>> restoring filepos= %ld\n"),savepos);
 
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 }
