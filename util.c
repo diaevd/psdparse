@@ -142,12 +142,14 @@ long get4B(FILE *f){
 	return n | fgetc(f);
 }
 
+#ifdef PSBSUPPORT
 // Read a 8-byte unsigned binary value in BigEndian format.
 // Assumes sizeof(long) == 4
 uint64_t get8Bu(FILE *f){
 	unsigned long msl = get4Bu(f);
 	return (msl << 32) | get4Bu(f);
 }
+#endif
 
 // Read a 2-byte signed binary value in BigEndian format. 
 // Meant to work even where sizeof(short) > 2

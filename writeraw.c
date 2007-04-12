@@ -23,7 +23,7 @@
 
 #include "psdparse.h"
 
-FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
+FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h){
 	char rawname[PATH_MAX],txtname[PATH_MAX];
 	FILE *f;
@@ -37,7 +37,7 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 			fprintf(f,"# %s.raw\nmode = %d  # %s\ndepth = %d\n",
 					name,h->mode,mode_names[h->mode],h->depth);
 			if(li) fprintf(f,"layer = \"%s\"\n",li->name);
-			fprintf(f,"width = %d\nheight = %d\nchannels = %d  # not interleaved\n",
+			fprintf(f,"width = %ld\nheight = %ld\nchannels = %d  # not interleaved\n",
 					width,height,channels);
 			fclose(f);
 		}else alwayswarn("### can't open \"%s\" for writing\n",txtname);
@@ -55,7 +55,7 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 				fputs(" FILE='",xml);
 				fputsxml(rawname,xml);
 				fputc('\'',xml);
-				fprintf(xml," ROWS='%d' COLS='%d' CHANNELS='%d' />\n",height,width,channels);
+				fprintf(xml," ROWS='%ld' COLS='%ld' CHANNELS='%d' />\n",height,width,channels);
 			}
 			UNQUIET("# writing raw \"%s\"\n# metadata in \"%s\"\n",rawname,txtname);
 		}else alwayswarn("### can't open \"%s\" for writing\n",rawname);
@@ -65,11 +65,11 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 	return f;
 }
 
-void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_size_t **rowpos,
-				   int startchan, int chancount, psd_rle_t rows, psd_rle_t cols, struct psd_header *h){
-	psd_rle_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
+void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, off_t **rowpos,
+				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h){
+	psd_pixels_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrow,*rledata;
-	long savepos = ftell(psd);
+	off_t savepos = ftello(psd);
 	int i;
 
 	rowbuf = checkmalloc(rb*chancount);
@@ -83,7 +83,7 @@ void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 			/* get row data */
 			//printf("rowpos[%d][%4d] = %7d\n",ch,j,rowpos[ch][j]);
 
-			if(fseek(psd,rowpos[i][j],SEEK_SET) == -1){
+			if(fseeko(psd, rowpos[i][j], SEEK_SET) == -1){
 				alwayswarn("# error seeking to %ld\n",rowpos[i][j]);
 				memset(inrow,0,rb); // zero out the row
 			}else{
@@ -111,7 +111,7 @@ void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 					memset(inrow,0,rb);
 
 			}
-			if(fwrite(inrow, 1, rb, png) != rb){
+			if((psd_pixels_t)fwrite(inrow, 1, rb, png) != rb){
 				alwayswarn("# error writing raw data, aborting\n");
 				goto done;
 			}
@@ -125,7 +125,7 @@ done:
 	free(rledata);
 	free(inrow);
 
-	fseek(psd,savepos,SEEK_SET); 
-	VERBOSE(">>> restoring filepos= %ld\n",savepos);
+	fseeko(psd, savepos, SEEK_SET); 
+	VERBOSE(">>> restoring filepos= %lld\n",savepos);
 }
 

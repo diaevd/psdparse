@@ -31,9 +31,8 @@ extern int nwarns;
 char dirsep[] = {DIRSEP,0};
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	makedirs = 0, numbered = 0, mergedalpha = 0, help = 0, split = 0;
-static char indir[PATH_MAX],*pngdir = indir;
-static FILE *listfile = NULL;
-FILE *xml = NULL;
+static char indir[PATH_MAX], *pngdir = indir;
+FILE *listfile = NULL, *xml = NULL;
 
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
@@ -43,11 +42,11 @@ FILE *xml = NULL;
 	static int writepng = 0,writelist = 0,writexml = 0;
 #endif
 
-void skipblock(FILE *f,char *desc){
-	long n = get4B(f);
+void skipblock(FILE *f, char *desc){
+	off_t n = GETPSDBYTES(f); // ?? or is get4B() correct for PSB
 	if(n){
-		fseek(f,n,SEEK_CUR);
-		VERBOSE("  ...skipped %s (%ld bytes)\n",desc,n);
+		fseeko(f, n, SEEK_CUR);
+		VERBOSE("  ...skipped %s (%lld bytes)\n",desc,n);
 	}else
 		VERBOSE("  (%s is empty)\n",desc);
 }
@@ -55,6 +54,8 @@ void skipblock(FILE *f,char *desc){
 void dumprow(unsigned char *b, long n, int group){
 	long k, m;
 	m = group ? group*((DUMPCOLS/2)/(group+1)) : DUMPCOLS/2;
+	if(m > n)
+		m = n;
 	for(k = 0; k < m; ++k){
 		if(group && !(k % group)) VERBOSE(" ");
 		VERBOSE("%02x",b[k]);
@@ -64,27 +65,27 @@ void dumprow(unsigned char *b, long n, int group){
 }
 
 int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
-			  psd_rle_t rows, psd_rle_t cols, int depth,
-			  psd_size_t **rowpos, struct psd_header *h)
+			  psd_pixels_t rows, psd_pixels_t cols, int depth,
+			  off_t **rowpos, struct psd_header *h)
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
 	int comp, ch, dumpit, samplebytes = depth > 8 ? depth/8 : 0;
-	psd_size_t pos, chpos = ftell(f), chlen = 0;
+	off_t pos, chpos = ftello(f);
+	psd_bytes_t rb, chlen = 0;
 	unsigned char *rowbuf;
-	psd_rle_t rb, j, k, count, last, n, *rlebuf = NULL;
+	psd_pixels_t j, k, count, last, n, *rlebuf = NULL;
 
 	if(li){
 		chlen = li->chlengths[idx];
-		VERBOSE(">>> dochannel %d/%d filepos=%7ld bytes=%7ld\n",
+		VERBOSE(">>> dochannel %d/%d filepos=%7lld bytes=%7ld\n",
 				idx,channels,chpos,chlen);
-	}else{
-		VERBOSE(">>> dochannel %d/%d filepos=%7ld\n",idx,channels,chpos);
-	}
+	}else
+		VERBOSE(">>> dochannel %d/%d filepos=%7lld\n",idx,channels,chpos);
 
 	if(li && chlen < 2){
 		alwayswarn("## channel too short (%d bytes)\n",chlen);
 		if(chlen > 0)
-			fseek(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
+			fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
 		return -1;
 	}
 	
@@ -95,43 +96,43 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
 	}
 
-	rb = (cols*depth + 7)/8;
+	rb = ((long)cols*depth + 7)/8;
 
 	comp = get2Bu(f);
 	chlen -= 2;
 	if(comp > RLECOMP){
 		alwayswarn("## bad compression type %d\n",comp);
 		if(li){ // make a guess based on channel byte count
-			comp = chlen == (unsigned long)rows*rb ? RAWDATA : RLECOMP; // cast is for when sizeof(int)==2, e.g.
+			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n",comptype[comp]);
 		}else{
 			alwayswarn("## skipping channel (%d bytes)\n",chlen);
-			fseek(f, chlen, SEEK_CUR);
+			fseeko(f, chlen, SEEK_CUR);
 			return -1;
 		}
 	}else
 		VERBOSE("    compression = %d (%s)\n",comp,comptype[comp]);
-	VERBOSE("    uncompressed size %ld bytes (row bytes = %ld)\n",(long)channels*rows*rb,rb);
+	VERBOSE("    uncompressed size %ld bytes (row bytes = %ld)\n",channels*rows*rb,rb);
 
 	rowbuf = checkmalloc(rb*2); /* slop for worst case RLE overhead (usually (rb/127+1) ) */
-	pos = ftell(f);
+	pos = chpos+2;
 
 	if(comp == RLECOMP){
-		psd_rle_t rlecounts = 2*channels*rows;
+		long rlecounts = (channels*rows) << h->version;
 		if(li && chlen < rlecounts)
 			alwayswarn("## channel too short for RLE row counts (need %d bytes, have %d bytes)\n",rlecounts,chlen);
 			
 		pos += rlecounts; /* image data starts after RLE counts */
-		rlebuf = checkmalloc(channels*rows*sizeof(psd_rle_t));
+		rlebuf = checkmalloc(channels*rows*sizeof(psd_pixels_t));
 		/* accumulate RLE counts, to make array of row start positions */
 		for(ch = k = 0; ch < channels; ++ch){
 			last = rb;
 			for(j = 0; j < rows && !feof(f); ++j, ++k){
-				count = h->version==1 ? get2Bu(f) : get4Bu(f);
+				count = h->version==1 ? get2Bu(f) : (unsigned long)get4B(f); // PSD/PSB
 				if(count > 2*rb)  // this would be impossible
 					count = last; // make a guess, to help recover
 				rlebuf[k] = last = count;
-				//printf("rowpos[%d][%3d]=%6d\n",ch,j,pos);
+				//printf("rowpos[%d][%3ld]=%6lld\n",ch,j,pos);
 				if(rowpos) rowpos[ch][j] = pos;
 				pos += count;
 			}
@@ -153,12 +154,12 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	for(ch = k = 0; ch < channels; ++ch){
 		
 		//if(channels>1)
-		VERBOSE("\n    channel %d (@ %7ld):\n",ch,ftell(f));
+		VERBOSE("\n    channel %d (@ %7lld):\n", ch, ftello(f));
 
 		for(j = 0; j < rows; ++j){
 			if(rows > 3*CONTEXTROWS){
 				if(j == rows-CONTEXTROWS) 
-					VERBOSE("    ...%lu rows not shown...\n",rows-2*CONTEXTROWS);
+					VERBOSE("    ...%ld rows not shown...\n", rows-2*CONTEXTROWS);
 				dumpit = j < CONTEXTROWS || j >= rows-CONTEXTROWS;
 			}else 
 				dumpit = 1;
@@ -170,7 +171,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 					warn("bad RLE count %5d @ row %5d",n,j);
 					n = 2*rb;
 				}
-				if(fread(rowbuf,1,n,f) == n){
+				if((psd_pixels_t)fread(rowbuf,1,n,f) == n){
 					if(dumpit){
 						VERBOSE("   %5ld: <%5ld> ",j,n);
 						dumprow(rowbuf,n,samplebytes);
@@ -181,7 +182,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				}
 			}
 			else if(comp == RAWDATA){
-				if(fread(rowbuf,1,rb,f) == rb){
+				if((psd_pixels_t)fread(rowbuf,1,rb,f) == rb){
 					if(dumpit){
 						VERBOSE("   %5ld: ",j);
 						dumprow(rowbuf,rb,samplebytes);
@@ -196,9 +197,9 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 
 	}
 	
-	if(li && ftell(f) != (chpos+2+chlen)){
-		alwayswarn("### currentpos = %ld, should be %ld !!\n",ftell(f),chpos+2+chlen);
-		fseek(f,chpos+2+chlen,SEEK_SET);
+	if(li && ftello(f) != (chpos+2+chlen)){
+		alwayswarn("### currentpos = %lld, should be %lld !!\n", ftello(f), chpos+2+chlen);
+		fseeko(f, chpos+2+chlen, SEEK_SET);
 	}
 
 	if(comp == RLECOMP) free(rlebuf);
@@ -210,7 +211,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
 
 static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
-						  struct layer_info *li, psd_size_t **rowpos, int startchan, 
+						  struct layer_info *li, off_t **rowpos, int startchan, 
 						  int channels, long rows, long cols, struct psd_header *h)
 {
 	FILE *png;
@@ -254,17 +255,17 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 }
 
 void doimage(FILE *f, struct layer_info *li, char *name,
-			 int channels, psd_rle_t rows, psd_rle_t cols, struct psd_header *h)
+			 int channels, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	FILE *png;
 	int ch,comp,startchan,pngchan,color_type,
 		*chcomp = checkmalloc(sizeof(int)*channels);
-	psd_size_t **rowpos = checkmalloc(sizeof(psd_size_t*)*channels);
+	off_t **rowpos = checkmalloc(sizeof(off_t*)*channels);
 
 	for(ch = 0; ch < channels; ++ch){
 		// is it a layer mask? if so, use special case row count
 		long chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
-		rowpos[ch] = checkmalloc(sizeof(psd_size_t)*(chrows+1));
+		rowpos[ch] = checkmalloc(sizeof(psd_bytes_t)*(chrows+1));
 	}
 
 	pngchan = color_type = 0;
@@ -381,17 +382,18 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 }
 
 void dolayermaskinfo(FILE *f, struct psd_header *h){
-	psd_size_t layerlen,misclen,chlen,miscstart,skip,extrastart,extralen;
+	psd_bytes_t layerlen,misclen,chlen,skip,extralen;
+	off_t miscstart,extrastart;
 	int nlayers,i,j,chid,namelen;
 	struct layer_info *linfo;
 	char *chidstr,tmp[10];
 	struct blend_mode_info bm;
 
-	if( (misclen = h->version==1 ? get4Bu(f) : get8Bu(f)) ){
-		miscstart = ftell(f);
+	if( (misclen = GETPSDBYTES(f)) ){
+		miscstart = ftello(f);
 
 		// process layer info section
-		if( (layerlen = h->version==1 ? get4Bu(f) : get8Bu(f)) ){
+		if( (layerlen = GETPSDBYTES(f)) ){
 			// layers structure
 			nlayers = get2B(f);
 			if(nlayers < 0){
@@ -427,11 +429,11 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 				 || linfo[i].channels > 64 ) // sanity check
 				{
 					alwayswarn("### something's not right about that, trying to skip layer.\n");
-					fseek(f,6*linfo[i].channels+12,SEEK_CUR);
+					fseeko(f, 6*linfo[i].channels+12, SEEK_CUR);
 					skipblock(f,"layer info: extra data");
 				}else{
 
-					linfo[i].chlengths = checkmalloc(linfo[i].channels*sizeof(psd_size_t));
+					linfo[i].chlengths = checkmalloc(linfo[i].channels*sizeof(psd_bytes_t));
 					linfo[i].chid = checkmalloc(linfo[i].channels*sizeof(int));
 					linfo[i].chindex = checkmalloc((linfo[i].channels+2)*sizeof(int));
 					linfo[i].chindex += 2; // so we can index array from [-2] (hackish)
@@ -443,7 +445,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					
 					for(j = 0; j < linfo[i].channels; ++j){
 						chid = linfo[i].chid[j] = get2B(f);
-						chlen = linfo[i].chlengths[j] = h->version==1 ? get4Bu(f) : get8Bu(f);
+						chlen = linfo[i].chlengths[j] = GETPSDBYTES(f);
 						
 						if(chid >= -2 && chid < linfo[i].channels)
 							linfo[i].chindex[chid] = j;
@@ -478,8 +480,8 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 	
 					//skipblock(f,"layer info: extra data");
 					extralen = get4B(f);
-					extrastart = ftell(f);
-					VERBOSE("  (extra data: %ld bytes @ %ld)\n",extralen,extrastart);
+					extrastart = ftello(f);
+					VERBOSE("  (extra data: %ld bytes @ %lld)\n",extralen,extrastart);
 
 					// fetch layer mask data
 					if( (linfo[i].mask.size = get4B(f)) ){
@@ -489,7 +491,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 						linfo[i].mask.right = get4B(f);
 						linfo[i].mask.default_colour = fgetc(f);
 						linfo[i].mask.flags = fgetc(f);
-						fseek(f,linfo[i].mask.size-18,SEEK_CUR); // skip remainder
+						fseeko(f, linfo[i].mask.size-18, SEEK_CUR); // skip remainder
 						linfo[i].mask.rows = linfo[i].mask.bottom - linfo[i].mask.top;
 						linfo[i].mask.cols = linfo[i].mask.right - linfo[i].mask.left;
 					}else
@@ -510,12 +512,12 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 							linfo[i].name[0] = '_';
 					}
 					
-					linfo[i].extradatapos = ftell(f);
+					linfo[i].extradatapos = ftello(f);
 					linfo[i].extradatalen = extrastart + extralen - linfo[i].extradatapos;
 					if(extra)
 						doextradata(f, 0, linfo[i].extradatalen, 0);
 			
-					fseek(f,extrastart+extralen,SEEK_SET);
+					fseeko(f, extrastart+extralen, SEEK_SET);
 				}
 			}
       
@@ -527,8 +529,9 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 				
 			for(i = 0; i < nlayers; ++i){
 				long pixw = linfo[i].right - linfo[i].left,
-					 pixh = linfo[i].bottom - linfo[i].top,
-					 savepos;
+					 pixh = linfo[i].bottom - linfo[i].top;
+				off_t savepos;
+
 				VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
 			  
 				if(listfile && pixw && pixh){
@@ -551,10 +554,10 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 				if(extra){
 					// Process 'extra data' (non-image layer data,
 					// such as adjustments, effects, type tool).
-					savepos = ftell(f);
-					fseek(f, linfo[i].extradatapos, SEEK_SET);
+					savepos = ftello(f);
+					fseeko(f, linfo[i].extradatapos, SEEK_SET);
 					doextradata(f, 2, linfo[i].extradatalen, 1);
-					fseek(f, savepos, SEEK_SET); // restore file position
+					fseeko(f, savepos, SEEK_SET); // restore file position
 				}
 				if(xml) fputs("\t</LAYER>\n",xml);
 			}
@@ -566,17 +569,17 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 		// process global layer mask info section
 		skipblock(f,"global layer mask info");
 
-		skip = miscstart + misclen - ftell(f);
+		skip = miscstart + misclen - ftello(f);
 		if(extra){
 			// skip undocumented block before 'global'(?) 'extra data'
-			int n = get2B(f); // I am guessing it's preceded by a count
-			fseek(f, n, SEEK_CUR);
+			off_t n = get2B(f); // I am guessing it's preceded by a count
+			fseeko(f, n, SEEK_CUR);
 			doextradata(f, 1, skip-2, 1);
 		}else
 			if(skip)
 				warn("skipped %d bytes of extra data at the end of misc info",skip);
 
-		fseek(f, miscstart + misclen, SEEK_SET);
+		fseeko(f, miscstart + misclen, SEEK_SET);
 		
 	}else VERBOSE("  (misc info section is empty)\n");
 	
@@ -688,7 +691,7 @@ int main(int argc,char *argv[]){
 						 h.cols <= 0 || h.depth < 0 || h.depth > 32 || h.mode < 0)
 						alwayswarn("### something isn't right about that header, giving up now.\n");
 					else{
-						h.colormodepos = ftell(f);
+						h.colormodepos = ftello(f);
 						skipblock(f,"color mode data");
 	
 						if(rsrc)

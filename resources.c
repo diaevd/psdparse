@@ -185,7 +185,7 @@ static long doirb(FILE *f){
 			fputs(" />\n", xml);
 		}
 	}
-	fseek(f,PAD2(size),SEEK_CUR); // skip resource block data
+	fseeko(f, PAD2(size), SEEK_CUR); // skip resource block data
 
 	return 4+2+PAD2(1+namelen)+4+PAD2(size); /* returns total bytes in block */
 }

@@ -71,7 +71,7 @@ void setupfile(char *dstname,char *dir,char *name,char *suffix){
 // li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
 // h           pointer to PSD file header struct
 
-FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t height, 
+FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
 	char pngname[PATH_MAX],*pngtype = NULL;
@@ -79,7 +79,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 	unsigned char *palette;
 	png_color *pngpal;
 	int i,n;
-	long savepos;
+	off_t savepos;
 
 	f = NULL;
 	
@@ -145,12 +145,12 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 			else if(h->mode == ModeIndexedColor){
 				
 				// go get the colour palette
-				savepos = ftell(psd);
-				fseek(psd,h->colormodepos,SEEK_SET);
+				savepos = ftello(psd);
+				fseeko(psd, h->colormodepos, SEEK_SET);
 				n = get4B(psd);
 				palette = checkmalloc(n);
 				fread(palette,1,n,psd);
-				fseek(psd,savepos,SEEK_SET);
+				fseeko(psd, savepos, SEEK_SET);
 				
 				n /= 3;
 				pngpal = checkmalloc(sizeof(png_color)*n);
@@ -175,11 +175,11 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_rle_t width, psd_rle_t
 	return f;
 }
 
-void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_size_t **rowpos,
-				   int startchan, int chancount, psd_rle_t rows, psd_rle_t cols, struct psd_header *h)
+void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, off_t **rowpos,
+				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
-	long savepos = ftell(psd);
-	psd_rle_t rlebytes, n, i, j, rb = (h->depth*cols+7)/8, *q;
+	off_t savepos = ftello(psd);
+	psd_pixels_t rlebytes, n, i, j, rb = (h->depth*cols+7)/8, *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
 	
@@ -219,7 +219,7 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 	}
 
 	for(j = 0; j < rows; ++j){
-		for(i = 0; i < (unsigned)chancount; ++i){
+		for(i = 0; i < chancount; ++i){
 			// startchan must be zero for multichannel,
 			// and for single channel, map[0] always == 0
 			ch = startchan + map[i];
@@ -229,7 +229,7 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 			if(map[i] < 0 || map[i] > (li ? li->channels : h->channels)){
 				warn("bad map[%d]=%d, skipping a channel",i,map[i]);
 				memset(inrows[i],0,rb); // zero out the row
-			}else if(fseek(psd,rowpos[ch][j],SEEK_SET) == -1){
+			}else if(fseeko(psd, rowpos[ch][j], SEEK_SET) == -1){
 				alwayswarn("# error seeking to %ld\n",rowpos[ch][j]);
 				memset(inrows[i],0,rb); // zero out the row
 			}else{
@@ -265,9 +265,9 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 					for(ch = 0; ch < chancount; ++ch)
 						*p++ = inrows[ch][i];
 			else
-				for(i = 0, q = (psd_rle_t*)rowbuf; i < rb/2; ++i)
+				for(i = 0, q = (psd_pixels_t*)rowbuf; i < rb/2; ++i)
 					for(ch = 0; ch < chancount; ++ch)
-						*q++ = ((psd_rle_t*)inrows[ch])[i];
+						*q++ = ((psd_pixels_t*)inrows[ch])[i];
 
 			png_write_row(png_ptr, rowbuf);
 		}else
@@ -283,8 +283,8 @@ done:
 	for(ch = 0; ch < chancount; ++ch)
 		free(inrows[ch]);
 
-	fseek(psd,savepos,SEEK_SET); 
-	VERBOSE(">>> restoring filepos= %ld\n",savepos);
+	fseeko(psd, savepos, SEEK_SET); 
+	VERBOSE(">>> restoring filepos= %lld\n",savepos);
 
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 }

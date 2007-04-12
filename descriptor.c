@@ -178,7 +178,7 @@ void desc_boolean(FILE *f, int level, int printxml, struct dictentry *parent){
 }
 
 void desc_alias(FILE *f, int level, int printxml, struct dictentry *parent){
-	long count = get4B(f);
-	fprintf(xml, " <!-- %ld bytes alias data --> ", count);
-	fseek(f, count, SEEK_CUR); // skip over
+	off_t count = get4B(f);
+	fprintf(xml, " <!-- %lld bytes alias data --> ", count);
+	fseeko(f, count, SEEK_CUR); // skip over
 }

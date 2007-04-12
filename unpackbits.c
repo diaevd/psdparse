@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -23,17 +23,16 @@
 #include "psdparse.h"
 
 int unpackbits(unsigned char *outp, unsigned char *inp,
-			   psd_rle_t outlen, psd_rle_t inlen)
+			   psd_pixels_t outlen, psd_pixels_t inlen)
 {
-	psd_rle_t i,len;
-	long incnt = inlen;
+	psd_pixels_t i,len;
 	int val;
 
 	/* i counts output bytes; outlen = expected output size */
-	for(i = 0; incnt > 0 && i < outlen;){
+	for(i = 0; inlen > 1 && i < outlen;){
 		/* get flag byte */
 		len = *inp++; 
-		--incnt;
+		--inlen;
 		
 		if(len == 128) /* ignore this flag value */
 			; // warn("RLE flag byte=128 ignored");
@@ -43,7 +42,7 @@ int unpackbits(unsigned char *outp, unsigned char *inp,
 				
 				/* get value to repeat */
 				val = *inp++; 
-				--incnt; 
+				--inlen; 
 				
 				if((i+len) <= outlen)
 					memset(outp,val,len);
@@ -55,10 +54,12 @@ int unpackbits(unsigned char *outp, unsigned char *inp,
 			}else{
 				++len;
 				if((i+len) <= outlen){
+					if(len > inlen)
+						break; // abort - ran out of input data
 					/* copy verbatim run */
 					memcpy(outp,inp,len); 
-					inp += len; 
-					incnt -= len; 
+					inp += len;
+					inlen -= len; 
 				}else{
 					memcpy(outp,inp,outlen-i); // copy enough to complete row
 					warn("unpacked RLE data would overflow row (copy)");
@@ -69,7 +70,7 @@ int unpackbits(unsigned char *outp, unsigned char *inp,
 			i += len;
 		}
 	}
-	if(incnt < 0) 
+	if(i < outlen) 
 		warn("not enough RLE data for row");
 	return i;
 }

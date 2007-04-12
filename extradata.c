@@ -33,7 +33,7 @@
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
 
 void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
-	long savepos = ftell(f);
+	off_t savepos = ftello(f);
 	int oneline = d->tag[0] == '-';
 	char *tagname = d->tag + (d->tag[0] == '-');
 
@@ -53,7 +53,7 @@ void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct
 		fputc(parent->tag[0] == '-' ? ' ' : '\n', xml);
 	}
 
-	fseek(f, savepos, SEEK_SET);
+	fseeko(f, savepos, SEEK_SET);
 }
 
 struct dictentry *findbykey(FILE *f, int level, struct dictentry *parent, char *key, int printxml){
@@ -228,7 +228,7 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 			//optblocks = get2B(f);
 			//icont = get4B(f);  iconl = get4B(f);  iconb = get4B(f);  iconr = get4B(f);
 			//popupt = get4B(f); popupl = get4B(f); popupb = get4B(f); popupr = get4B(f);
-			fseek(f, 2+16+16+10, SEEK_CUR); // skip this mundane stuff
+			fseeko(f, 2+16+16+10, SEEK_CUR); // skip this mundane stuff
 			fprintf(xml, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
 			fputsxml(getpstr2(f), xml);
 			fputs("' NAME='", xml);
@@ -264,7 +264,7 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 			}else
 				fputs(" /> <!-- don't know -->\n", xml);
 
-			fseek(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
+			fseeko(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
 		}
 	}else
 		UNQUIET("    (%s, version = %d.%d)\n", parent->desc, major, minor);
@@ -370,14 +370,14 @@ void doextradata(FILE *f, int level, long length, int printxml){
 		length -= 12 + extra.length;
 		if(!memcmp(extra.sig, "8BIM", 4)){
 			if(!printxml)
-				VERBOSE("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5lu\n",
+				VERBOSE("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5ld\n",
 						extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
 						extra.key[0],extra.key[1],extra.key[2],extra.key[3],
 						extra.length);
 			d = findbykey(f, level, extradict, extra.key, printxml);
 			if(d && !d->func && !printxml) // there is no function to parse this block
 				UNQUIET("    (%s data)\n", d->desc);
-			fseek(f, extra.length, SEEK_CUR);
+			fseeko(f, extra.length, SEEK_CUR);
 		}else{
 			warn("bad signature in layer's extra data, skipping the rest");
 			break;
