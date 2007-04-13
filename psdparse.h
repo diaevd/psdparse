@@ -21,7 +21,7 @@
 
 #ifdef PSBSUPPORT
 	#define _FILE_OFFSET_BITS 64
-	// #define _LARGEFILE64_SOURCE
+	#define _LARGEFILE_SOURCE
 
 	typedef int64_t psd_bytes_t;
 	#define GETPSDBYTES(f) (h->version==1 ? get4B(f) : get8B(f))
