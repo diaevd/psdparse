@@ -36,7 +36,7 @@
   26-Mar-2007: 1.9b1 write XML description
   07-Apr-2007: 2.0b1 add some support for parsing v4+ 'extra data' (non-image layers)
   11-Apr-2007: 2.0b2 disable buggy descriptor parsing
-  11-Apr-2007: 2.1b1 initial PSB support (currently disabled)
+  11-Apr-2007: 2.1b1 initial PSB support
 */
 
 #define VERSION_STR "2.1b1"  // <-- remember to change in configure.ac!
