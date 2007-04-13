@@ -73,7 +73,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	psd_bytes_t pos, chpos = ftello(f);
 	psd_bytes_t rb, chlen = 0;
 	unsigned char *rowbuf;
-	psd_pixels_t j, k, count, last, n, *rlebuf = NULL;
+	psd_pixels_t k, count, last, *rlebuf = NULL;
+	long n, j;
 
 	if(li){
 		chlen = li->chlengths[idx];
@@ -86,7 +87,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				idx, channels, chpos);
 
 	if(li && chlen < 2){
-		alwayswarn("## channel too short (%d bytes)\n",chlen);
+		alwayswarn(LL_L("## channel too short (%lld bytes)\n",
+						"## channel too short (%ld bytes)\n"),chlen);
 		if(chlen > 0)
 			fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
 		return -1;
@@ -109,7 +111,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n",comptype[comp]);
 		}else{
-			alwayswarn("## skipping channel (%d bytes)\n",chlen);
+			alwayswarn(LL_L("## skipping channel (%lld bytes)\n",
+							"## skipping channel (%ld bytes)\n"),chlen);
 			fseeko(f, chlen, SEEK_CUR);
 			return -1;
 		}
@@ -125,7 +128,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	if(comp == RLECOMP){
 		long rlecounts = (channels*rows) << h->version;
 		if(li && chlen < rlecounts)
-			alwayswarn("## channel too short for RLE row counts (need %d bytes, have %d bytes)\n",rlecounts,chlen);
+			alwayswarn(LL_L("## channel too short for RLE row counts (need %ld bytes, have %lld bytes)\n",
+							"## channel too short for RLE row counts (need %ld bytes, have %ld bytes)\n"),rlecounts,chlen);
 			
 		pos += rlecounts; /* image data starts after RLE counts */
 		rlebuf = checkmalloc(channels*rows*sizeof(psd_pixels_t));
@@ -174,7 +178,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 				n = rlebuf[k++];
 				//VERBOSE("rle count[%5d] = %5d\n",j,n);
 				if(n > 2*rb){
-					warn("bad RLE count %5d @ row %5d",n,j);
+					warn("bad RLE count %5ld @ row %5ld",n,j);
 					n = 2*rb;
 				}
 				if((psd_pixels_t)fread(rowbuf,1,n,f) == n){
@@ -589,7 +593,8 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 			doextradata(f, 1, skip-2, 1);
 		}else
 			if(skip)
-				warn("skipped %d bytes of extra data at the end of misc info",skip);
+				warn(LL_L("skipped %lld bytes of extra data at the end of misc info",
+						  "skipped %ld bytes of extra data at the end of misc info"),skip);
 
 		fseeko(f, miscstart + misclen, SEEK_SET);
 		
