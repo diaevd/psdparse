@@ -21,5 +21,5 @@ psdparse_SOURCES  = main.c writepng.c writeraw.c unpackbits.c resources.c \
 					extradata.c constants.c util.c descriptor.c \
 					psdparse.h version.h
 psdparse_CFLAGS   = -W -Wall -O2
-psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 $(LIBPNG_CPPFLAGS)
+psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 -DPSBSUPPORT $(LIBPNG_CPPFLAGS)
 psdparse_LDADD    = $(LIBPNG_LIBS)

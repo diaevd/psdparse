@@ -390,11 +390,11 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 }
 
 void dolayermaskinfo(FILE *f, struct psd_header *h){
-	psd_bytes_t layerlen,misclen,chlen,skip,extralen;
-	psd_bytes_t miscstart,extrastart;
-	int nlayers,i,j,chid,namelen;
+	psd_bytes_t layerlen, misclen, chlen, skip, extralen;
+	psd_bytes_t miscstart, extrastart;
+	int nlayers, i, j, chid, namelen;
 	struct layer_info *linfo;
-	char *chidstr,tmp[10];
+	char *chidstr, tmp[10];
 	struct blend_mode_info bm;
 
 	if( (misclen = GETPSDBYTES(f)) ){
@@ -489,7 +489,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 							bm.flags, BITSTR(bm.flags&1),BITSTR(bm.flags&2),BITSTR(bm.flags&8),BITSTR(bm.flags&16) );
 	
 					//skipblock(f,"layer info: extra data");
-					extralen = get4B(f); // correct for PSB??
+					extralen = get4B(f);
 					extrastart = ftello(f);
 					VERBOSE(LL_L("  (extra data: %lld bytes @ %lld)\n",
 								 "  (extra data: %ld bytes @ %ld)\n"),
@@ -648,7 +648,7 @@ int main(int argc,char *argv[]){
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\
   -x, --xml          write XML describing document and layers\n\
-  -s, --split        write each composite channel to individual (grey scale) PNG\n", argv[0],DIRSEP);
+  -s, --split        write each composite channel to individual (grey scale) PNG\n", argv[0], DIRSEP);
 
 	for(i = optind; i < argc; ++i){
 		if( (f = fopen(argv[i],"rb")) ){
@@ -695,9 +695,9 @@ int main(int argc,char *argv[]){
 								h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
 								h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");
 					}
-					UNQUIET("  channels = %d, rows = %ld, cols = %ld, depth = %d, mode = %d (%s)\n",
-							h.channels, h.rows, h.cols, h.depth,
-							h.mode, h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "???");
+					UNQUIET("  PS%c (version %d), %d channels, %ld rows x %ld cols, %d bit %s\n",
+							h.version == 1 ? 'D' : 'B', h.version, h.channels, h.rows, h.cols, h.depth,
+							h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "???");
 					
 					if(h.channels <= 0 || h.channels > 64 || h.rows <= 0 || 
 						 h.cols <= 0 || h.depth < 0 || h.depth > 32 || h.mode < 0)

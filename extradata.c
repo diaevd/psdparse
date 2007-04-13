@@ -210,7 +210,7 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 	int i, j, major = get2B(f), minor = get2B(f), len, open, flags;
 	char type[4], key[4];
 	const char *indent = tabs(level);
-	long datalen, len2;
+	long datalen, len2, rects[8];
 
 	if(printxml){
 		fprintf(xml, "%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
@@ -225,17 +225,19 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 				fprintf(xml, "%s<UNKNOWN", indent);
 			open = fgetc(f);
 			flags = fgetc(f);
-			//optblocks = get2B(f);
-			//icont = get4B(f);  iconl = get4B(f);  iconb = get4B(f);  iconr = get4B(f);
-			//popupt = get4B(f); popupl = get4B(f); popupb = get4B(f); popupr = get4B(f);
-			fseeko(f, 2+16+16+10, SEEK_CUR); // skip this mundane stuff
+			get2B(f); // optblocks
+			// read two rectangles - icon and popup
+			for(j = 0; j < 8;)
+				rects[j++] = get4B(f);
+			fseeko(f, 10, SEEK_CUR);
 			fprintf(xml, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
 			fputsxml(getpstr2(f), xml);
 			fputs("' NAME='", xml);
 			fputsxml(getpstr2(f), xml);
 			fputs("' MODDATE='", xml);
 			fputsxml(getpstr2(f), xml);
-			fputc('\'', xml);
+			fprintf(xml, "' ICONT='%ld' ICONL='%ld' ICONB='%ld' ICONR='%ld'", rects[0],rects[1],rects[2],rects[3]);
+			fprintf(xml, " POPUPT='%ld' POPUPL='%ld' POPUPB='%ld' POPUPR='%ld'", rects[4],rects[5],rects[6],rects[7]);
 
 			len2 = get4B(f); // remaining bytes in annotation, from this field inclusive
 			fread(key, 1, 4, f);
@@ -309,7 +311,7 @@ void ed_objecteffects(FILE *f, int level, int printxml, struct dictentry *parent
 	ed_versdesc(f, level, printxml, parent);
 }
 
-void doextradata(FILE *f, int level, long length, int printxml){
+void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
 	struct extra_data extra;
 	static struct dictentry extradict[] = {
 		// v4.0
