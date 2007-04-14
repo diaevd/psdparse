@@ -100,7 +100,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 		case PNG_COLOR_TYPE_RGB_ALPHA:  pngtype = "RGB_ALPHA"; break;
 		default:
 			alwayswarn("## (BUG) bad color_type (%d), %d channels (%s), writing PNG \"%s\"\n", 
-					  color_type, channels, mode_names[h->mode], pngname);
+					   color_type, channels, mode_names[h->mode], pngname);
 			return NULL;
 		}
 
@@ -113,14 +113,11 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 			if(xml){
 				fputs("\t\t<PNG NAME='",xml);
 				fputsxml(name,xml);
-				fputc('\'',xml);
-				fputs(" DIR='",xml);
+				fputs("' DIR='",xml);
 				fputsxml(dir,xml);
-				fputc('\'',xml);
-				fputs(" FILE='",xml);
+				fputs("' FILE='",xml);
 				fputsxml(pngname,xml);
-				fputc('\'',xml);
-				fprintf(xml," WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+				fprintf(xml,"' WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
 						width,height,channels,color_type,pngtype,h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n",pngname);
@@ -143,7 +140,6 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 			if(h->mode == ModeBitmap) 
 				png_set_invert_mono(png_ptr);
 			else if(h->mode == ModeIndexedColor){
-				
 				// go get the colour palette
 				savepos = ftello(psd);
 				fseeko(psd, h->colormodepos, SEEK_SET);
@@ -170,7 +166,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 
 		}else alwayswarn("### can't open \"%s\" for writing\n",pngname);
 
-	}else alwayswarn("### skipping layer \"%s\" (%dx%d)\n",li->name,width,height);
+	}else alwayswarn("### skipping layer \"%s\" (%ldx%ld)\n",li->name,width,height);
 
 	return f;
 }
@@ -230,14 +226,14 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 				warn("bad map[%d]=%d, skipping a channel",i,map[i]);
 				memset(inrows[i],0,rb); // zero out the row
 			}else if(fseeko(psd, rowpos[ch][j], SEEK_SET) == -1){
-				alwayswarn("# error seeking to %ld\n",rowpos[ch][j]);
+				alwayswarn("# error seeking to " LL_L("%lld\n","%ld\n"), rowpos[ch][j]);
 				memset(inrows[i],0,rb); // zero out the row
 			}else{
 
 				if(chcomp[ch] == RAWDATA){ /* uncompressed row */
 					n = fread(inrows[i],1,rb,psd);
 					if(n != rb){
-						warn("error reading row data (raw) @ %ld",rowpos[ch][j]);
+						warn("error reading row data (raw) @ ", LL_L("%lld","%ld"), rowpos[ch][j]);
 						memset(inrows[i]+n,0,rb-n); // zero out the rest of the row
 					}
 				}
@@ -245,11 +241,11 @@ void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 					n = rowpos[ch][j+1] - rowpos[ch][j];
 					if(n > 2*rb){
 						n = 2*rb; // sanity check
-						warn("bad RLE count %5d @ channel %2d, row %5d",n,ch,j);
+						warn("bad RLE count %5ld @ channel %2d, row %5ld", n, ch, j);
 					}
 					rlebytes = fread(rledata,1,n,psd);
 					if(rlebytes < n){
-						warn("error reading row data (RLE) @ %ld",rowpos[ch][j]);
+						warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][j]);
 						memset(inrows[i],0,rb); // zero it out, will probably unpack short
 					}
 					unpackbits(inrows[i],rledata,rb,rlebytes);
@@ -284,8 +280,7 @@ done:
 		free(inrows[ch]);
 
 	fseeko(psd, savepos, SEEK_SET);
-	VERBOSE(LL_L(">>> restoring filepos= %lld\n",
-				 ">>> restoring filepos= %ld\n"),savepos);
+	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 }

@@ -23,8 +23,11 @@
 
 #include "psdparse.h"
 
+/* This code could also be used as a template for other file types. */
+
 FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
-					int channels, int color_type, struct layer_info *li, struct psd_header *h){
+					int channels, int color_type, struct layer_info *li, struct psd_header *h)
+{
 	char rawname[PATH_MAX],txtname[PATH_MAX];
 	FILE *f;
 
@@ -48,25 +51,23 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 			if(xml){
 				fputs("\t\t<RAW NAME='",xml);
 				fputsxml(name,xml);
-				fputc('\'',xml);
-				fputs(" DIR='",xml);
+				fputs("' DIR='",xml);
 				fputsxml(dir,xml);
-				fputc('\'',xml);
-				fputs(" FILE='",xml);
+				fputs("' FILE='",xml);
 				fputsxml(rawname,xml);
-				fputc('\'',xml);
-				fprintf(xml," ROWS='%ld' COLS='%ld' CHANNELS='%d' />\n",height,width,channels);
+				fprintf(xml,"' ROWS='%ld' COLS='%ld' CHANNELS='%d' />\n",height,width,channels);
 			}
 			UNQUIET("# writing raw \"%s\"\n# metadata in \"%s\"\n",rawname,txtname);
 		}else alwayswarn("### can't open \"%s\" for writing\n",rawname);
 
-	}else alwayswarn("### skipping layer \"%s\" (%dx%d)\n",li->name,width,height);
+	}else alwayswarn("### skipping layer \"%s\" (%ldx%ld)\n",li->name,width,height);
 
 	return f;
 }
 
 void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h){
+				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+{
 	psd_pixels_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
 	unsigned char *rowbuf,*inrow,*rledata;
 	psd_bytes_t savepos = ftello(psd);
@@ -84,14 +85,14 @@ void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 			//printf("rowpos[%d][%4d] = %7d\n",ch,j,rowpos[ch][j]);
 
 			if(fseeko(psd, rowpos[i][j], SEEK_SET) == -1){
-				alwayswarn("# error seeking to %ld\n",rowpos[i][j]);
+				alwayswarn(LL_L("# error seeking to %lld\n","# error seeking to %ld\n"),rowpos[i][j]);
 				memset(inrow,0,rb); // zero out the row
 			}else{
 
 				if(chcomp[i] == RAWDATA){ /* uncompressed row */
 					n = fread(inrow,1,rb,psd);
 					if(n != rb){
-						warn("error reading row data (raw) @ %ld",rowpos[i][j]);
+						warn("error reading row data (raw) @ " LL_L("%lld","%ld"), rowpos[i][j]);
 						memset(inrow+n,0,rb-n); // zero out the rest of the row
 					}
 				}
@@ -99,11 +100,11 @@ void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, ps
 					n = rowpos[i][j+1] - rowpos[i][j];
 					if(n > 2*rb){
 						n = 2*rb; // sanity check
-						warn("bad RLE count %5d @ channel %2d, row %5d",n,i,j);
+						warn("bad RLE count %5ld @ channel %2d, row %5ld",n,i,j);
 					}
 					rlebytes = fread(rledata,1,n,psd);
 					if(rlebytes < n){
-						warn("error reading row data (RLE) @ %ld",rowpos[i][j]);
+						warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[i][j]);
 						memset(inrow,0,rb); // zero it out, will probably unpack short
 					}
 					unpackbits(inrow,rledata,rb,rlebytes);
@@ -126,7 +127,6 @@ done:
 	free(inrow);
 
 	fseeko(psd, savepos, SEEK_SET);
-	VERBOSE(LL_L(">>> restoring filepos= %lld\n",
-				 ">>> restoring filepos= %ld\n"),savepos);
+	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 }
 

@@ -2,7 +2,7 @@ psdparse
 Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
 This utility parses and prints a description of various structures
-inside an Adobe Photoshop(TM) PSD format file.
+inside an Adobe Photoshop(TM) PSD or PSB format file.
 It can optionally extract raster layers and spot/alpha channels to PNG files.
 
 A reasonable amount of integrity checking is performed. Corrupt images may
@@ -42,9 +42,11 @@ you want to inspect:
 * To process 'extra data', which is generally layer types supported by
   Photoshop 4.0 and later, as well as objects such as patterns and annotations,
   use the option --extra.
+* To process 'image resources' (metadata), use the option --resources.
 * Normally, RGB images (and grey scale+alpha images) are written as composite
   PNG with channels combined in one file. To write individual PNG files
   for each channel, regardless of mode, use the --split option.
+
 
 LICENSE
 

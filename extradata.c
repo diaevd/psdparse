@@ -239,9 +239,9 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 			fprintf(xml, "' ICONT='%ld' ICONL='%ld' ICONB='%ld' ICONR='%ld'", rects[0],rects[1],rects[2],rects[3]);
 			fprintf(xml, " POPUPT='%ld' POPUPL='%ld' POPUPB='%ld' POPUPR='%ld'", rects[4],rects[5],rects[6],rects[7]);
 
-			len2 = get4B(f); // remaining bytes in annotation, from this field inclusive
+			len2 = get4B(f)-12; // remaining bytes in annotation
 			fread(key, 1, 4, f);
-			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%d\n", key[0],key[1],key[2],key[3],datalen);
+			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%ld\n", key[0],key[1],key[2],key[3],datalen);
 			if(!memcmp(key, "txtC", 4)){
 				// Once again, the doc lets us down:
 				// - it says "ASCII or Unicode," but doesn't say how each is distinguished;
@@ -262,11 +262,11 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.
-				fprintf(xml, " RATE='%ld' BYTES='%ld' />\n", datalen, len2-12);
+				fprintf(xml, " RATE='%ld' BYTES='%ld' />\n", datalen, len2);
 			}else
 				fputs(" /> <!-- don't know -->\n", xml);
 
-			fseeko(f, PAD4(len2-12), SEEK_CUR); // skip whatever's left of this annotation's data
+			fseeko(f, len2, SEEK_CUR); // skip whatever's left of this annotation's data
 		}
 	}else
 		UNQUIET("    (%s, version = %d.%d)\n", parent->desc, major, minor);
@@ -365,25 +365,23 @@ void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
 	};
 	struct dictentry *d;
 
-	while(length > 0){
+	while(length >= 12){
 		fread(extra.sig, 1, 4, f);
 		fread(extra.key, 1, 4, f);
 		extra.length = get4B(f);
-		length -= 12 + extra.length;
 		if(!memcmp(extra.sig, "8BIM", 4)){
 			if(!printxml)
-				VERBOSE(LL_L("    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5lld\n",
-							 "    extra data: sig='%c%c%c%c' key='%c%c%c%c' length=%5ld\n"),
-						extra.sig[0],extra.sig[1],extra.sig[2],extra.sig[3],
-						extra.key[0],extra.key[1],extra.key[2],extra.key[3],
-						extra.length);
+				VERBOSE("    extra data: key='%c%c%c%c' length=" LL_L("%5lld","%5ld\n"),
+						extra.key[0],extra.key[1],extra.key[2],extra.key[3], extra.length);
 			d = findbykey(f, level, extradict, extra.key, printxml);
 			if(d && !d->func && !printxml) // there is no function to parse this block
 				UNQUIET("    (%s data)\n", d->desc);
 			fseeko(f, extra.length, SEEK_CUR);
-		}else{
+		}
+		else{
 			warn("bad signature in layer's extra data, skipping the rest");
 			break;
 		}
+		length -= 12 + extra.length;
 	}
 }

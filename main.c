@@ -46,8 +46,7 @@ void skipblock(FILE *f, char *desc){
 	psd_bytes_t n = get4B(f); // correct for PSB???
 	if(n){
 		fseeko(f, n, SEEK_CUR);
-		VERBOSE(LL_L("  ...skipped %s (%lld bytes)\n",
-					 "  ...skipped %s (%ld bytes)\n"), desc, n);
+		VERBOSE("  ...skipped %s (" LL_L("%lld","%ld") " bytes)\n", desc, n);
 	}else
 		VERBOSE("  (%s is empty)\n",desc);
 }
@@ -60,7 +59,8 @@ void dumprow(unsigned char *b, long n, int group){
 		if(group && !(k % group)) VERBOSE(" ");
 		VERBOSE("%02x",b[k]);
 	}
-	if(n>m) VERBOSE(" ...%ld more",group ? (n-m)/group : n-m);
+	if(n > m)
+		VERBOSE(" ...%ld more", group ? (n-m)/group : n-m);
 	VERBOSE("\n");
 }
 
@@ -78,12 +78,10 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 
 	if(li){
 		chlen = li->chlengths[idx];
-		VERBOSE(LL_L(">>> dochannel %d/%d filepos=%7lld bytes=%7lld\n",
-					 ">>> dochannel %d/%d filepos=%7ld bytes=%7ld\n"),
+		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld bytes=%7lld\n","%7ld bytes=%7ld\n"),
 				idx, channels, chpos, chlen);
 	}else
-		VERBOSE(LL_L(">>> dochannel %d/%d filepos=%7lld\n",
-					 ">>> dochannel %d/%d filepos=%7ld\n"),
+		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld\n","%7ld\n"),
 				idx, channels, chpos);
 
 	if(li && chlen < 2){
@@ -111,16 +109,14 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n",comptype[comp]);
 		}else{
-			alwayswarn(LL_L("## skipping channel (%lld bytes)\n",
-							"## skipping channel (%ld bytes)\n"),chlen);
+			alwayswarn("## skipping channel (" LL_L("%lld","%ld") " bytes)\n", chlen);
 			fseeko(f, chlen, SEEK_CUR);
 			return -1;
 		}
 	}else
 		VERBOSE("    compression = %d (%s)\n",comp,comptype[comp]);
-	VERBOSE(LL_L("    uncompressed size %lld bytes (row bytes = %lld)\n",
-				 "    uncompressed size %ld bytes (row bytes = %ld)\n"),
-			channels*rows*rb, rb);
+	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
+			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*rows*rb, rb);
 
 	rowbuf = checkmalloc(rb*2); /* slop for worst case RLE overhead (usually (rb/127+1) ) */
 	pos = chpos+2;
@@ -128,8 +124,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	if(comp == RLECOMP){
 		long rlecounts = (channels*rows) << h->version;
 		if(li && chlen < rlecounts)
-			alwayswarn(LL_L("## channel too short for RLE row counts (need %ld bytes, have %lld bytes)\n",
-							"## channel too short for RLE row counts (need %ld bytes, have %ld bytes)\n"),rlecounts,chlen);
+			alwayswarn("## channel too short for RLE row counts (need %ld bytes, have "
+					   LL_L("%lld","%ld") " bytes)\n", rlecounts, chlen);
 			
 		pos += rlecounts; /* image data starts after RLE counts */
 		rlebuf = checkmalloc(channels*rows*sizeof(psd_pixels_t));
@@ -163,8 +159,7 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	for(ch = k = 0; ch < channels; ++ch){
 		
 		//if(channels>1)
-		VERBOSE(LL_L("\n    channel %d (@ %7lld):\n",
-					 "\n    channel %d (@ %7ld):\n"), ch, (psd_bytes_t)ftello(f));
+		VERBOSE("\n    channel %d (@ " LL_L("%7lld):\n","%7ld):\n"), ch, (psd_bytes_t)ftello(f));
 
 		for(j = 0; j < rows; ++j){
 			if(rows > 3*CONTEXTROWS){
@@ -208,9 +203,8 @@ int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
 	}
 	
 	if(li && ftello(f) != (chpos+2+chlen)){
-		alwayswarn(LL_L("### currentpos = %lld, should be %lld !!\n",
-						"### currentpos = %ld, should be %ld !!\n"),
-				   ftello(f), chpos+2+chlen);
+		alwayswarn("### currentpos = " LL_L("%lld, should be %lld !!\n",
+				   "%ld, should be %ld !!\n"), ftello(f), chpos+2+chlen);
 		fseeko(f, chpos+2+chlen, SEEK_SET);
 	}
 
@@ -235,9 +229,13 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 		strcpy(pngname,name);
 		ch = li ? li->chid[startchan + i] : startchan + i;
 		if(ch == -2){
-			if(xml)
-				fprintf(xml,"\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld'>\n",
-						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols);
+			if(xml){
+				fprintf(xml,"\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
+						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols, li->mask.default_colour);
+				if(li->mask.flags & 1) fprintf(xml,"\t\t\t<POSITIONRELATIVE />\n");
+				if(li->mask.flags & 2) fprintf(xml,"\t\t\t<DISABLED />\n");
+				if(li->mask.flags & 4) fprintf(xml,"\t\t\t<INVERT />\n");
+			}
 			strcat(pngname,".lmask");
 			// layer mask channel is a special case, gets its own dimensions
 			rows = li->mask.rows;
@@ -393,13 +391,66 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
+void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm){
+	static struct dictentry bmdict[] = {
+		{0, "norm", "NORMAL", "normal", NULL},
+		{0, "dark", "DARKEN", "darken", NULL},
+		{0, "lite", "LIGHTEN", "lighten", NULL},
+		{0, "hue ", "HUE", "hue", NULL},
+		{0, "sat ", "SATURATION", "saturation", NULL},
+		{0, "colr", "COLOR", "color", NULL},
+		{0, "lum ", "LUMINOSITY", "luminosity", NULL},
+		{0, "mul ", "MULTIPLY", "multiply", NULL},
+		{0, "scrn", "SCREEN", "screen", NULL},
+		{0, "diss", "DISSOLVE", "dissolve", NULL},
+		{0, "over", "OVERLAY", "overlay", NULL},
+		{0, "hLit", "HARDLIGHT", "hard light", NULL},
+		{0, "sLit", "SOFTLIGHT", "soft light", NULL},
+		{0, "diff", "DIFFERENCE", "difference", NULL},
+		{0, "smud", "EXCLUSION", "exclusion", NULL},
+		{0, "div ", "COLORDODGE", "color dodge", NULL},
+		{0, "idiv", "COLORBURN", "color burn", NULL},
+		// CS
+		{0, "lbrn", "LINEARBURN", "linear burn", NULL},
+		{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
+		{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
+		{0, "lLit", "LINEARLIGHT", "linear light", NULL},
+		{0, "pLit", "PINLIGHT", "pin light", NULL},
+		{0, "hMix", "HARDMIX", "hard mix", NULL},
+		{0, NULL, NULL, NULL, NULL}
+	};
+	struct dictentry *d = NULL;
+	const char *indent = tabs(level);
+
+	if(!memcmp(bm->sig, "8BIM", 4) && printxml){
+		fprintf(xml, "%s<BLENDINGMODE OPACITY='%g' CLIPPING='%d'>\n",
+				indent, bm->opacity/2.55, bm->clipping);
+		d = findbykey(f, level+1, bmdict, bm->key, printxml);
+		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
+		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
+		if((bm->flags & (8|16)) == (8|16))  // both bits set
+			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
+		fprintf(xml, "%s</BLENDINGMODE>\n", indent);
+	}
+	if(!printxml){
+		d = findbykey(f, 0, bmdict, bm->key, 0);
+		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
+                 flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
+				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
+				bm->key[0],bm->key[1],bm->key[2],bm->key[3],
+				d ? d->desc : "???",
+				bm->opacity, (bm->opacity*100+127)/255,
+				bm->clipping, bm->clipping ? "non-base" : "base",
+				bm->flags, BITSTR(bm->flags&1), BITSTR(bm->flags&2), BITSTR(bm->flags&8), BITSTR(bm->flags&16) );
+	}
+}
+
 void dolayermaskinfo(FILE *f, struct psd_header *h){
-	psd_bytes_t layerlen, misclen, chlen, skip, extralen;
+	psd_bytes_t layerlen, misclen, chlen, skip, extralen, k;
 	psd_bytes_t miscstart, extrastart;
 	int nlayers, i, j, chid, namelen;
 	struct layer_info *linfo;
 	char *chidstr, tmp[10];
-	struct blend_mode_info bm;
 
 	if( (misclen = GETPSDBYTES(f)) ){
 		miscstart = ftello(f);
@@ -473,31 +524,24 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 							else
 								chidstr = ""; // can't explain it
 						}
-						VERBOSE(LL_L("    channel %2d: %7lld bytes, id=%2d %s\n",
-									 "    channel %2d: %7ld bytes, id=%2d %s\n"),
+						VERBOSE("    channel %2d: " LL_L("%7lld","%7ld") " bytes, id=%2d %s\n",
 								j, chlen, chid, chidstr);
 					}
+
+					fread(linfo[i].blend.sig,1,4,f);
+					fread(linfo[i].blend.key,1,4,f);
+					linfo[i].blend.opacity = fgetc(f);
+					linfo[i].blend.clipping = fgetc(f);
+					linfo[i].blend.flags = fgetc(f);
+					fgetc(f); // padding
 	
-					fread(bm.sig,1,4,f);
-					fread(bm.key,1,4,f);
-					bm.opacity = fgetc(f);
-					bm.clipping = fgetc(f);
-					bm.flags = fgetc(f);
-					bm.filler = fgetc(f);
-					VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c' opacity=%d(%d%%) clipping=%d(%s)\n\
-	    flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_relevant%s)\n",
-							bm.sig[0],bm.sig[1],bm.sig[2],bm.sig[3],
-							bm.key[0],bm.key[1],bm.key[2],bm.key[3],
-							bm.opacity,(bm.opacity*100+127)/255,
-							bm.clipping,bm.clipping ? "non-base" : "base",
-							bm.flags, BITSTR(bm.flags&1),BITSTR(bm.flags&2),BITSTR(bm.flags&8),BITSTR(bm.flags&16) );
+					printblendmode(f, 0, 0, &linfo[i].blend);
 	
 					//skipblock(f,"layer info: extra data");
 					extralen = get4B(f);
 					extrastart = ftello(f);
-					VERBOSE(LL_L("  (extra data: %lld bytes @ %lld)\n",
-								 "  (extra data: %ld bytes @ %ld)\n"),
-							extralen, extrastart);
+					VERBOSE("  (extra data: " LL_L("%lld","%ld") " bytes @ "
+							LL_L("%lld","%ld") ")\n", extralen, extrastart);
 
 					// fetch layer mask data
 					if( (linfo[i].mask.size = get4B(f)) ){
@@ -564,6 +608,9 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
 							linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
 				}
+
+				if(xml) printblendmode(f, 2, 1, &linfo[i].blend);
+
 				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
 						linfo[i].channels, pixh, pixw, h);
 
@@ -585,16 +632,23 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 		// process global layer mask info section
 		skipblock(f,"global layer mask info");
 
-		skip = miscstart + misclen - ftello(f);
+		skip = k = miscstart + misclen - ftello(f);
 		if(extra){
-			// skip undocumented block before 'global'(?) 'extra data'
-			psd_bytes_t n = get2B(f); // I am guessing it's preceded by a count
-			fseeko(f, n, SEEK_CUR);
-			doextradata(f, 1, skip-2, 1);
+			// there's undocumented stuff right where we are, so
+			// skip ahead to find first signature. don't pass end of data block.
+			/*while(k >= 4){
+				if( (--k, fgetc(f) == '8') && (--k, fgetc(f) == 'B')
+				 && (--k, fgetc(f) == 'I') && (--k, fgetc(f) == 'M') )
+				{
+				warn("skipped %ld bytes BEFORE extra data", skip-k);
+					fseek(f, -4, SEEK_CUR); // ugly...arrange to re-read sig */
+					doextradata(f, 1, k, 1);
+			/*		break;
+				}
+			}*/
 		}else
 			if(skip)
-				warn(LL_L("skipped %lld bytes of extra data at the end of misc info",
-						  "skipped %ld bytes of extra data at the end of misc info"),skip);
+				warn("skipped " LL_L("%lld","%ld") " bytes of extra data at the end of misc info", skip);
 
 		fseeko(f, miscstart + misclen, SEEK_SET);
 		
@@ -625,8 +679,8 @@ int main(int argc,char *argv[]){
 
 	while( (opt = getopt_long(argc,argv,"hvqrewnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
-		case 'h':
-		default:  help = 1; break;
+		default:
+		case 'h': help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
 		case 'r': rsrc = 1; break;

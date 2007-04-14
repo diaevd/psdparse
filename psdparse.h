@@ -101,10 +101,19 @@ struct layer_mask_info{
 	long right;
 	char default_colour;
 	char flags;
-	//char reserved[2];
+	//char reserved[2]
 	
 	// runtime data
 	psd_pixels_t rows,cols;
+};
+
+struct blend_mode_info{
+	char sig[4];
+	char key[4];
+	unsigned char opacity;
+	unsigned char clipping;
+	unsigned char flags;
+	//unsigned char filler;
 };
 
 struct layer_info{
@@ -118,20 +127,12 @@ struct layer_info{
 	psd_bytes_t *chlengths; // array of channel lengths
 	int *chid;       // channel ids
 	int *chindex;    // lookup channel number by id (inverse of chid[])
+	struct blend_mode_info blend;
 	struct layer_mask_info mask;
 	char *name;
 	char *nameno; // "layerNN"
 	psd_bytes_t extradatapos;
 	psd_bytes_t extradatalen;
-};
-
-struct blend_mode_info{
-	char sig[4];
-	char key[4];
-	unsigned char opacity;
-	unsigned char clipping;
-	unsigned char flags;
-	unsigned char filler;
 };
 
 struct extra_data{
