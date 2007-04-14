@@ -635,8 +635,6 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 		skip = k = miscstart + misclen - ftello(f);
 		if(extra)
 			doextradata(f, 1, k, 1);
-		else if(skip)
-			warn("skipped " LL_L("%lld","%ld") " bytes of extra data after misc info", skip);
 
 		fseeko(f, miscstart + misclen, SEEK_SET);
 		

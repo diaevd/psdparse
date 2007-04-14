@@ -1,5 +1,5 @@
 #    This file is part of "psdparse"
-#    Copyright (C) 2004-6 Toby Thain, toby@telegraphics.com.au
+#    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by  
@@ -24,8 +24,19 @@
 #   manager like Fink, http://fink.sourceforge.net/), so we build it ourselves
 #   and static link to it.
 
+# QUICK BUILD INSTRUCTIONS FOR OS X
+
+# install Subversion from package at http://metissian.com/projects/macosx/subversion/
+# Then:
+#     curl http://superb-west.dl.sourceforge.net/sourceforge/libpng/libpng-1.2.16.tar.bz2 |tar -xjvf -
+#     curl http://www.zlib.net/zlib-1.2.3.tar.bz2 |tar -xjvf -
+#     svn checkout http://telegraphics.com.au/svn/psdparse/trunk psdparse
+#     cd psdparse
+#     make -f Makefile.osx
+
+
 # for OS X build, download and extract libpng archive, and define path to it:
-PNGDIR = ../libpng-1.2.15
+PNGDIR = ../libpng-1.2.16
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
 
 # The following line is only needed where libpng is typically not installed (OS X).
