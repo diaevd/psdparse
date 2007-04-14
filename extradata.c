@@ -469,33 +469,34 @@ void ed_layereffects(FILE *f, int level, int printxml, struct dictentry *parent)
 	}
 }
 
-void mdblock(FILE *f, int level){
+void mdblock(FILE *f, int level, int printxml){
 	char sig[4], key[4];
 	long len;
+	int copy;
 	const char *indent = tabs(level);
 
 	fread(sig, 1, 4, f);
 	fread(key, 1, 4, f);
-	fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,
-			sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3]);
-	fprintf(xml, "\t%s<COPY>%d</COPY>\n", indent, fgetc(f));
+	copy = fgetc(f);
 	fseek(f, 3, SEEK_CUR); // padding
 	len = get4B(f);
-	fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, len); // the documentation tells us that it's undocumented
-	fprintf(xml, "%s</METADATA>\n", indent);
+	if(printxml){
+		fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,
+				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3]);
+		fprintf(xml, "\t%s<COPY>%d</COPY>\n", indent, copy);
+		fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, len); // the documentation tells us that it's undocumented
+		fprintf(xml, "%s</METADATA>\n", indent);
+	}else
+		UNQUIET("    (Metadata: sig='%c%c%c%c' key='%c%c%c%c' %ld bytes)\n",
+				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3], len);
 }
 
 // v6 doc
 void ed_metadata(FILE *f, int level, int printxml, struct dictentry *parent){
-	//static struct dictentry fxdict[] = {
-	//	{0, NULL, NULL, NULL, NULL}
-	//};
-	int count;
+	long count;
 
-	if(printxml){
-		for(count = get4B(f); count--;)
-			mdblock(f, level);
-	}
+	for(count = get4B(f); count--;)
+		mdblock(f, level, printxml);
 }
 
 void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
