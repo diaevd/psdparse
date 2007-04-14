@@ -31,6 +31,7 @@
  */
 
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
+void ed_versdesc(FILE *f, int level, int printxml, struct dictentry *parent);
 
 void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
 	psd_bytes_t savepos = ftello(f);
@@ -81,6 +82,14 @@ struct dictentry *findbykey(FILE *f, int level, struct dictentry *parent, char *
 	return NULL;
 }
 
+void colorspace(FILE *f, int level){
+	int i;
+	fprintf(xml, "%s<COLOR SPACE='%d'>", tabs(level), get2B(f));
+	for(i = 0; i < 4; ++i)
+		fprintf(xml, " <C%d>%g</C%d>", i, get2Bu(f)/65535., i);
+	fputs(" </COLOR>\n", xml);
+}
+
 void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;
@@ -119,7 +128,7 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 				fprintf(xml, "%s</FACE>\n", indent);
 			}
 
-			j = get2B(f);
+			j = get2B(f); // count of styles
 			for(; j--;){
 				mark = get2B(f);
 				facemark = get2B(f);
@@ -165,8 +174,15 @@ void ed_typetool(FILE *f, int level, int printxml, struct dictentry *parent){
 				fputsxml(buf, xml);
 				fprintf(xml, "</STRING>\n%s\t</LINE>\n", indent);
 				free(buf);
+
 			}
+			colorspace(f, level);
+			fprintf(xml, "%s\t<ANTIALIAS>%d</ANTIALIAS>\n", indent, fgetc(f));
+
 			fprintf(xml, "%s</TEXT>\n", indent);
+		//}else if(v == 50){
+		//	ed_versdesc(f, level, printxml, parent); // text
+		//	ed_versdesc(f, level, printxml, parent); // warp
 		}else
 			fprintf(xml, "%s<!-- don't know how to parse this version -->\n", indent);
 	}else
@@ -217,19 +233,20 @@ void ed_annotation(FILE *f, int level, int printxml, struct dictentry *parent){
 		for(i = get4B(f); i--;){
 			len = get4B(f);
 			fread(type, 1, 4, f);
-			if(!memcmp(type, "txtA", 4))
-				fprintf(xml, "%s<TEXT", indent);
-			else if(!memcmp(type, "sndA", 4))
-				fprintf(xml, "%s<SOUND", indent);
-			else
-				fprintf(xml, "%s<UNKNOWN", indent);
 			open = fgetc(f);
 			flags = fgetc(f);
 			get2B(f); // optblocks
 			// read two rectangles - icon and popup
 			for(j = 0; j < 8;)
 				rects[j++] = get4B(f);
-			fseeko(f, 10, SEEK_CUR);
+			colorspace(f, level);
+
+			if(!memcmp(type, "txtA", 4))
+				fprintf(xml, "%s<TEXT", indent);
+			else if(!memcmp(type, "sndA", 4))
+				fprintf(xml, "%s<SOUND", indent);
+			else
+				fprintf(xml, "%s<UNKNOWN", indent);
 			fprintf(xml, " OPEN='%d' FLAGS='%d' AUTHOR='", open, flags);
 			fputsxml(getpstr2(f), xml);
 			fputs("' NAME='", xml);
@@ -323,8 +340,8 @@ int sigkeyblock(FILE *f, int level, int printxml, struct dictentry *dict){
 		if(!printxml)
 			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
 					key[0],key[1],key[2],key[3], len);
-		d = findbykey(f, level, dict, key, printxml);
-		if(d && !d->func && !printxml) // there is no function to parse this block
+		if(dict && (d = findbykey(f, level, dict, key, printxml)) && !d->func && !printxml)
+			// there is no function to parse this block
 			UNQUIET("    (data: %s)\n", d->desc);
 		fseeko(f, len, SEEK_CUR);
 		return len + 12; // return number of bytes consumed
@@ -349,11 +366,12 @@ void fx_shadow(FILE *f, int level, int printxml, struct dictentry *parent){
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f))); // they're trying to make it more interesting for
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));         // implementors, I guess, by setting little puzzles
 		fprintf(xml, "%s<DISTANCE>%g</DISTANCE>\n", indent, FIXEDPT(get4B(f)));   // "pit yourself against our documentation!"
-		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		colorspace(f, level);
+		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55); // doc implies this is a percentage; it's not, it's 0-255 as usual
-		//fseek(f, 10, SEEK_CUR); // 'native colour'
+		colorspace(f, level);
 	}
 }
 
@@ -364,10 +382,11 @@ void fx_outerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
-		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		colorspace(f, level);
+		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
-		//fseek(f, 10, SEEK_CUR); // 'native colour'
+		colorspace(f, level);
 	}
 }
 
@@ -379,12 +398,13 @@ void fx_innerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
-		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		colorspace(f, level);
+		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		if(version==2)
 			fprintf(xml, "%s<INVERT>%d</INVERT>\n", indent, fgetc(f));
-		//fseek(f, 10, SEEK_CUR); // 'native colour'
+		colorspace(f, level);
 	}
 }
 
@@ -397,15 +417,19 @@ void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<STRENGTH>%g</STRENGTH>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
-		fseek(f, 8+8+10+10, SEEK_CUR); // FIXME: process blend modes later
+		fseek(f, 8+8, SEEK_CUR); // FIXME: process blend modes later
+		colorspace(f, level);
+		colorspace(f, level);
 		fprintf(xml, "%s<STYLE>%d</STYLE>\n", indent, fgetc(f));
 		fprintf(xml, "%s<HIGHLIGHTOPACITY>%g</HIGHLIGHTOPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<SHADOWOPACITY>%g</SHADOWOPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
 		fprintf(xml, "%s<UPDOWN>%d</UPDOWN>\n", indent, fgetc(f)); // heh, interpretation is undocumented
-		//if(version==2)
-			//fseek(f, 10+10, SEEK_CUR); // 'real colour'
+		if(version==2){
+			colorspace(f, level);
+			colorspace(f, level);
+		}
 	}
 }
 
@@ -415,10 +439,11 @@ void fx_solidfill(FILE *f, int level, int printxml, struct dictentry *parent){
 	long version;
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
-		fseek(f, 4+10, SEEK_CUR); // FIXME: process blend modes later
+		get4B(f); // FIXME: process blend modes later
+		colorspace(f, level);
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
-		//fseek(f, 10+10, SEEK_CUR); // 'native colour'
+		colorspace(f, level);
 	}
 }
 
@@ -441,6 +466,35 @@ void ed_layereffects(FILE *f, int level, int printxml, struct dictentry *parent)
 		for(count = get2B(f); count--;)
 			if(!sigkeyblock(f, level, printxml, fxdict))
 				break; // got bad signature
+	}
+}
+
+void mdblock(FILE *f, int level){
+	char sig[4], key[4];
+	long len;
+	const char *indent = tabs(level);
+
+	fread(sig, 1, 4, f);
+	fread(key, 1, 4, f);
+	fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,
+			sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3]);
+	fprintf(xml, "\t%s<COPY>%d</COPY>\n", indent, fgetc(f));
+	fseek(f, 3, SEEK_CUR); // padding
+	len = get4B(f);
+	fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, len); // the documentation tells us that it's undocumented
+	fprintf(xml, "%s</METADATA>\n", indent);
+}
+
+// v6 doc
+void ed_metadata(FILE *f, int level, int printxml, struct dictentry *parent){
+	//static struct dictentry fxdict[] = {
+	//	{0, NULL, NULL, NULL, NULL}
+	//};
+	int count;
+
+	if(printxml){
+		for(count = get4B(f); count--;)
+			mdblock(f, level);
 	}
 }
 
@@ -483,7 +537,7 @@ void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
 		{0, "ffxi", "-FOREIGNEFFECTID", "Foreign effect ID", ed_long}, // CS doc (this is probably a key too, who knows)
 		{0, "lnsr", "-LAYERNAMESOURCE", "Layer name source", ed_key}, // CS doc (who knew this was a signature? docs fail again - and what do the values mean?)
 		{0, "shpa", "PATTERNDATA", "Pattern data", NULL}, // CS doc
-		{0, "shmd", "METADATASETTING", "Metadata setting", NULL}, // CS doc
+		{0, "shmd", "METADATASETTING", "Metadata setting", ed_metadata}, // CS doc
 		{0, "brst", "BLENDINGRESTRICTIONS", "Channel blending restrictions", NULL}, // CS doc
 		// v7.0
 		{0, "lyvr", "-LAYERVERSION", "Layer version", ed_long}, // CS doc
