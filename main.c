@@ -391,34 +391,35 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
+struct dictentry bmdict[] = {
+	{0, "norm", "NORMAL", "normal", NULL},
+	{0, "dark", "DARKEN", "darken", NULL},
+	{0, "lite", "LIGHTEN", "lighten", NULL},
+	{0, "hue ", "HUE", "hue", NULL},
+	{0, "sat ", "SATURATION", "saturation", NULL},
+	{0, "colr", "COLOR", "color", NULL},
+	{0, "lum ", "LUMINOSITY", "luminosity", NULL},
+	{0, "mul ", "MULTIPLY", "multiply", NULL},
+	{0, "scrn", "SCREEN", "screen", NULL},
+	{0, "diss", "DISSOLVE", "dissolve", NULL},
+	{0, "over", "OVERLAY", "overlay", NULL},
+	{0, "hLit", "HARDLIGHT", "hard light", NULL},
+	{0, "sLit", "SOFTLIGHT", "soft light", NULL},
+	{0, "diff", "DIFFERENCE", "difference", NULL},
+	{0, "smud", "EXCLUSION", "exclusion", NULL},
+	{0, "div ", "COLORDODGE", "color dodge", NULL},
+	{0, "idiv", "COLORBURN", "color burn", NULL},
+	// CS
+	{0, "lbrn", "LINEARBURN", "linear burn", NULL},
+	{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
+	{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
+	{0, "lLit", "LINEARLIGHT", "linear light", NULL},
+	{0, "pLit", "PINLIGHT", "pin light", NULL},
+	{0, "hMix", "HARDMIX", "hard mix", NULL},
+	{0, NULL, NULL, NULL, NULL}
+};
+
 void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm){
-	static struct dictentry bmdict[] = {
-		{0, "norm", "NORMAL", "normal", NULL},
-		{0, "dark", "DARKEN", "darken", NULL},
-		{0, "lite", "LIGHTEN", "lighten", NULL},
-		{0, "hue ", "HUE", "hue", NULL},
-		{0, "sat ", "SATURATION", "saturation", NULL},
-		{0, "colr", "COLOR", "color", NULL},
-		{0, "lum ", "LUMINOSITY", "luminosity", NULL},
-		{0, "mul ", "MULTIPLY", "multiply", NULL},
-		{0, "scrn", "SCREEN", "screen", NULL},
-		{0, "diss", "DISSOLVE", "dissolve", NULL},
-		{0, "over", "OVERLAY", "overlay", NULL},
-		{0, "hLit", "HARDLIGHT", "hard light", NULL},
-		{0, "sLit", "SOFTLIGHT", "soft light", NULL},
-		{0, "diff", "DIFFERENCE", "difference", NULL},
-		{0, "smud", "EXCLUSION", "exclusion", NULL},
-		{0, "div ", "COLORDODGE", "color dodge", NULL},
-		{0, "idiv", "COLORBURN", "color burn", NULL},
-		// CS
-		{0, "lbrn", "LINEARBURN", "linear burn", NULL},
-		{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
-		{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
-		{0, "lLit", "LINEARLIGHT", "linear light", NULL},
-		{0, "pLit", "PINLIGHT", "pin light", NULL},
-		{0, "hMix", "HARDMIX", "hard mix", NULL},
-		{0, NULL, NULL, NULL, NULL}
-	};
 	struct dictentry *d = NULL;
 	const char *indent = tabs(level);
 
@@ -580,11 +581,11 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					fseeko(f, extrastart+extralen, SEEK_SET);
 				}
 			}
-      
-      		// loop over each layer described by layer info section,
-      		// spit out a line in asset list if requested, and call
-      		// doimage() to process its image data
-      
+
+			// loop over each layer described by layer info section,
+			// spit out a line in asset list if requested, and call
+			// doimage() to process its image data
+
 			if(listfile) fputs("assetlist = {\n",listfile);
 				
 			for(i = 0; i < nlayers; ++i){
@@ -622,7 +623,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					doextradata(f, 2, linfo[i].extradatalen, 1);
 					fseeko(f, savepos, SEEK_SET); // restore file position
 				}
-				if(xml) fputs("\t</LAYER>\n",xml);
+				if(xml) fputs("\t</LAYER>\n\n",xml);
 			}
 
 			if(listfile) fputs("}\n",listfile);

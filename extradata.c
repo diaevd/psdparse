@@ -350,6 +350,24 @@ int sigkeyblock(FILE *f, int level, int printxml, struct dictentry *dict){
 }
 
 // CS doc
+void blendmode(FILE *f, int level, int printxml, struct dictentry *parent){
+	extern struct dictentry bmdict[];
+	char sig[4], key[4];
+
+	if(printxml){
+		fread(sig, 1, 4, f);
+		fread(key, 1, 4, f);
+		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
+		if(!memcmp(sig, "8BIM", 4)){
+			findbykey(f, level+1, bmdict, key, printxml);
+		}else
+			fprintf(xml, "%s<UNKNOWN KEY='%c%c%c%c' />\n",
+					tabs(level+1), key[0],key[1],key[2],key[3]);
+		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
+	}
+}
+
+// CS doc
 void fx_commonstate(FILE *f, int level, int printxml, struct dictentry *parent){
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
@@ -360,6 +378,7 @@ void fx_commonstate(FILE *f, int level, int printxml, struct dictentry *parent){
 // CS doc
 void fx_shadow(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
+
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f))); // this is fixed point, but you wouldn't know it from the doc
@@ -367,7 +386,7 @@ void fx_shadow(FILE *f, int level, int printxml, struct dictentry *parent){
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));         // implementors, I guess, by setting little puzzles
 		fprintf(xml, "%s<DISTANCE>%g</DISTANCE>\n", indent, FIXEDPT(get4B(f)));   // "pit yourself against our documentation!"
 		colorspace(f, level);
-		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
+		blendmode(f, level, printxml, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55); // doc implies this is a percentage; it's not, it's 0-255 as usual
@@ -378,12 +397,13 @@ void fx_shadow(FILE *f, int level, int printxml, struct dictentry *parent){
 // CS doc
 void fx_outerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
+
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
 		colorspace(f, level);
-		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
+		blendmode(f, level, printxml, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		colorspace(f, level);
@@ -394,12 +414,13 @@ void fx_outerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 void fx_innerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
+
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
 		colorspace(f, level);
-		fseek(f, 8, SEEK_CUR); // FIXME: process blend mode later
+		blendmode(f, level, printxml, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		if(version==2)
@@ -412,12 +433,14 @@ void fx_innerglow(FILE *f, int level, int printxml, struct dictentry *parent){
 void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
+
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<STRENGTH>%g</STRENGTH>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
-		fseek(f, 8+8, SEEK_CUR); // FIXME: process blend modes later
+		blendmode(f, level, printxml, parent);
+		blendmode(f, level, printxml, parent);
 		colorspace(f, level);
 		colorspace(f, level);
 		fprintf(xml, "%s<STYLE>%d</STYLE>\n", indent, fgetc(f));
@@ -435,11 +458,17 @@ void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
 
 // CS doc
 void fx_solidfill(FILE *f, int level, int printxml, struct dictentry *parent){
+	extern struct dictentry bmdict[];
 	const char *indent = tabs(level);
+	char bmkey[4];
 	long version;
+
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
-		get4B(f); // FIXME: process blend modes later
+		fread(bmkey, 1, 4, f);
+		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
+		findbykey(f, level+1, bmdict, bmkey, printxml);
+		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
 		colorspace(f, level);
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));

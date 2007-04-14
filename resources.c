@@ -180,7 +180,7 @@ static long doirb(FILE *f){
 		if(d->func){
 			fputs(">\n", xml);
 			entertag(f, 2, 1, &resource, d);
-			fputs("\t</RESOURCE>\n", xml);
+			fputs("\t</RESOURCE>\n\n", xml);
 		}else{
 			fputs(" />\n", xml);
 		}
