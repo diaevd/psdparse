@@ -27,7 +27,7 @@
  * due to many errors and omissions in Adobe's documentation on this (PS6 SDK).
  * It's amazing that they would try to describe a hierarchical format
  * as a flat list of fields. Reminds me of Jasc's PSP format docs, too.
- * One assumes they don't really encourage people to try and USE the info.
+ * One must assume they don't encourage people to try and USE the info.
  */
 
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
@@ -311,8 +311,140 @@ void ed_objecteffects(FILE *f, int level, int printxml, struct dictentry *parent
 	ed_versdesc(f, level, printxml, parent);
 }
 
+int sigkeyblock(FILE *f, int level, int printxml, struct dictentry *dict){
+	char sig[4], key[4];
+	long len;
+	struct dictentry *d;
+
+	fread(sig, 1, 4, f);
+	fread(key, 1, 4, f);
+	len = get4B(f);
+	if(!memcmp(sig, "8BIM", 4)){
+		if(!printxml)
+			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
+					key[0],key[1],key[2],key[3], len);
+		d = findbykey(f, level, dict, key, printxml);
+		if(d && !d->func && !printxml) // there is no function to parse this block
+			UNQUIET("    (data: %s)\n", d->desc);
+		fseeko(f, len, SEEK_CUR);
+		return len + 12; // return number of bytes consumed
+	}
+	return 0; // bad signature
+}
+
+// CS doc
+void fx_commonstate(FILE *f, int level, int printxml, struct dictentry *parent){
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VISIBLE>%d</VISIBLE>\n", tabs(level), fgetc(f));
+	}
+}
+
+// CS doc
+void fx_shadow(FILE *f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f))); // this is fixed point, but you wouldn't know it from the doc
+		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f))); // they're trying to make it more interesting for
+		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));         // implementors, I guess, by setting little puzzles
+		fprintf(xml, "%s<DISTANCE>%g</DISTANCE>\n", indent, FIXEDPT(get4B(f)));   // "pit yourself against our documentation!"
+		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
+		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55); // doc implies this is a percentage; it's not, it's 0-255 as usual
+		//fseek(f, 10, SEEK_CUR); // 'native colour'
+	}
+}
+
+// CS doc
+void fx_outerglow(FILE *f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
+		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
+		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
+		//fseek(f, 10, SEEK_CUR); // 'native colour'
+	}
+}
+
+// CS doc
+void fx_innerglow(FILE *f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	long version;
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
+		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
+		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
+		fseek(f, 10+8, SEEK_CUR); // FIXME: process blend mode later
+		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
+		if(version==2)
+			fprintf(xml, "%s<INVERT>%d</INVERT>\n", indent, fgetc(f));
+		//fseek(f, 10, SEEK_CUR); // 'native colour'
+	}
+}
+
+// CS doc
+void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	long version;
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
+		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));
+		fprintf(xml, "%s<STRENGTH>%g</STRENGTH>\n", indent, FIXEDPT(get4B(f)));
+		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
+		fseek(f, 8+8+10+10, SEEK_CUR); // FIXME: process blend modes later
+		fprintf(xml, "%s<STYLE>%d</STYLE>\n", indent, fgetc(f));
+		fprintf(xml, "%s<HIGHLIGHTOPACITY>%g</HIGHLIGHTOPACITY>\n", indent, fgetc(f)/2.55);
+		fprintf(xml, "%s<SHADOWOPACITY>%g</SHADOWOPACITY>\n", indent, fgetc(f)/2.55);
+		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
+		fprintf(xml, "%s<UPDOWN>%d</UPDOWN>\n", indent, fgetc(f)); // heh, interpretation is undocumented
+		//if(version==2)
+			//fseek(f, 10+10, SEEK_CUR); // 'real colour'
+	}
+}
+
+// CS doc
+void fx_solidfill(FILE *f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	long version;
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
+		fseek(f, 4+10, SEEK_CUR); // FIXME: process blend modes later
+		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
+		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
+		//fseek(f, 10+10, SEEK_CUR); // 'native colour'
+	}
+}
+
+// CS doc
+void ed_layereffects(FILE *f, int level, int printxml, struct dictentry *parent){
+	static struct dictentry fxdict[] = {
+		{0, "cmnS", "COMMONSTATE", "common state", fx_commonstate},
+		{0, "dsdw", "DROPSHADOW", "drop shadow", fx_shadow},
+		{0, "isdw", "INNERSHADOW", "inner shadow", fx_shadow},
+		{0, "oglw", "OUTERGLOW", "outer glow", fx_outerglow},
+		{0, "iglw", "INNERGLOW", "inner glow", fx_innerglow},
+		{0, "bevl", "BEVEL", "bevel", fx_bevel},
+		{0, "sofi", "SOLIDFILL", "solid fill", fx_solidfill}, // Photoshop 7.0
+		{0, NULL, NULL, NULL, NULL}
+	};
+	int count;
+
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get2B(f));
+		for(count = get2B(f); count--;)
+			if(!sigkeyblock(f, level, printxml, fxdict))
+				break; // got bad signature
+	}
+}
+
 void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
-	struct extra_data extra;
 	static struct dictentry extradict[] = {
 		// v4.0
 		{0, "levl", "LEVELS", "Levels", NULL},
@@ -326,7 +458,7 @@ void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
 		{0, "nvrt", "INVERT", "Invert", NULL},
 		{0, "post", "POSTERIZE", "Posterize", NULL},
 		// v5.0
-		{0, "lrFX", "EFFECT", "Effects layer", NULL},
+		{0, "lrFX", "EFFECT", "Effects layer", ed_layereffects},
 		{0, "tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
 		{0, "luni", "-UNICODENAME", "Unicode layer name", ed_unicodename},
 		{0, "lyid", "-LAYERID", "Layer ID", ed_long}, // '-' prefix means keep tag value on one line
@@ -363,25 +495,13 @@ void doextradata(FILE *f, int level, psd_bytes_t length, int printxml){
 		{0, "phfl", "PHOTOFILTER", "Photo Filter", NULL}, // CS doc
 		{0, NULL, NULL, NULL, NULL}
 	};
-	struct dictentry *d;
 
 	while(length >= 12){
-		fread(extra.sig, 1, 4, f);
-		fread(extra.key, 1, 4, f);
-		extra.length = get4B(f);
-		if(!memcmp(extra.sig, "8BIM", 4)){
-			if(!printxml)
-				VERBOSE("    extra data: key='%c%c%c%c' length=" LL_L("%5lld","%5ld\n"),
-						extra.key[0],extra.key[1],extra.key[2],extra.key[3], extra.length);
-			d = findbykey(f, level, extradict, extra.key, printxml);
-			if(d && !d->func && !printxml) // there is no function to parse this block
-				UNQUIET("    (%s data)\n", d->desc);
-			fseeko(f, extra.length, SEEK_CUR);
-		}
-		else{
+		psd_bytes_t block = sigkeyblock(f, level, printxml, extradict);
+		if(!block){
 			warn("bad signature in layer's extra data, skipping the rest");
 			break;
 		}
-		length -= 12 + extra.length;
+		length -= block;
 	}
 }

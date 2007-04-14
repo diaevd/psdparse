@@ -633,22 +633,10 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 		skipblock(f,"global layer mask info");
 
 		skip = k = miscstart + misclen - ftello(f);
-		if(extra){
-			// there's undocumented stuff right where we are, so
-			// skip ahead to find first signature. don't pass end of data block.
-			/*while(k >= 4){
-				if( (--k, fgetc(f) == '8') && (--k, fgetc(f) == 'B')
-				 && (--k, fgetc(f) == 'I') && (--k, fgetc(f) == 'M') )
-				{
-				warn("skipped %ld bytes BEFORE extra data", skip-k);
-					fseek(f, -4, SEEK_CUR); // ugly...arrange to re-read sig */
-					doextradata(f, 1, k, 1);
-			/*		break;
-				}
-			}*/
-		}else
-			if(skip)
-				warn("skipped " LL_L("%lld","%ld") " bytes of extra data at the end of misc info", skip);
+		if(extra)
+			doextradata(f, 1, k, 1);
+		else if(skip)
+			warn("skipped " LL_L("%lld","%ld") " bytes of extra data after misc info", skip);
 
 		fseeko(f, miscstart + misclen, SEEK_SET);
 		
@@ -750,9 +738,11 @@ int main(int argc,char *argv[]){
 					if(xml){
 						fputs("<PSD FILE='",xml);
 						fputsxml(argv[i],xml);
-						fprintf(xml,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d' MODENAME='%s'>\n",
-								h.version,h.channels,h.rows,h.cols,h.depth,h.mode,
-								h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "unknown");
+						fprintf(xml,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d'",
+								h.version,h.channels,h.rows,h.cols,h.depth,h.mode);
+						if(h.mode >= 0 && h.mode < 16)
+							fprintf(xml, " MODENAME='%s'", mode_names[h.mode]);
+						fputs(">\n", xml);
 					}
 					UNQUIET("  PS%c (version %d), %d channels, %ld rows x %ld cols, %d bit %s\n",
 							h.version == 1 ? 'D' : 'B', h.version, h.channels, h.rows, h.cols, h.depth,
@@ -770,7 +760,7 @@ int main(int argc,char *argv[]){
 						else
 							skipblock(f,"image resources");
 	
-						dolayermaskinfo(f,&h); //skipblock(f,"layer & mask info");
+						dolayermaskinfo(f,&h);
 		
 						// now process image data
 						base = strrchr(argv[i],DIRSEP);
