@@ -168,9 +168,12 @@ int get2B(FILE *f);
 unsigned get2Bu(FILE *f);
 const char *tabs(int n);
 
+int dopsd(FILE *f, char *fname);
+
 void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
 struct dictentry *findbykey(FILE *f, int level, struct dictentry *dict, char *key, int printxml);
 void doextradata(FILE *f, int level, psd_bytes_t length, int printxml);
+void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm);
 
 void descriptor(FILE *f, int level, int printxml, struct dictentry *dict);
 

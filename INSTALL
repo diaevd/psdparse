@@ -18,23 +18,32 @@ Mac OS X users: the Developer Tools must be installed
 (see the CDs that came with your Mac, or download from 
 http://developer.apple.com/tools/download/).
 
+QUICK BUILD INSTRUCTIONS FOR OS X
+
+Install Subversion from package at http://metissian.com/projects/macosx/subversion/
+Then:
+	$ curl http://superb-west.dl.sourceforge.net/sourceforge/libpng/libpng-1.2.16.tar.bz2 |tar -xjvf -
+	$ curl http://www.zlib.net/zlib-1.2.3.tar.bz2 |tar -xjvf -
+	$ svn checkout http://telegraphics.com.au/svn/psdparse/trunk psdparse
+	$ cd psdparse
+	$ make -f Makefile.osx
 
 1. build using the supplied Makefile:
-	# make -f Makefile.osx
+	$ make -f Makefile.osx
 	
 The supplied Makefile is the easiest way to CROSS-build the Win32 programs,
 if you have MinGW installed;
-	# make -f Makefile.osx exe
+	$ make -f Makefile.osx exe
 
 It's also an easy way to build on OS X (unless you have already installed libpng).
 See the Makefile for more information and prerequisites.
 	
 OR 
 2. you can use the conventional GNU 'configure' method (experimental for now):
-	# ./configure
-	# make
+	$ ./configure
+	$ make
 and to put the program in a usual install directory:
-	# make install
+	$ make install
 
 (This should also work for Cygwin, but is untested.)
 

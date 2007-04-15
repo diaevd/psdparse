@@ -30,6 +30,8 @@
  * One must assume they don't encourage people to try and USE the info.
  */
 
+#define BITSTR(f) ((f) ? "(1)" : "(0)")
+
 extern void ed_descriptor(FILE *f, int level, int printxml, struct dictentry *parent);
 void ed_versdesc(FILE *f, int level, int printxml, struct dictentry *parent);
 
@@ -349,9 +351,63 @@ int sigkeyblock(FILE *f, int level, int printxml, struct dictentry *dict){
 	return 0; // bad signature
 }
 
+static struct dictentry bmdict[] = {
+	{0, "norm", "NORMAL", "normal", NULL},
+	{0, "dark", "DARKEN", "darken", NULL},
+	{0, "lite", "LIGHTEN", "lighten", NULL},
+	{0, "hue ", "HUE", "hue", NULL},
+	{0, "sat ", "SATURATION", "saturation", NULL},
+	{0, "colr", "COLOR", "color", NULL},
+	{0, "lum ", "LUMINOSITY", "luminosity", NULL},
+	{0, "mul ", "MULTIPLY", "multiply", NULL},
+	{0, "scrn", "SCREEN", "screen", NULL},
+	{0, "diss", "DISSOLVE", "dissolve", NULL},
+	{0, "over", "OVERLAY", "overlay", NULL},
+	{0, "hLit", "HARDLIGHT", "hard light", NULL},
+	{0, "sLit", "SOFTLIGHT", "soft light", NULL},
+	{0, "diff", "DIFFERENCE", "difference", NULL},
+	{0, "smud", "EXCLUSION", "exclusion", NULL},
+	{0, "div ", "COLORDODGE", "color dodge", NULL},
+	{0, "idiv", "COLORBURN", "color burn", NULL},
+	// CS
+	{0, "lbrn", "LINEARBURN", "linear burn", NULL},
+	{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
+	{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
+	{0, "lLit", "LINEARLIGHT", "linear light", NULL},
+	{0, "pLit", "PINLIGHT", "pin light", NULL},
+	{0, "hMix", "HARDMIX", "hard mix", NULL},
+	{0, NULL, NULL, NULL, NULL}
+};
+
+void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm){
+	struct dictentry *d = NULL;
+	const char *indent = tabs(level);
+
+	if(!memcmp(bm->sig, "8BIM", 4) && printxml){
+		fprintf(xml, "%s<BLENDINGMODE OPACITY='%g' CLIPPING='%d'>\n",
+				indent, bm->opacity/2.55, bm->clipping);
+		d = findbykey(f, level+1, bmdict, bm->key, printxml);
+		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
+		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
+		if((bm->flags & (8|16)) == (8|16))  // both bits set
+			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
+		fprintf(xml, "%s</BLENDINGMODE>\n", indent);
+	}
+	if(!printxml){
+		d = findbykey(f, 0, bmdict, bm->key, 0);
+		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
+                 flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
+				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
+				bm->key[0],bm->key[1],bm->key[2],bm->key[3],
+				d ? d->desc : "???",
+				bm->opacity, (bm->opacity*100+127)/255,
+				bm->clipping, bm->clipping ? "non-base" : "base",
+				bm->flags, BITSTR(bm->flags&1), BITSTR(bm->flags&2), BITSTR(bm->flags&8), BITSTR(bm->flags&16) );
+	}
+}
+
 // CS doc
 void blendmode(FILE *f, int level, int printxml, struct dictentry *parent){
-	extern struct dictentry bmdict[];
 	char sig[4], key[4];
 
 	if(printxml){
@@ -458,7 +514,6 @@ void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
 
 // CS doc
 void fx_solidfill(FILE *f, int level, int printxml, struct dictentry *parent){
-	extern struct dictentry bmdict[];
 	const char *indent = tabs(level);
 	char bmkey[4];
 	long version;
