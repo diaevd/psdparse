@@ -170,3 +170,32 @@ const char *tabs(int n){
 	static const char forty[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 	return forty + (sizeof(forty) - 1 - n);
 }
+
+// construct the destination filename, and create enclosing directories
+// as needed (and if requested).
+
+void setupfile(char *dstname,char *dir,char *name,char *suffix){
+	char *last,d[PATH_MAX];
+
+	MKDIR(dir,0755);
+
+	if(strchr(name,DIRSEP)){
+		if(!makedirs)
+			alwayswarn("# warning: replaced %c's in filename (use --makedirs if you want subdirectories)\n",DIRSEP);
+		for(last = name; (last = strchr(last+1,'/')); )
+			if(makedirs){
+				last[0] = 0;
+				strcpy(d,dir);
+				strcat(d,dirsep);
+				strcat(d,name);
+				if(!MKDIR(d,0755)) VERBOSE("# made subdirectory \"%s\"\n",d);
+				last[0] = DIRSEP;
+			}else 
+				last[0] = '_';
+	}
+
+	strcpy(dstname,dir);
+	strcat(dstname,dirsep);
+	strcat(dstname,name);
+	strcat(dstname,suffix);
+}
