@@ -303,7 +303,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					linfo[i].blend.clipping = fgetc(f);
 					linfo[i].blend.flags = fgetc(f);
 					fgetc(f); // padding
-					printblendmode(f, 0, 0, &linfo[i].blend);
+					layerblendmode(f, 0, 0, &linfo[i].blend);
 
 					extralen = get4B(f);
 					extrastart = ftello(f);
@@ -384,7 +384,7 @@ void processlayers(FILE *f, struct psd_header *h){
 					linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
 		}
 
-		if(xml) printblendmode(f, 2, 1, &linfo[i].blend);
+		if(xml) layerblendmode(f, 2, 1, &linfo[i].blend);
 
 		doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
 				linfo[i].channels, pixh, pixw, h);
