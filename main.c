@@ -84,10 +84,10 @@ int main(int argc,char *argv[]){
   -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
-  -d, --pngdir dir   put PNGs in directory (implies --writepng)\n\
+  -d, --pngdir dir   put PNGs in specified directory (implies --writepng)\n\
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\
-  -x, --xml          write XML describing document and layers\n\
+  -x, --xml          write XML describing document, layers, and any output files\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n", argv[0], DIRSEP);
 
 	for(i = optind; i < argc; ++i){
@@ -97,28 +97,31 @@ int main(int argc,char *argv[]){
 
 			if(dopsd(f, argv[i], &h)){
 
-				// process layer image data, copying to PNG/raw files if requested
+				// process the layers in 'image data' section,
+				// creating PNG/raw files if requested
 				processlayers(f, &h);
 	
-				skipblock(f,"global layer mask info");
+				skipblock(f, "global layer mask info");
 		
 				// global 'additional info' (not really documented)
-				// this writes description to XML
+				// this is found immediately after the 'image data' section
 				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra)
-					doadditional(f, 1, k, 1);
+					doadditional(f, 1, k, 1); // write description to XML
+					
+				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 	
-				// merged image data
+				// process merged (composite) image data
 				base = strrchr(argv[i], DIRSEP);
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
 	
 				if(listfile){
-					fputs("}\n",listfile);
+					fputs("}\n", listfile);
 					fclose(listfile);
 				}
 				if(xml){
-					fputs("</PSD>\n",xml);
+					fputs("</PSD>\n", xml);
 					fclose(xml);
 				}
 				UNQUIET("  done.\n\n");
