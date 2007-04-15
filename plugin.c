@@ -51,5 +51,5 @@ off_t pl_ftello(psd_file_t f){
 
 int pl_feof(psd_file_t f){
 	FILEPOS eof;
-	return !GetEOF(f, &eof) && pl_ftello(f) < eof;
+	return !GetEOF(f, &eof) && pl_ftello(f) >= eof;
 }
