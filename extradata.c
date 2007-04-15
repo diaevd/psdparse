@@ -351,50 +351,57 @@ int sigkeyblock(FILE *f, int level, int printxml, struct dictentry *dict){
 	return 0; // bad signature
 }
 
-static struct dictentry bmdict[] = {
-	{0, "norm", "NORMAL", "normal", NULL},
-	{0, "dark", "DARKEN", "darken", NULL},
-	{0, "lite", "LIGHTEN", "lighten", NULL},
-	{0, "hue ", "HUE", "hue", NULL},
-	{0, "sat ", "SATURATION", "saturation", NULL},
-	{0, "colr", "COLOR", "color", NULL},
-	{0, "lum ", "LUMINOSITY", "luminosity", NULL},
-	{0, "mul ", "MULTIPLY", "multiply", NULL},
-	{0, "scrn", "SCREEN", "screen", NULL},
-	{0, "diss", "DISSOLVE", "dissolve", NULL},
-	{0, "over", "OVERLAY", "overlay", NULL},
-	{0, "hLit", "HARDLIGHT", "hard light", NULL},
-	{0, "sLit", "SOFTLIGHT", "soft light", NULL},
-	{0, "diff", "DIFFERENCE", "difference", NULL},
-	{0, "smud", "EXCLUSION", "exclusion", NULL},
-	{0, "div ", "COLORDODGE", "color dodge", NULL},
-	{0, "idiv", "COLORBURN", "color burn", NULL},
-	// CS
-	{0, "lbrn", "LINEARBURN", "linear burn", NULL},
-	{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
-	{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
-	{0, "lLit", "LINEARLIGHT", "linear light", NULL},
-	{0, "pLit", "PINLIGHT", "pin light", NULL},
-	{0, "hMix", "HARDMIX", "hard mix", NULL},
-	{0, NULL, NULL, NULL, NULL}
-};
+struct dictentry *bmkey(FILE *f, int level, int printxml, char *key){
+	static struct dictentry bmdict[] = {
+		{0, "norm", "NORMAL", "normal", NULL},
+		{0, "dark", "DARKEN", "darken", NULL},
+		{0, "lite", "LIGHTEN", "lighten", NULL},
+		{0, "hue ", "HUE", "hue", NULL},
+		{0, "sat ", "SATURATION", "saturation", NULL},
+		{0, "colr", "COLOR", "color", NULL},
+		{0, "lum ", "LUMINOSITY", "luminosity", NULL},
+		{0, "mul ", "MULTIPLY", "multiply", NULL},
+		{0, "scrn", "SCREEN", "screen", NULL},
+		{0, "diss", "DISSOLVE", "dissolve", NULL},
+		{0, "over", "OVERLAY", "overlay", NULL},
+		{0, "hLit", "HARDLIGHT", "hard light", NULL},
+		{0, "sLit", "SOFTLIGHT", "soft light", NULL},
+		{0, "diff", "DIFFERENCE", "difference", NULL},
+		{0, "smud", "EXCLUSION", "exclusion", NULL},
+		{0, "div ", "COLORDODGE", "color dodge", NULL},
+		{0, "idiv", "COLORBURN", "color burn", NULL},
+		// CS
+		{0, "lbrn", "LINEARBURN", "linear burn", NULL},
+		{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
+		{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
+		{0, "lLit", "LINEARLIGHT", "linear light", NULL},
+		{0, "pLit", "PINLIGHT", "pin light", NULL},
+		{0, "hMix", "HARDMIX", "hard mix", NULL},
+		{0, NULL, NULL, NULL, NULL}
+	};
+	struct dictentry *d = findbykey(f, level, bmdict, key, printxml);
+	if(!d)
+		fprintf(xml, "%s<UNKNOWN KEY='%c%c%c%c' />\n",
+				tabs(level), key[0],key[1],key[2],key[3]);
+	return d;
+}
 
 void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm){
 	struct dictentry *d = NULL;
 	const char *indent = tabs(level);
 
-	if(!memcmp(bm->sig, "8BIM", 4) && printxml){
-		fprintf(xml, "%s<BLENDINGMODE OPACITY='%g' CLIPPING='%d'>\n",
+	if(printxml && !memcmp(bm->sig, "8BIM", 4)){
+		fprintf(xml, "%s<BLENDMODE OPACITY='%g' CLIPPING='%d'>\n",
 				indent, bm->opacity/2.55, bm->clipping);
-		d = findbykey(f, level+1, bmdict, bm->key, printxml);
+		bmkey(f, level+1, printxml, bm->key);
 		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
 		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
 		if((bm->flags & (8|16)) == (8|16))  // both bits set
 			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
-		fprintf(xml, "%s</BLENDINGMODE>\n", indent);
+		fprintf(xml, "%s</BLENDMODE>\n", indent);
 	}
 	if(!printxml){
-		d = findbykey(f, 0, bmdict, bm->key, 0);
+		d = bmkey(f, level+1, 0, bm->key);
 		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
                  flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
 				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
@@ -410,15 +417,11 @@ void printblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm
 void blendmode(FILE *f, int level, int printxml, struct dictentry *parent){
 	char sig[4], key[4];
 
-	if(printxml){
-		fread(sig, 1, 4, f);
-		fread(key, 1, 4, f);
+	fread(sig, 1, 4, f);
+	fread(key, 1, 4, f);
+	if(printxml && !memcmp(sig, "8BIM", 4)){
 		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
-		if(!memcmp(sig, "8BIM", 4)){
-			findbykey(f, level+1, bmdict, key, printxml);
-		}else
-			fprintf(xml, "%s<UNKNOWN KEY='%c%c%c%c' />\n",
-					tabs(level+1), key[0],key[1],key[2],key[3]);
+		bmkey(f, level+1, printxml, key);
 		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
 	}
 }
@@ -515,15 +518,12 @@ void fx_bevel(FILE *f, int level, int printxml, struct dictentry *parent){
 // CS doc
 void fx_solidfill(FILE *f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
-	char bmkey[4];
 	long version;
 
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
-		fread(bmkey, 1, 4, f);
-		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
-		findbykey(f, level+1, bmdict, bmkey, printxml);
-		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
+		// blendmode is the usual 8 bytes; doc only mentions 4
+		blendmode(f, level, printxml, parent);
 		colorspace(f, level);
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));

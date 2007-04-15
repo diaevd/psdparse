@@ -212,11 +212,13 @@ void doimage(FILE *f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
+int nlayers = 0;
+struct layer_info *linfo;
+psd_bytes_t miscstart, misclen;
+
 void dolayermaskinfo(FILE *f, struct psd_header *h){
-	psd_bytes_t layerlen, misclen, chlen, skip, extralen, k;
-	psd_bytes_t miscstart, extrastart;
-	int nlayers, i, j, chid, namelen;
-	struct layer_info *linfo;
+	psd_bytes_t layerlen, chlen, extralen, extrastart;
+	int i, j, chid, namelen;
 	char *chidstr, tmp[10];
 
 	if( (misclen = GETPSDBYTES(f)) ){
@@ -301,10 +303,8 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					linfo[i].blend.clipping = fgetc(f);
 					linfo[i].blend.flags = fgetc(f);
 					fgetc(f); // padding
-	
 					printblendmode(f, 0, 0, &linfo[i].blend);
-	
-					//skipblock(f,"layer info: extra data");
+
 					extralen = get4B(f);
 					extrastart = ftello(f);
 					VERBOSE("  (extra data: " LL_L("%lld","%ld") " bytes @ "
@@ -347,72 +347,67 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 					fseeko(f, extrastart+extralen, SEEK_SET);
 				}
 			} // for layers
-
-			// loop over each layer described by layer info section,
-			// spit out a line in asset list if requested, and call
-			// doimage() to process its image data
-
-			if(listfile) fputs("assetlist = {\n",listfile);
-				
-			for(i = 0; i < nlayers; ++i){
-				long pixw = linfo[i].right - linfo[i].left,
-					 pixh = linfo[i].bottom - linfo[i].top;
-				psd_bytes_t savepos;
-
-				VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
-			  
-				if(listfile && pixw && pixh){
-					if(numbered)
-						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
-								linfo[i].nameno, linfo[i].left, linfo[i].top, pixw, pixh, linfo[i].name);
-					else
-						fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
-								linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
-				}
-				if(xml){
-					fputs("\t<LAYER NAME='",xml);
-					fputsxml(linfo[i].name,xml);
-					fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
-							linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
-				}
-
-				if(xml) printblendmode(f, 2, 1, &linfo[i].blend);
-
-				doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
-						linfo[i].channels, pixh, pixw, h);
-
-				if(extra){
-					// Process 'extra data' (non-image layer data,
-					// such as adjustments, effects, type tool).
-					savepos = ftello(f);
-					fseeko(f, linfo[i].extradatapos, SEEK_SET);
-					doextradata(f, 2, linfo[i].extradatalen, 1);
-					fseeko(f, savepos, SEEK_SET); // restore file position
-				}
-				if(xml) fputs("\t</LAYER>\n\n",xml);
-			}
-
-			if(listfile) fputs("}\n",listfile);
       
 		}else VERBOSE("  (layer info section is empty)\n");
 		
-		// process global layer mask info section
-		skipblock(f,"global layer mask info");
-
-		skip = k = miscstart + misclen - ftello(f);
-		if(extra)
-			doextradata(f, 1, k, 1);
-
-		fseeko(f, miscstart + misclen, SEEK_SET);
-		
 	}else VERBOSE("  (misc info section is empty)\n");
-	
+}
+
+void processlayers(FILE *f, struct psd_header *h){
+	int i;
+
+	// loop over each layer described by layer info section,
+	// spit out a line in asset list if requested, and call
+	// doimage() to process its image data
+
+	if(listfile) fputs("assetlist = {\n",listfile);
+		
+	for(i = 0; i < nlayers; ++i){
+		long pixw = linfo[i].right - linfo[i].left,
+			 pixh = linfo[i].bottom - linfo[i].top;
+		psd_bytes_t savepos;
+
+		VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
+	  
+		if(listfile && pixw && pixh){
+			if(numbered)
+				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
+						linfo[i].nameno, linfo[i].left, linfo[i].top, pixw, pixh, linfo[i].name);
+			else
+				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
+						linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
+		}
+		if(xml){
+			fputs("\t<LAYER NAME='",xml);
+			fputsxml(linfo[i].name,xml);
+			fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
+					linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
+		}
+
+		if(xml) printblendmode(f, 2, 1, &linfo[i].blend);
+
+		doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
+				linfo[i].channels, pixh, pixw, h);
+
+		if(extra){
+			// Process 'extra data' (non-image layer data,
+			// such as adjustments, effects, type tool).
+			savepos = ftello(f);
+			fseeko(f, linfo[i].extradatapos, SEEK_SET);
+			doextradata(f, 2, linfo[i].extradatalen, 1);
+			fseeko(f, savepos, SEEK_SET); // restore file position
+		}
+		if(xml) fputs("\t</LAYER>\n\n",xml);
+	}
+
+	if(listfile) fputs("}\n",listfile);
 }
 
 int dopsd(FILE *f, char *psdpath){
 	struct psd_header h;
 	int result = 0;
 	char *base,*ext,fname[PATH_MAX],*dirsuffix;
+	psd_bytes_t k;
 	
 	// file header
 	fread(h.sig,1,4,f);
@@ -472,8 +467,18 @@ int dopsd(FILE *f, char *psdpath){
 					skipblock(f,"image resources");
 
 				dolayermaskinfo(f,&h);
+				processlayers(f,&h);
+				
+				// process global layer mask info section
+				skipblock(f,"global layer mask info");
+		
+				// global 'extra data' (not really documented)
+				k = miscstart + misclen - ftello(f);
+				if(extra)
+					doextradata(f, 1, k, 1);
+				fseeko(f, miscstart + misclen, SEEK_SET);
 
-				// now process image data
+				// merged image data
 				base = strrchr(psdpath,DIRSEP);
 				doimage(f,NULL,base ? base+1 : psdpath,h.channels,h.rows,h.cols,&h);
 
