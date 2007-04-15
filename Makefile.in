@@ -71,7 +71,8 @@ am_psdparse_OBJECTS = psdparse-main.$(OBJEXT) \
 	psdparse-writepng.$(OBJEXT) psdparse-writeraw.$(OBJEXT) \
 	psdparse-unpackbits.$(OBJEXT) psdparse-resources.$(OBJEXT) \
 	psdparse-extradata.$(OBJEXT) psdparse-constants.$(OBJEXT) \
-	psdparse-util.$(OBJEXT) psdparse-descriptor.$(OBJEXT)
+	psdparse-util.$(OBJEXT) psdparse-descriptor.$(OBJEXT) \
+	psdparse-channel.$(OBJEXT) psdparse-psd.$(OBJEXT)
 psdparse_OBJECTS = $(am_psdparse_OBJECTS)
 psdparse_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(srcdir)
@@ -172,11 +173,13 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c resources.c \
-					extradata.c constants.c util.c descriptor.c \
+					extradata.c constants.c util.c descriptor.c channel.c psd.c \
 					psdparse.h version.h
 
 psdparse_CFLAGS = -W -Wall -O2
-psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 -DPSBSUPPORT $(LIBPNG_CPPFLAGS)
+psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 \
+		-DPSBSUPPORT -D_LARGEFILE_SOURCE$(LIBPNG_CPPFLAGS)
+
 psdparse_LDADD = $(LIBPNG_LIBS)
 all: all-am
 
@@ -248,10 +251,12 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-channel.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-constants.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-descriptor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-extradata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-psd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-resources.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-unpackbits.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-util.Po@am__quote@
@@ -397,6 +402,34 @@ psdparse-descriptor.obj: descriptor.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='descriptor.c' object='psdparse-descriptor.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-descriptor.obj `if test -f 'descriptor.c'; then $(CYGPATH_W) 'descriptor.c'; else $(CYGPATH_W) '$(srcdir)/descriptor.c'; fi`
+
+psdparse-channel.o: channel.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-channel.o -MD -MP -MF "$(DEPDIR)/psdparse-channel.Tpo" -c -o psdparse-channel.o `test -f 'channel.c' || echo '$(srcdir)/'`channel.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-channel.Tpo" "$(DEPDIR)/psdparse-channel.Po"; else rm -f "$(DEPDIR)/psdparse-channel.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='channel.c' object='psdparse-channel.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-channel.o `test -f 'channel.c' || echo '$(srcdir)/'`channel.c
+
+psdparse-channel.obj: channel.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-channel.obj -MD -MP -MF "$(DEPDIR)/psdparse-channel.Tpo" -c -o psdparse-channel.obj `if test -f 'channel.c'; then $(CYGPATH_W) 'channel.c'; else $(CYGPATH_W) '$(srcdir)/channel.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-channel.Tpo" "$(DEPDIR)/psdparse-channel.Po"; else rm -f "$(DEPDIR)/psdparse-channel.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='channel.c' object='psdparse-channel.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-channel.obj `if test -f 'channel.c'; then $(CYGPATH_W) 'channel.c'; else $(CYGPATH_W) '$(srcdir)/channel.c'; fi`
+
+psdparse-psd.o: psd.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-psd.o -MD -MP -MF "$(DEPDIR)/psdparse-psd.Tpo" -c -o psdparse-psd.o `test -f 'psd.c' || echo '$(srcdir)/'`psd.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-psd.Tpo" "$(DEPDIR)/psdparse-psd.Po"; else rm -f "$(DEPDIR)/psdparse-psd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='psd.c' object='psdparse-psd.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-psd.o `test -f 'psd.c' || echo '$(srcdir)/'`psd.c
+
+psdparse-psd.obj: psd.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-psd.obj -MD -MP -MF "$(DEPDIR)/psdparse-psd.Tpo" -c -o psdparse-psd.obj `if test -f 'psd.c'; then $(CYGPATH_W) 'psd.c'; else $(CYGPATH_W) '$(srcdir)/psd.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-psd.Tpo" "$(DEPDIR)/psdparse-psd.Po"; else rm -f "$(DEPDIR)/psdparse-psd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='psd.c' object='psdparse-psd.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-psd.obj `if test -f 'psd.c'; then $(CYGPATH_W) 'psd.c'; else $(CYGPATH_W) '$(srcdir)/psd.c'; fi`
 uninstall-info-am:
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
