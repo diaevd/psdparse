@@ -28,7 +28,7 @@ extern char *pngdir;
 char indir[PATH_MAX], dirsep[] = {DIRSEP,0};
 FILE *listfile = NULL, *xml = NULL;
 
-void skipblock(FILE *f, char *desc){
+void skipblock(psd_file_t f, char *desc){
 	psd_bytes_t n = get4B(f); // correct for PSB???
 	if(n){
 		fseeko(f, n, SEEK_CUR);
@@ -37,7 +37,7 @@ void skipblock(FILE *f, char *desc){
 		VERBOSE("  (%s is empty)\n",desc);
 }
 
-static void writechannels(FILE *f, char *dir, char *name, int chcomp[], 
+static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[], 
 						  struct layer_info *li, psd_bytes_t **rowpos, int startchan, 
 						  int channels, long rows, long cols, struct psd_header *h)
 {
@@ -85,7 +85,7 @@ static void writechannels(FILE *f, char *dir, char *name, int chcomp[],
 	}
 }
 
-void doimage(FILE *f, struct layer_info *li, char *name,
+void doimage(psd_file_t f, struct layer_info *li, char *name,
 			 int channels, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	FILE *png;
@@ -216,7 +216,7 @@ int nlayers = 0;
 struct layer_info *linfo;
 psd_bytes_t miscstart, misclen;
 
-void dolayermaskinfo(FILE *f, struct psd_header *h){
+void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	psd_bytes_t layerlen, chlen, extralen, extrastart;
 	int i, j, chid, namelen;
 	char *chidstr, tmp[10];
@@ -353,7 +353,7 @@ void dolayermaskinfo(FILE *f, struct psd_header *h){
 	}else VERBOSE("  (misc info section is empty)\n");
 }
 
-void processlayers(FILE *f, struct psd_header *h){
+void processlayers(psd_file_t f, struct psd_header *h){
 	int i;
 
 	// loop over each layer described by layer info section,
@@ -403,7 +403,7 @@ void processlayers(FILE *f, struct psd_header *h){
 	if(listfile) fputs("}\n",listfile);
 }
 
-int dopsd(FILE *f, char *psdpath){
+int dopsd(psd_file_t f, char *psdpath){
 	struct psd_header h;
 	int result = 0;
 	char *base,*ext,fname[PATH_MAX],*dirsuffix;

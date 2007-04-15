@@ -25,7 +25,7 @@
 
 /* This code could also be used as a template for other file types. */
 
-FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
 	char rawname[PATH_MAX],txtname[PATH_MAX];
@@ -65,7 +65,7 @@ FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 	return f;
 }
 
-void rawwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
+void rawwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	psd_pixels_t j,n,rb = (h->depth*cols+7)/8,rlebytes;

@@ -35,7 +35,7 @@ void dumprow(unsigned char *b, long n, int group){
 	VERBOSE("\n");
 }
 
-int dochannel(FILE *f, struct layer_info *li, int idx, int channels,
+int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 			  psd_pixels_t rows, psd_pixels_t cols, int depth,
 			  psd_bytes_t **rowpos, struct psd_header *h)
 {

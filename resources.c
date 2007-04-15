@@ -21,9 +21,9 @@
 
 #include "psdparse.h"
 
-extern void ed_versdesc(FILE *f, int level, int printxml, struct dictentry *parent);
+extern void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
-void ir_resolution(FILE *f, int level, int len, struct dictentry *parent){
+void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	double hres, vres;
 	
 	hres = FIXEDPT(get4B(f));
@@ -34,35 +34,35 @@ void ir_resolution(FILE *f, int level, int len, struct dictentry *parent){
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hres, vres);
 }
 
-void ir_pstring(FILE *f, int level, int len, struct dictentry *parent){
+void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputsxml(getpstr(f), xml);
 }
 
-void ir_1byte(FILE *f, int level, int len, struct dictentry *parent){
+void ir_1byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%d", fgetc(f));
 }
 
-void ir_2byte(FILE *f, int level, int len, struct dictentry *parent){
+void ir_2byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%d", get2B(f));
 }
 
-void ir_4byte(FILE *f, int level, int len, struct dictentry *parent){
+void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%ld", get4B(f));
 }
 
-void ir_digest(FILE *f, int level, int len, struct dictentry *parent){
+void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
 	while(len--)
 		fprintf(xml, "%02x", fgetc(f));
 }
 
-void ir_pixelaspect(FILE *f, int level, int len, struct dictentry *parent){
+void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *parent){
 	int v = get4B(f);
 	double ratio = getdoubleB(f);
 	fprintf(xml, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
 	UNQUIET("    (Version = %d, Ratio = %g)\n", v, ratio);
 }
 
-void ir_unicodestr(FILE *f, int level, int len, struct dictentry *parent){
+void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
 		fprintf(xml, "%04x", get2B(f));
@@ -153,7 +153,7 @@ static struct dictentry *findbyid(int id){
 	return NULL;
 }
 
-static long doirb(FILE *f){
+static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
 	char type[4],name[0x100];
 	int id,namelen;
@@ -190,7 +190,7 @@ static long doirb(FILE *f){
 	return 4+2+PAD2(1+namelen)+4+PAD2(size); /* returns total bytes in block */
 }
 
-void doimageresources(FILE *f){
+void doimageresources(psd_file_t f){
 	long len = get4B(f);
 	VERBOSE("\nImage resources (%ld bytes):\n",len);
 	while(len > 0)

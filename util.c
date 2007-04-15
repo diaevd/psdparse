@@ -90,7 +90,7 @@ void fputsxml(char *str,FILE *f){
 }
 
 // fetch Pascal string (length byte followed by text)
-char *getpstr(FILE *f){
+char *getpstr(psd_file_t f){
 	static char pstr[0x100];
 	int len = fgetc(f) & 0xff;
 	fread(pstr, 1, len, f);
@@ -99,7 +99,7 @@ char *getpstr(FILE *f){
 }
 
 // Pascal string, aligned to 2 byte
-char *getpstr2(FILE *f){
+char *getpstr2(psd_file_t f){
 	static char pstr[0x100];
 	int len = fgetc(f) & 0xff;
 	fread(pstr, 1, PAD2(len+1)-1, f);
@@ -113,7 +113,7 @@ static int platform_is_LittleEndian(){
 	return u.b;
 }
 
-double getdoubleB(FILE *f){
+double getdoubleB(psd_file_t f){
 	unsigned char be[8],le[8];;
 
 	if(fread(be, 1, 8, f) == 8){
@@ -135,7 +135,7 @@ double getdoubleB(FILE *f){
 
 // Read a 4-byte signed binary value in BigEndian format.
 // Assumes sizeof(long) == 4 (and two's complement CPU :)
-long get4B(FILE *f){
+long get4B(psd_file_t f){
 	long n = fgetc(f)<<24;
 	n |= fgetc(f)<<16;
 	n |= fgetc(f)<<8;
@@ -145,7 +145,7 @@ long get4B(FILE *f){
 #ifdef PSBSUPPORT
 // Read a 8-byte signed binary value in BigEndian format.
 // Assumes sizeof(long) == 4
-int64_t get8B(FILE *f){
+int64_t get8B(psd_file_t f){
 	int64_t msl = (unsigned long)get4B(f);
 	return (msl << 32) | (unsigned long)get4B(f);
 }
@@ -153,14 +153,14 @@ int64_t get8B(FILE *f){
 
 // Read a 2-byte signed binary value in BigEndian format. 
 // Meant to work even where sizeof(short) > 2
-int get2B(FILE *f){
+int get2B(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
 	n |= fgetc(f);
 	return n < 0x8000 ? n : n - 0x10000;
 }
 
 // Read a 2-byte unsigned binary value in BigEndian format. 
-unsigned get2Bu(FILE *f){
+unsigned get2Bu(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
 	return n |= fgetc(f);
 }

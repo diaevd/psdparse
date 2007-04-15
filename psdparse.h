@@ -46,10 +46,22 @@ typedef long psd_pixels_t;
 #include <limits.h>
 #include <unistd.h>
 
+#ifdef PLUGIN
+	#include "file_compat.h"
+
+	typedef FILEREF psd_file_t; // appropriate file handle type for platform
+
+	#define fgetc pl_fgetc
+	#define fread pl_fread
+	#define fseeko pl_fseeko
+	#define ftello pl_ftello
+#else
+	typedef FILE *psd_file_t;
+#endif
+
 #ifndef PATH_MAX
 	#define PATH_MAX FILENAME_MAX
 #endif
-
 
 enum{RAWDATA,RLECOMP};
 
@@ -145,7 +157,7 @@ struct extra_data{
 struct dictentry{
 	int id;
 	char *key, *tag, *desc;
-	void (*func)(FILE *f, int level, int printxml, struct dictentry *dict);
+	void (*func)(psd_file_t f, int level, int printxml, struct dictentry *dict);
 };
 
 extern char *channelsuffixes[],*mode_names[],dirsep[];
@@ -159,42 +171,42 @@ void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
-char *getpstr(FILE *f);
-char *getpstr2(FILE *f);
-double getdoubleB(FILE *f);
-long get4B(FILE *f);
-int64_t get8B(FILE *f);
-int get2B(FILE *f);
-unsigned get2Bu(FILE *f);
+char *getpstr(psd_file_t f);
+char *getpstr2(psd_file_t f);
+double getdoubleB(psd_file_t f);
+long get4B(psd_file_t f);
+int64_t get8B(psd_file_t f);
+int get2B(psd_file_t f);
+unsigned get2Bu(psd_file_t f);
 const char *tabs(int n);
 
-int dopsd(FILE *f, char *fname);
+int dopsd(psd_file_t f, char *fname);
 
-void entertag(FILE *f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
-struct dictentry *findbykey(FILE *f, int level, struct dictentry *dict, char *key, int printxml);
-void doextradata(FILE *f, int level, psd_bytes_t length, int printxml);
-void layerblendmode(FILE *f, int level, int printxml, struct blend_mode_info *bm);
+void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
+struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml);
+void doextradata(psd_file_t f, int level, psd_bytes_t length, int printxml);
+void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm);
 
-void descriptor(FILE *f, int level, int printxml, struct dictentry *dict);
+void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
 
-void skipblock(FILE *f,char *desc);
+void skipblock(psd_file_t f,char *desc);
 void dumprow(unsigned char *b,long n,int group);
-int dochannel(FILE *f,struct layer_info *li,int idx,int channels,
+int dochannel(psd_file_t f,struct layer_info *li,int idx,int channels,
 			  psd_pixels_t rows,psd_pixels_t cols,int depth,psd_bytes_t **rowpos,struct psd_header *h);
-void doimage(FILE *f,struct layer_info *li,char *name,int channels,
+void doimage(psd_file_t f,struct layer_info *li,char *name,int channels,
 			 psd_pixels_t rows,psd_pixels_t cols,struct psd_header *h);
-void dolayermaskinfo(FILE *f,struct psd_header *h);
-void doimageresources(FILE *f);
+void dolayermaskinfo(psd_file_t f,struct psd_header *h);
+void doimageresources(psd_file_t f);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
-FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void pngwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
+void pngwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
 
-FILE* rawsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void rawwriteimage(FILE *png,FILE *psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
+void rawwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
 
 int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_pixels_t inlen);

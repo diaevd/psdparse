@@ -71,7 +71,7 @@ void setupfile(char *dstname,char *dir,char *name,char *suffix){
 // li          pointer to layer info for relevant layer, or NULL if no layer (e.g. merged composite)
 // h           pointer to PSD file header struct
 
-FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
 	char pngname[PATH_MAX],*pngtype = NULL;
@@ -171,7 +171,7 @@ FILE* pngsetupwrite(FILE *psd, char *dir, char *name, psd_pixels_t width, psd_pi
 	return f;
 }
 
-void pngwriteimage(FILE *png, FILE *psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
+void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	psd_bytes_t savepos = ftello(psd);
