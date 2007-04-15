@@ -78,7 +78,7 @@ int main(int argc,char *argv[]){
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
   -r, --resources    process 'image resources' metadata\n\
-  -e, --extra        process 'extra data' (non-image layers, v4 and later)\n\
+  -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
   -d, --pngdir dir   put PNGs in directory (implies --writepng)\n\

@@ -85,8 +85,18 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 }
 
 void colorspace(psd_file_t f, int level){
-	int i;
-	fprintf(xml, "%s<COLOR SPACE='%d'>", tabs(level), get2B(f));
+	// this map is taken from Colour Samplers; I'm guessing it applies generally
+	static char *spaces[] = {"kDummySpace" /* = -1 */, "kRGBSpace",
+		"kHSBSpace", "kCMYKSpace", "kPantoneSpace", "kFocoltoneSpace",
+		"kTrumatchSpace", "kToyoSpace", "kLabSpace", "kGraySpace",
+		"kWideCMYKSpace", "kHKSSpace", "kDICSpace", "kTotalInkSpace",
+		"kMonitorRGBSpace", "kDuotoneSpace", "kOpacitySpace"};
+	int i, space = get2B(f);
+
+	fprintf(xml, "%s<COLOR SPACE='%d'", tabs(level), space);
+	if(space >= -1 && space < (int)(sizeof(spaces)/sizeof(*spaces))-1)
+		fprintf(xml, " NAME='%s'", spaces[space+1]);
+	fputc('>', xml);
 	for(i = 0; i < 4; ++i)
 		fprintf(xml, " <C%d>%g</C%d>", i, get2Bu(f)/65535., i);
 	fputs(" </COLOR>\n", xml);
@@ -576,7 +586,7 @@ void ed_metadata(psd_file_t f, int level, int printxml, struct dictentry *parent
 		mdblock(f, level, printxml);
 }
 
-void doextradata(psd_file_t f, int level, psd_bytes_t length, int printxml){
+void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml){
 	static struct dictentry extradict[] = {
 		// v4.0
 		{0, "levl", "LEVELS", "Levels", NULL},

@@ -103,6 +103,9 @@ struct psd_header{
 
 	// following fields are for our purposes, not actual header fields
 	psd_bytes_t colormodepos;
+	int nlayers;
+	struct layer_info *linfo;     // layer info array
+	psd_bytes_t lmistart, lmilen; // layer & mask info section
 };
 
 struct layer_mask_info{
@@ -143,8 +146,8 @@ struct layer_info{
 	struct layer_mask_info mask;
 	char *name;
 	char *nameno; // "layerNN"
-	psd_bytes_t extradatapos;
-	psd_bytes_t extradatalen;
+	psd_bytes_t additionalpos;
+	psd_bytes_t additionallen;
 };
 
 struct extra_data{
@@ -184,7 +187,7 @@ int dopsd(psd_file_t f, char *fname);
 
 void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
 struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml);
-void doextradata(psd_file_t f, int level, psd_bytes_t length, int printxml);
+void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml);
 void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm);
 
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);

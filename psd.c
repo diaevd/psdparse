@@ -212,75 +212,80 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 	free(chcomp);
 }
 
-int nlayers = 0;
-struct layer_info *linfo;
-psd_bytes_t miscstart, misclen;
+/**
+ * Process the "layer and mask information" section. The file must be
+ * positioned at the beginning of this section when dolayermaskinfo()
+ * is called.
+ * 
+ * The function sets h->nlayers to the number of layers in the PSD,
+ * and also populates the h->linfo[] array.
+ */
 
 void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	psd_bytes_t layerlen, chlen, extralen, extrastart;
 	int i, j, chid, namelen;
 	char *chidstr, tmp[10];
 
-	if( (misclen = GETPSDBYTES(f)) ){
-		miscstart = ftello(f);
+	if( (h->lmilen = GETPSDBYTES(f)) ){
+		h->lmistart = ftello(f);
 
 		// process layer info section
 		if( (layerlen = GETPSDBYTES(f)) ){
 			// layers structure
-			nlayers = get2B(f);
-			if(nlayers < 0){
-				nlayers = -nlayers;
+			h->nlayers = get2B(f);
+			if(h->nlayers < 0){
+				h->nlayers = - h->nlayers;
 				VERBOSE("  (first alpha is transparency for merged image)\n");
 				mergedalpha = 1;
 			}
-			UNQUIET("\n%d layers:\n",nlayers);
+			UNQUIET("\n%d layers:\n",h->nlayers);
 			
-			if( nlayers*(18+6*h->channels) > layerlen ){ // sanity check
+			if( h->nlayers*(18+6*h->channels) > layerlen ){ // sanity check
 				alwayswarn("### unlikely number of layers, giving up.\n");
 				return;
 			}
 			
-			linfo = checkmalloc(nlayers*sizeof(struct layer_info));
+			h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info));
 
-			// load linfo[] array with each layer's info
+			// load h->linfo[] array with each layer's info
 
-			for(i = 0; i < nlayers; ++i){
+			for(i = 0; i < h->nlayers; ++i){
 				// process layer record
-				linfo[i].top = get4B(f);
-				linfo[i].left = get4B(f);
-				linfo[i].bottom = get4B(f);
-				linfo[i].right = get4B(f);
-				linfo[i].channels = get2Bu(f);
+				h->linfo[i].top = get4B(f);
+				h->linfo[i].left = get4B(f);
+				h->linfo[i].bottom = get4B(f);
+				h->linfo[i].right = get4B(f);
+				h->linfo[i].channels = get2Bu(f);
 				
 				VERBOSE("\n");
 				UNQUIET("  layer %d: (%4ld,%4ld,%4ld,%4ld), %d channels (%4ld rows x %4ld cols)\n",
-						i, linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, linfo[i].channels,
-						linfo[i].bottom-linfo[i].top, linfo[i].right-linfo[i].left);
+						i, h->linfo[i].top, h->linfo[i].left, h->linfo[i].bottom, h->linfo[i].right, h->linfo[i].channels,
+						h->linfo[i].bottom-h->linfo[i].top, h->linfo[i].right-h->linfo[i].left);
 
-				if( linfo[i].bottom < linfo[i].top || linfo[i].right < linfo[i].left
-				 || linfo[i].channels > 64 ) // sanity check
+				if( h->linfo[i].bottom < h->linfo[i].top || h->linfo[i].right < h->linfo[i].left
+				 || h->linfo[i].channels > 64 ) // sanity check
 				{
 					alwayswarn("### something's not right about that, trying to skip layer.\n");
-					fseeko(f, 6*linfo[i].channels+12, SEEK_CUR);
+					fseeko(f, 6*h->linfo[i].channels+12, SEEK_CUR);
 					skipblock(f,"layer info: extra data");
 				}else{
 
-					linfo[i].chlengths = checkmalloc(linfo[i].channels*sizeof(psd_bytes_t));
-					linfo[i].chid = checkmalloc(linfo[i].channels*sizeof(int));
-					linfo[i].chindex = checkmalloc((linfo[i].channels+2)*sizeof(int));
-					linfo[i].chindex += 2; // so we can index array from [-2] (hackish)
+					h->linfo[i].chlengths = checkmalloc(h->linfo[i].channels*sizeof(psd_bytes_t));
+					h->linfo[i].chid = checkmalloc(h->linfo[i].channels*sizeof(int));
+					h->linfo[i].chindex = checkmalloc((h->linfo[i].channels+2)*sizeof(int));
+					h->linfo[i].chindex += 2; // so we can index array from [-2] (hackish)
 					
-					for(j = -2; j < linfo[i].channels; ++j)
-						linfo[i].chindex[j] = -1;
+					for(j = -2; j < h->linfo[i].channels; ++j)
+						h->linfo[i].chindex[j] = -1;
 		
 					// fetch info on each of the layer's channels
 					
-					for(j = 0; j < linfo[i].channels; ++j){
-						chid = linfo[i].chid[j] = get2B(f);
-						chlen = linfo[i].chlengths[j] = GETPSDBYTES(f);
+					for(j = 0; j < h->linfo[i].channels; ++j){
+						chid = h->linfo[i].chid[j] = get2B(f);
+						chlen = h->linfo[i].chlengths[j] = GETPSDBYTES(f);
 						
-						if(chid >= -2 && chid < linfo[i].channels)
-							linfo[i].chindex[chid] = j;
+						if(chid >= -2 && chid < h->linfo[i].channels)
+							h->linfo[i].chindex[chid] = j;
 						else
 							warn("unexpected channel id %d",chid);
 							
@@ -297,13 +302,15 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 								j, chlen, chid, chidstr);
 					}
 
-					fread(linfo[i].blend.sig,1,4,f);
-					fread(linfo[i].blend.key,1,4,f);
-					linfo[i].blend.opacity = fgetc(f);
-					linfo[i].blend.clipping = fgetc(f);
-					linfo[i].blend.flags = fgetc(f);
+					fread(h->linfo[i].blend.sig,1,4,f);
+					fread(h->linfo[i].blend.key,1,4,f);
+					h->linfo[i].blend.opacity = fgetc(f);
+					h->linfo[i].blend.clipping = fgetc(f);
+					h->linfo[i].blend.flags = fgetc(f);
 					fgetc(f); // padding
-					layerblendmode(f, 0, 0, &linfo[i].blend);
+					layerblendmode(f, 0, 0, &h->linfo[i].blend);
+
+					// process layer's 'extra data' section
 
 					extralen = get4B(f);
 					extrastart = ftello(f);
@@ -311,90 +318,95 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 							LL_L("%lld","%ld") ")\n", extralen, extrastart);
 
 					// fetch layer mask data
-					if( (linfo[i].mask.size = get4B(f)) ){
-						linfo[i].mask.top = get4B(f);
-						linfo[i].mask.left = get4B(f);
-						linfo[i].mask.bottom = get4B(f);
-						linfo[i].mask.right = get4B(f);
-						linfo[i].mask.default_colour = fgetc(f);
-						linfo[i].mask.flags = fgetc(f);
-						fseeko(f, linfo[i].mask.size-18, SEEK_CUR); // skip remainder
-						linfo[i].mask.rows = linfo[i].mask.bottom - linfo[i].mask.top;
-						linfo[i].mask.cols = linfo[i].mask.right - linfo[i].mask.left;
+					if( (h->linfo[i].mask.size = get4B(f)) ){
+						h->linfo[i].mask.top = get4B(f);
+						h->linfo[i].mask.left = get4B(f);
+						h->linfo[i].mask.bottom = get4B(f);
+						h->linfo[i].mask.right = get4B(f);
+						h->linfo[i].mask.default_colour = fgetc(f);
+						h->linfo[i].mask.flags = fgetc(f);
+						fseeko(f, h->linfo[i].mask.size-18, SEEK_CUR); // skip remainder
+						h->linfo[i].mask.rows = h->linfo[i].mask.bottom - h->linfo[i].mask.top;
+						h->linfo[i].mask.cols = h->linfo[i].mask.right - h->linfo[i].mask.left;
 					}else
 						VERBOSE("  (no layer mask)\n");
 			
 					skipblock(f,"layer blending ranges");
 					
 					// layer name
-					linfo[i].nameno = malloc(16);
-					sprintf(linfo[i].nameno,"layer%d",i+1);
+					h->linfo[i].nameno = malloc(16);
+					sprintf(h->linfo[i].nameno,"layer%d",i+1);
 					namelen = fgetc(f);
-					linfo[i].name = checkmalloc(PAD4(namelen+1));
-					fread(linfo[i].name,1,PAD4(namelen+1)-1,f);
-					linfo[i].name[namelen] = 0;
+					h->linfo[i].name = checkmalloc(PAD4(namelen+1));
+					fread(h->linfo[i].name,1,PAD4(namelen+1)-1,f);
+					h->linfo[i].name[namelen] = 0;
 					if(namelen){
-						UNQUIET("    name: \"%s\"\n",linfo[i].name);
-						if(linfo[i].name[0] == '.')
-							linfo[i].name[0] = '_';
+						UNQUIET("    name: \"%s\"\n",h->linfo[i].name);
+						if(h->linfo[i].name[0] == '.')
+							h->linfo[i].name[0] = '_';
 					}
 					
-					linfo[i].extradatapos = ftello(f);
-					linfo[i].extradatalen = extrastart + extralen - linfo[i].extradatapos;
+					// process layer's 'additional info'
+					
+					h->linfo[i].additionalpos = ftello(f);
+					h->linfo[i].additionallen = extrastart + extralen - h->linfo[i].additionalpos;
 					if(extra)
-						doextradata(f, 0, linfo[i].extradatalen, 0);
+						doadditional(f, 0, h->linfo[i].additionallen, 0);
 			
+					// leave file positioned at 'image data' section
 					fseeko(f, extrastart+extralen, SEEK_SET);
 				}
 			} // for layers
       
 		}else VERBOSE("  (layer info section is empty)\n");
 		
-	}else VERBOSE("  (misc info section is empty)\n");
+	}else VERBOSE("  (layer & mask info section is empty)\n");
 }
 
+/**
+ * Loop over all layers described by layer info section,
+ * spit out a line in asset list if requested, and call
+ * doimage() to process its image data.
+ */
+	
 void processlayers(psd_file_t f, struct psd_header *h){
 	int i;
-
-	// loop over each layer described by layer info section,
-	// spit out a line in asset list if requested, and call
-	// doimage() to process its image data
+	psd_bytes_t savepos;
 
 	if(listfile) fputs("assetlist = {\n",listfile);
 		
-	for(i = 0; i < nlayers; ++i){
-		long pixw = linfo[i].right - linfo[i].left,
-			 pixh = linfo[i].bottom - linfo[i].top;
-		psd_bytes_t savepos;
+	for(i = 0; i < h->nlayers; ++i){
+		long pixw = h->linfo[i].right - h->linfo[i].left,
+			 pixh = h->linfo[i].bottom - h->linfo[i].top;
 
-		VERBOSE("\n  layer %d (\"%s\"):\n",i,linfo[i].name);
+		VERBOSE("\n  layer %d (\"%s\"):\n",i,h->linfo[i].name);
 	  
 		if(listfile && pixw && pixh){
 			if(numbered)
 				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
-						linfo[i].nameno, linfo[i].left, linfo[i].top, pixw, pixh, linfo[i].name);
+						h->linfo[i].nameno, h->linfo[i].left, h->linfo[i].top, pixw, pixh, h->linfo[i].name);
 			else
 				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
-						linfo[i].name, linfo[i].left, linfo[i].top, pixw, pixh);
+						h->linfo[i].name, h->linfo[i].left, h->linfo[i].top, pixw, pixh);
 		}
 		if(xml){
 			fputs("\t<LAYER NAME='",xml);
-			fputsxml(linfo[i].name,xml);
+			fputsxml(h->linfo[i].name,xml);
 			fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
-					linfo[i].top, linfo[i].left, linfo[i].bottom, linfo[i].right, pixw, pixh);
+					h->linfo[i].top, h->linfo[i].left, h->linfo[i].bottom, h->linfo[i].right, pixw, pixh);
 		}
 
-		if(xml) layerblendmode(f, 2, 1, &linfo[i].blend);
+		if(xml) layerblendmode(f, 2, 1, &h->linfo[i].blend);
 
-		doimage(f, linfo+i, numbered ? linfo[i].nameno : linfo[i].name,
-				linfo[i].channels, pixh, pixw, h);
+		doimage(f, h->linfo+i, numbered ? h->linfo[i].nameno : h->linfo[i].name,
+				h->linfo[i].channels, pixh, pixw, h);
 
 		if(extra){
-			// Process 'extra data' (non-image layer data,
+			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
 			savepos = ftello(f);
-			fseeko(f, linfo[i].extradatapos, SEEK_SET);
-			doextradata(f, 2, linfo[i].extradatalen, 1);
+			fseeko(f, h->linfo[i].additionalpos, SEEK_SET);
+			doadditional(f, 2, h->linfo[i].additionallen, 1);
 			fseeko(f, savepos, SEEK_SET); // restore file position
 		}
 		if(xml) fputs("\t</LAYER>\n\n",xml);
@@ -473,10 +485,10 @@ int dopsd(psd_file_t f, char *psdpath){
 				skipblock(f,"global layer mask info");
 		
 				// global 'extra data' (not really documented)
-				k = miscstart + misclen - ftello(f);
+				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra)
-					doextradata(f, 1, k, 1);
-				fseeko(f, miscstart + misclen, SEEK_SET);
+					doadditional(f, 1, k, 1);
+				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 
 				// merged image data
 				base = strrchr(psdpath,DIRSEP);
