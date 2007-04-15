@@ -54,6 +54,9 @@ int main(int argc,char *argv[]){
 	};
 	FILE *f;
 	int i,indexptr,opt;
+	struct psd_header h;
+	psd_bytes_t k;
+	char *base;
 
 	while( (opt = getopt_long(argc,argv,"hvqrewnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
@@ -91,7 +94,35 @@ int main(int argc,char *argv[]){
 		if( (f = fopen(argv[i], "rb")) ){
 			nwarns = 0;
 			UNQUIET("\"%s\"\n", argv[i]);
-			dopsd(f, argv[i]);
+
+			if(dopsd(f, argv[i], &h)){
+
+				// process layer image data, copying to PNG/raw files if requested
+				processlayers(f, &h);
+	
+				skipblock(f,"global layer mask info");
+		
+				// global 'additional info' (not really documented)
+				// this writes description to XML
+				k = h.lmistart + h.lmilen - ftello(f);
+				if(extra)
+					doadditional(f, 1, k, 1);
+				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
+	
+				// merged image data
+				base = strrchr(argv[i], DIRSEP);
+				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
+	
+				if(listfile){
+					fputs("}\n",listfile);
+					fclose(listfile);
+				}
+				if(xml){
+					fputs("</PSD>\n",xml);
+					fclose(xml);
+				}
+				UNQUIET("  done.\n\n");
+			}
 			fclose(f);
 		}else
 			alwayswarn("# \"%s\": couldn't open\n", argv[i]);

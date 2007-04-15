@@ -411,35 +411,41 @@ void processlayers(psd_file_t f, struct psd_header *h){
 		}
 		if(xml) fputs("\t</LAYER>\n\n",xml);
 	}
-
-	if(listfile) fputs("}\n",listfile);
 }
 
-int dopsd(psd_file_t f, char *psdpath){
-	struct psd_header h;
+/**
+ * Check PSD header; if everything seems ok, create list and xml output
+ * files if requested, and process the layer & mask information section
+ * to collect data on layers. (During which, description text will be sent to
+ * the list and XML files, if they were created.)
+ * 
+ * These output files are left open, because caller may later choose to
+ * process image data, resulting in further output (to XML).
+ */
+
+int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 	int result = 0;
-	char *base,*ext,fname[PATH_MAX],*dirsuffix;
-	psd_bytes_t k;
+	char *ext,fname[PATH_MAX],*dirsuffix;
 	
 	// file header
-	fread(h.sig,1,4,f);
-	h.version = get2Bu(f);
+	fread(h->sig,1,4,f);
+	h->version = get2Bu(f);
 	get4B(f); get2B(f); // reserved[6];
-	h.channels = get2Bu(f);
-	h.rows = get4B(f);
-	h.cols = get4B(f);
-	h.depth = get2Bu(f);
-	h.mode = get2Bu(f);
+	h->channels = get2Bu(f);
+	h->rows = get4B(f);
+	h->cols = get4B(f);
+	h->depth = get2Bu(f);
+	h->mode = get2Bu(f);
 
-	if(!feof(f) && !memcmp(h.sig,"8BPS",4)){
-		if(h.version == 1
+	if(!feof(f) && !memcmp(h->sig,"8BPS",4)){
+		if(h->version == 1
 #ifdef PSBSUPPORT
-				   || h.version == 2
+				   || h->version == 2
 #endif
 		){
 			strcpy(indir,psdpath);
 			ext = strrchr(indir,'.');
-			dirsuffix = h.depth < 32 ? "_png" : "_raw";
+			dirsuffix = h->depth < 32 ? "_png" : "_raw";
 			ext ? strcpy(ext,dirsuffix) : strcat(indir,dirsuffix);
 
 			if(writelist){
@@ -457,20 +463,20 @@ int dopsd(psd_file_t f, char *psdpath){
 				fputs("<PSD FILE='",xml);
 				fputsxml(psdpath,xml);
 				fprintf(xml,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d'",
-						h.version,h.channels,h.rows,h.cols,h.depth,h.mode);
-				if(h.mode >= 0 && h.mode < 16)
-					fprintf(xml, " MODENAME='%s'", mode_names[h.mode]);
+						h->version, h->channels, h->rows, h->cols, h->depth, h->mode);
+				if(h->mode >= 0 && h->mode < 16)
+					fprintf(xml, " MODENAME='%s'", mode_names[h->mode]);
 				fputs(">\n", xml);
 			}
 			UNQUIET("  PS%c (version %d), %d channels, %ld rows x %ld cols, %d bit %s\n",
-					h.version == 1 ? 'D' : 'B', h.version, h.channels, h.rows, h.cols, h.depth,
-					h.mode >= 0 && h.mode < 16 ? mode_names[h.mode] : "???");
+					h->version == 1 ? 'D' : 'B', h->version, h->channels, h->rows, h->cols, h->depth,
+					h->mode >= 0 && h->mode < 16 ? mode_names[h->mode] : "???");
 			
-			if(h.channels <= 0 || h.channels > 64 || h.rows <= 0 || 
-				 h.cols <= 0 || h.depth < 0 || h.depth > 32 || h.mode < 0)
+			if(h->channels <= 0 || h->channels > 64 || h->rows <= 0 || 
+				 h->cols <= 0 || h->depth < 0 || h->depth > 32 || h->mode < 0)
 				alwayswarn("### something isn't right about that header, giving up now.\n");
 			else{
-				h.colormodepos = ftello(f);
+				h->colormodepos = ftello(f);
 				skipblock(f,"color mode data");
 
 				if(rsrc)
@@ -478,32 +484,13 @@ int dopsd(psd_file_t f, char *psdpath){
 				else
 					skipblock(f,"image resources");
 
-				dolayermaskinfo(f,&h);
-				processlayers(f,&h);
-				
-				// process global layer mask info section
-				skipblock(f,"global layer mask info");
-		
-				// global 'extra data' (not really documented)
-				k = h.lmistart + h.lmilen - ftello(f);
-				if(extra)
-					doadditional(f, 1, k, 1);
-				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
-
-				// merged image data
-				base = strrchr(psdpath,DIRSEP);
-				doimage(f,NULL,base ? base+1 : psdpath,h.channels,h.rows,h.cols,&h);
-
-				UNQUIET("  done.\n\n");
+				dolayermaskinfo(f, h);
 				result = 1;
 			}
-			if(xml) fputs("</PSD>\n",xml);
 		}else
-			alwayswarn("# \"%s\": version %d not supported\n", psdpath, h.version);
+			alwayswarn("# \"%s\": version %d not supported\n", psdpath, h->version);
 	}else
 		alwayswarn("# \"%s\": couldn't read header, or is not a PSD/PSB\n", psdpath);
 
-	if(listfile) fclose(listfile);
-	if(xml) fclose(xml);
 	return result;
 }

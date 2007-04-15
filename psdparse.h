@@ -166,7 +166,7 @@ struct dictentry{
 extern char *channelsuffixes[],*mode_names[],dirsep[];
 extern int verbose,quiet,makedirs;
 
-extern FILE *xml;
+extern FILE *xml, *listfile;
 
 void fatal(char *s);
 void warn(char *fmt,...);
@@ -183,7 +183,8 @@ int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
 const char *tabs(int n);
 
-int dopsd(psd_file_t f, char *fname);
+int dopsd(psd_file_t f, char *fname, struct psd_header *h);
+void processlayers(psd_file_t f, struct psd_header *h);
 
 void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
 struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml);
