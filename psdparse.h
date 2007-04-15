@@ -46,7 +46,8 @@ typedef long psd_pixels_t;
 #include <limits.h>
 #include <unistd.h>
 
-#ifdef PLUGIN
+#ifdef PSDPARSE_PLUGIN
+	#include "world.h" // for DIRSEP
 	#include "file_compat.h"
 
 	typedef FILEREF psd_file_t; // appropriate file handle type for platform
@@ -55,6 +56,13 @@ typedef long psd_pixels_t;
 	#define fread pl_fread
 	#define fseeko pl_fseeko
 	#define ftello pl_ftello
+	#define feof pl_feof
+
+	int pl_fgetc(psd_file_t f);
+	int pl_feof(psd_file_t f);
+	size_t pl_fread(void *ptr, size_t s, size_t n, psd_file_t f);
+	off_t pl_fseeko(psd_file_t f, off_t pos, int wh);
+	off_t pl_ftello(psd_file_t f);
 #else
 	typedef FILE *psd_file_t;
 #endif
@@ -103,7 +111,7 @@ struct psd_header{
 
 	// following fields are for our purposes, not actual header fields
 	psd_bytes_t colormodepos;
-	int nlayers;
+	int nlayers, mergedalpha;
 	struct layer_info *linfo;     // layer info array
 	psd_bytes_t lmistart, lmilen; // layer & mask info section
 };
@@ -223,6 +231,7 @@ int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_
 	#define MKDIR mkdir
 #endif
 
-#ifdef macintosh
+// don't clash with OS X header -- this prototype is meant for MPW build.
+#if defined(macintosh) && !defined(_SYS_STAT_H_)
 	int mkdir(char *s,int mode);
 #endif

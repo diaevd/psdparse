@@ -565,7 +565,7 @@ void mdblock(psd_file_t f, int level, int printxml){
 	fread(sig, 1, 4, f);
 	fread(key, 1, 4, f);
 	copy = fgetc(f);
-	fseek(f, 3, SEEK_CUR); // padding
+	fseeko(f, 3, SEEK_CUR); // padding
 	len = get4B(f);
 	if(printxml){
 		fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,

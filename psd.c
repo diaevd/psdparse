@@ -21,7 +21,7 @@
 
 #include "png.h"
 
-extern int verbose, quiet, rsrc, extra, makedirs, numbered, mergedalpha,
+extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml;
 extern char *pngdir;
 
@@ -109,7 +109,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		color_type = PNG_COLOR_TYPE_GRAY;
 		pngchan = 1;
 		// check if there is an alpha channel, or if merged data has alpha
-		if( (li && li->chindex[-1] != -1) || (channels>1 && mergedalpha) ){
+		if( (li && li->chindex[-1] != -1) || (channels>1 && h->mergedalpha) ){
 			color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
 			pngchan = 2;
 		}
@@ -122,7 +122,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 	case ModeRGB48:
 		color_type = PNG_COLOR_TYPE_RGB;
 		pngchan = 3;
-		if( (li && li->chindex[-1] != -1) || (channels>3 && mergedalpha) ){
+		if( (li && li->chindex[-1] != -1) || (channels>3 && h->mergedalpha) ){
 			color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 			pngchan = 4;
 		}
@@ -236,7 +236,7 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 			if(h->nlayers < 0){
 				h->nlayers = - h->nlayers;
 				VERBOSE("  (first alpha is transparency for merged image)\n");
-				mergedalpha = 1;
+				h->mergedalpha = 1;
 			}
 			UNQUIET("\n%d layers:\n",h->nlayers);
 			

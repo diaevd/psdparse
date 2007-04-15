@@ -26,7 +26,7 @@ extern char indir[];
 
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
-	makedirs = 0, numbered = 0, mergedalpha = 0, help = 0, split = 0;
+	makedirs = 0, numbered = 0, help = 0, split = 0;
 
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD

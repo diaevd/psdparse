@@ -25,16 +25,16 @@
 #   and static link to it.
 
 # for OS X build, download and extract libpng archive, and define path to it:
-PNGDIR = ../libpng-1.2.16
+LIBPNG = ../libpng-1.2.16
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
-LIBPNGA = $(PNGDIR)/libpng.a
+LIBPNGA = $(LIBPNG)/libpng.a
 
 # if building with MinGW ('make exe'), extract zlib and libpng to these directories:
-ZLIBDIRW32 = ../zlib-1.2.3_w32
-PNGDIRW32  = ../libpng-1.2.8_w32
+ZLIBW32 = ../zlib-1.2.3_w32
+LIBPNGW32  = ../libpng-1.2.8_w32
 # (zlib can be downloaded via http://www.zlib.net/)
 
 # define MinGW tools
@@ -70,25 +70,25 @@ test : orig.psd ../garble/garble
 		../garble/garble test.psd 100; \
 	done
 
-psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(PNGDIR)
+psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG)
 psdparse : $(OBJ) $(LIBPNGA)
-	$(CC) -o $@ $(filter-out %.a,$^) -L$(PNGDIR) -lz -lpng
+	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng
 
 # Win32 EXE built by MinGW
 # psdparse.exe - standard CLI tool
 # psd2png.exe  - variant intended for drag'n'drop, that always writes PNGs and asset list
 exe : psdparse.exe psd2png.exe
 
-W32FLAGS = -DDIRSEP="'\\\\'" -I$(PNGDIRW32) -I$(ZLIBDIRW32)
+W32FLAGS = -DDIRSEP="'\\\\'" -I$(LIBPNGW32) -I$(ZLIBW32)
 
 psdparse.exe : CPPFLAGS += $(W32FLAGS)
 psd2png.exe  : CPPFLAGS += $(W32FLAGS) -DALWAYS_WRITE_PNG 
 
-psdparse.exe : $(ZLIBDIRW32)/libz.a $(PNGDIRW32)/libpng.a $(OBJW32)
-	$(MINGW_CC) -s -o $@ $(filter-out %.a,$^) -L$(ZLIBDIRW32) -L$(PNGDIRW32) -lpng -lz
-psd2png.exe : $(ZLIBDIRW32)/libz.a $(PNGDIRW32)/libpng.a \
+psdparse.exe : $(ZLIBW32)/libz.a $(LIBPNGW32)/libpng.a $(OBJW32)
+	$(MINGW_CC) -s -o $@ $(filter-out %.a,$^) -L$(ZLIBW32) -L$(LIBPNGW32) -lpng -lz
+psd2png.exe : $(ZLIBW32)/libz.a $(LIBPNGW32)/libpng.a \
 			  $(subst main.o,main_psd2png.o,$(OBJW32))
-	$(MINGW_CC) -s -o $@ $(filter-out %.a,$^) -L$(ZLIBDIRW32) -L$(PNGDIRW32) -lpng -lz
+	$(MINGW_CC) -s -o $@ $(filter-out %.a,$^) -L$(ZLIBW32) -L$(LIBPNGW32) -lpng -lz
 
 obj_w32/main_psd2png.o : main.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 
@@ -101,18 +101,18 @@ psdparse-win.zip : README.txt gpl.html psdparse.exe psd2png.exe
 
 # rule to build libpng
 
-$(PNGDIR)/libpng.a : $(PNGDIR)/scripts/makefile.darwin
-	cd $(PNGDIR) && $(MAKE) -f scripts/makefile.darwin libpng.a
+$(LIBPNG)/libpng.a : $(LIBPNG)/scripts/makefile.darwin
+	cd $(LIBPNG) && $(MAKE) -f scripts/makefile.darwin libpng.a
 
 # rules to build Win32 libraries
 
-$(PNGDIRW32)/libpng.a : $(PNGDIRW32)/scripts/makefile.gcc
-	cd $(PNGDIRW32); \
-	$(MAKE) CC=$(MINGW_CC) CPPFLAGS="-I$(ZLIBDIRW32)" AR="$(MINGW_AR) rcs" RANLIB=$(MINGW_RANLIB) \
+$(LIBPNGW32)/libpng.a : $(LIBPNGW32)/scripts/makefile.gcc
+	cd $(LIBPNGW32); \
+	$(MAKE) CC=$(MINGW_CC) CPPFLAGS="-I$(ZLIBW32)" AR="$(MINGW_AR) rcs" RANLIB=$(MINGW_RANLIB) \
 		-f scripts/makefile.gcc libpng.a
 
-$(ZLIBDIRW32)/libz.a : $(ZLIBDIRW32)/configure
-	cd $(ZLIBDIRW32); \
+$(ZLIBW32)/libz.a : $(ZLIBW32)/configure
+	cd $(ZLIBW32); \
 	CC=$(MINGW_CC) AR="$(MINGW_AR) rcs" RANLIB=$(MINGW_RANLIB) ./configure; \
 	$(MAKE) libz.a
 
