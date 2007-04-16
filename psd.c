@@ -228,6 +228,7 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	int i, j, chid, namelen;
 	char *chidstr, tmp[10];
 
+	h->nlayers = 0;
 	if( (h->lmilen = GETPSDBYTES(f)) ){
 		h->lmistart = ftello(f);
 

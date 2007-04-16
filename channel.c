@@ -91,8 +91,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 				idx, channels, chpos);
 
 	if(li && chlen < 2){
-		alwayswarn(LL_L("## channel too short (%lld bytes)\n",
-						"## channel too short (%ld bytes)\n"),chlen);
+		alwayswarn("## channel too short (", LL_L("%lld","%ld") " bytes)\n", chlen);
 		if(chlen > 0)
 			fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
 		return -1;
