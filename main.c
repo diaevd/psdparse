@@ -111,7 +111,7 @@ int main(int argc,char *argv[]){
 				// this is found immediately after the 'image data' section
 				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra)
-					doadditional(f, 1, k, 1); // write description to XML
+					doadditional(f, 1, k, xml != NULL); // write description to XML
 					
 				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);

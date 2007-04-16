@@ -27,7 +27,13 @@
 void fatal(char *s){
 	fflush(stdout);
 	fputs(s,stderr);
+#ifdef PSDPARSE_PLUGIN
+	// FIXME: show user a message
+	// caller must be prepared for this function to return, of course
+	pl_fatal(s);
+#else
 	exit(EXIT_FAILURE);
+#endif
 }
 
 int nwarns = 0;

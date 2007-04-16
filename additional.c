@@ -38,7 +38,7 @@ void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent
 void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
 	psd_bytes_t savepos = ftello(f);
 	int oneline = d->tag[0] == '-';
-	char *tagname = d->tag + (d->tag[0] == '-');
+	char *tagname = d->tag + oneline;
 
 	if(printxml){
 		// check parent's one-line-ness, because what precedes our <TAG>

@@ -53,3 +53,7 @@ int pl_feof(psd_file_t f){
 	FILEPOS eof;
 	return !GetEOF(f, &eof) && pl_ftello(f) >= eof;
 }
+
+void pl_fatal(char *s){
+	// TODO
+}

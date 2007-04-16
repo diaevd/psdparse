@@ -29,7 +29,7 @@ char indir[PATH_MAX], dirsep[] = {DIRSEP,0};
 FILE *listfile = NULL, *xml = NULL;
 
 void skipblock(psd_file_t f, char *desc){
-	psd_bytes_t n = get4B(f); // correct for PSB???
+	psd_bytes_t n = get4B(f);
 	if(n){
 		fseeko(f, n, SEEK_CUR);
 		VERBOSE("  ...skipped %s (" LL_L("%lld","%ld") " bytes)\n", desc, n);
@@ -404,9 +404,10 @@ void processlayers(psd_file_t f, struct psd_header *h){
 		doimage(f, li, numbered ? li->nameno : li->name,
 				li->channels, pixh, pixw, h);
 
-		if(extra){
+		if(extra && xml){
 			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
+			// This pass is purely for XML output.
 			savepos = ftello(f);
 			fseeko(f, li->additionalpos, SEEK_SET);
 			doadditional(f, 2, li->additionallen, 1);

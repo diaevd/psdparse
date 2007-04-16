@@ -36,35 +36,35 @@ void dumprow(unsigned char *b, long n, int group){
 }
 
 void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
-				   int i /*channel*/, psd_pixels_t j /*row*/, psd_bytes_t rb,
+				   int ch /*channel*/, psd_pixels_t row /*row*/, psd_bytes_t rb,
 				   unsigned char *inrow /*dest buffer*/,
-				   unsigned char *rledata /*temp buffer, 2 x rb in size*/)
+				   unsigned char *outrow /*temp buffer, 2 x rb in size*/)
 {
 	psd_pixels_t n, rlebytes;
 
-	if(fseeko(psd, rowpos[i][j], SEEK_SET) == -1){
-		alwayswarn(LL_L("# error seeking to %lld\n","# error seeking to %ld\n"),rowpos[i][j]);
+	if(fseeko(psd, rowpos[ch][row], SEEK_SET) == -1){
+		alwayswarn(LL_L("# error seeking to %lld\n","# error seeking to %ld\n"),rowpos[ch][row]);
 		memset(inrow,0,rb); // zero out the row
 	}else{
-		if(chcomp[i] == RAWDATA){ /* uncompressed row */
+		if(chcomp[ch] == RAWDATA){ /* uncompressed row */
 			n = fread(inrow,1,rb,psd);
 			if(n != rb){
-				warn("error reading row data (raw) @ " LL_L("%lld","%ld"), rowpos[i][j]);
+				warn("error reading row data (raw) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
 				memset(inrow+n,0,rb-n); // zero out the rest of the row
 			}
 		}
-		else if(chcomp[i] == RLECOMP){ /* RLE compressed row */
-			n = rowpos[i][j+1] - rowpos[i][j];
+		else if(chcomp[ch] == RLECOMP){ /* RLE compressed row */
+			n = rowpos[ch][row+1] - rowpos[ch][row];
 			if(n > 2*rb){
 				n = 2*rb; // sanity check
-				warn("bad RLE count %5ld @ channel %2d, row %5ld",n,i,j);
+				warn("bad RLE count %5ld @ channel %2d, row %5ld",n,ch,row);
 			}
-			rlebytes = fread(rledata,1,n,psd);
+			rlebytes = fread(outrow,1,n,psd);
 			if(rlebytes < n){
-				warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[i][j]);
+				warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
 				memset(inrow,0,rb); // zero it out, will probably unpack short
 			}
-			unpackbits(inrow,rledata,rb,rlebytes);
+			unpackbits(inrow,outrow,rb,rlebytes);
 		}else // assume it is bad
 			memset(inrow,0,rb);
 	}

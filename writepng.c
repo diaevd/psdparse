@@ -142,7 +142,8 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	psd_bytes_t savepos = ftello(psd);
-	psd_pixels_t i, j, rb = (h->depth*cols+7)/8, *q;
+	psd_pixels_t i, j, rb = (h->depth*cols+7)/8;
+	uint16_t *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
 	
@@ -156,7 +157,7 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 		inrows[ch] = checkmalloc(rb);
 		// build mapping so that png channel 0 --> channel with id 0, etc
 		// and png alpha --> channel with id -1
-		map[ch] = li && chancount>1 ? li->chindex[ch] : ch;
+		map[ch] = li && chancount > 1 ? li->chindex[ch] : ch;
 	}
 	
 	// find the alpha channel, if needed
@@ -203,9 +204,9 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 					for(ch = 0; ch < chancount; ++ch)
 						*p++ = inrows[ch][i];
 			else
-				for(i = 0, q = (psd_pixels_t*)rowbuf; i < rb/2; ++i)
+				for(i = 0, q = (uint16_t*)rowbuf; i < rb/2; ++i)
 					for(ch = 0; ch < chancount; ++ch)
-						*q++ = ((psd_pixels_t*)inrows[ch])[i];
+						*q++ = ((uint16_t*)inrows[ch])[i];
 
 			png_write_row(png_ptr, rowbuf);
 		}else
