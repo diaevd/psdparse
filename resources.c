@@ -24,14 +24,15 @@
 extern void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
-	double hres, vres;
+	double hresd, vresd;
+	extern long hres, vres; // fixed point values
 	
-	hres = FIXEDPT(get4B(f));
+	hresd = FIXEDPT(hres = get4B(f));
 	get2B(f);
 	get2B(f);
-	vres = FIXEDPT(get4B(f));
-	fprintf(xml, " <HRES>%g</HRES> <VRES>%g</VRES> ", hres, vres);
-	UNQUIET("    Resolution %g x %g pixels per inch\n", hres, vres);
+	vresd = FIXEDPT(vres = get4B(f));
+	fprintf(xml, " <HRES>%g</HRES> <VRES>%g</VRES> ", hresd, vresd);
+	UNQUIET("    Resolution %g x %g pixels per inch\n", hresd, vresd);
 }
 
 void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){

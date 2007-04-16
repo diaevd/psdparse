@@ -89,14 +89,16 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 			 int channels, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	FILE *png;
-	int ch, comp, startchan, pngchan, color_type,
-		*chcomp = checkmalloc(sizeof(int)*channels);
-	psd_bytes_t **rowpos = checkmalloc(sizeof(psd_bytes_t*)*channels);
+	int ch, comp, startchan, pngchan, color_type, *chcomp;
+	psd_bytes_t **rowpos;
 
+	chcomp = checkmalloc(channels*sizeof(int));
+	rowpos = checkmalloc(channels*sizeof(psd_bytes_t*));
+	
 	for(ch = 0; ch < channels; ++ch){
 		// is it a layer mask? if so, use special case row count
-		long chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
-		rowpos[ch] = checkmalloc(sizeof(psd_bytes_t)*(chrows+1));
+		psd_pixels_t chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
+		rowpos[ch] = checkmalloc((chrows+1)*sizeof(psd_bytes_t));
 	}
 
 	pngchan = color_type = 0;
@@ -109,7 +111,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		color_type = PNG_COLOR_TYPE_GRAY;
 		pngchan = 1;
 		// check if there is an alpha channel, or if merged data has alpha
-		if( (li && li->chindex[-1] != -1) || (channels>1 && h->mergedalpha) ){
+		if( li ? li->chindex[-1] != -1 : channels > 1 && h->mergedalpha ){
 			color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
 			pngchan = 2;
 		}
@@ -122,7 +124,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 	case ModeRGB48:
 		color_type = PNG_COLOR_TYPE_RGB;
 		pngchan = 3;
-		if( (li && li->chindex[-1] != -1) || (channels>3 && h->mergedalpha) ){
+		if( li ? li->chindex[-1] != -1 : channels > 3 && h->mergedalpha ){
 			color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 			pngchan = 4;
 		}
@@ -233,12 +235,11 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 		if( (layerlen = GETPSDBYTES(f)) ){
 			// layers structure
 			h->nlayers = get2B(f);
-			if(h->nlayers < 0){
+			if( (h->mergedalpha = h->nlayers < 0) ){
 				h->nlayers = - h->nlayers;
 				VERBOSE("  (first alpha is transparency for merged image)\n");
-				h->mergedalpha = 1;
 			}
-			UNQUIET("\n%d layers:\n",h->nlayers);
+			UNQUIET("\n%d layers:\n", h->nlayers);
 			
 			if( h->nlayers*(18+6*h->channels) > layerlen ){ // sanity check
 				alwayswarn("### unlikely number of layers, giving up.\n");
@@ -247,45 +248,46 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 			
 			h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info));
 
-			// load h->linfo[] array with each layer's info
+			// load linfo[] array with each layer's info
 
 			for(i = 0; i < h->nlayers; ++i){
+				struct layer_info *li = &h->linfo[i];
 				// process layer record
-				h->linfo[i].top = get4B(f);
-				h->linfo[i].left = get4B(f);
-				h->linfo[i].bottom = get4B(f);
-				h->linfo[i].right = get4B(f);
-				h->linfo[i].channels = get2Bu(f);
+				li->top = get4B(f);
+				li->left = get4B(f);
+				li->bottom = get4B(f);
+				li->right = get4B(f);
+				li->channels = get2Bu(f);
 				
 				VERBOSE("\n");
 				UNQUIET("  layer %d: (%4ld,%4ld,%4ld,%4ld), %d channels (%4ld rows x %4ld cols)\n",
-						i, h->linfo[i].top, h->linfo[i].left, h->linfo[i].bottom, h->linfo[i].right, h->linfo[i].channels,
-						h->linfo[i].bottom-h->linfo[i].top, h->linfo[i].right-h->linfo[i].left);
+						i, li->top, li->left, li->bottom, li->right, li->channels,
+						li->bottom-li->top, li->right-li->left);
 
-				if( h->linfo[i].bottom < h->linfo[i].top || h->linfo[i].right < h->linfo[i].left
-				 || h->linfo[i].channels > 64 ) // sanity check
+				if( li->bottom < li->top || li->right < li->left
+				 || li->channels > 64 ) // sanity check
 				{
 					alwayswarn("### something's not right about that, trying to skip layer.\n");
-					fseeko(f, 6*h->linfo[i].channels+12, SEEK_CUR);
+					fseeko(f, 6*li->channels+12, SEEK_CUR);
 					skipblock(f,"layer info: extra data");
 				}else{
 
-					h->linfo[i].chlengths = checkmalloc(h->linfo[i].channels*sizeof(psd_bytes_t));
-					h->linfo[i].chid = checkmalloc(h->linfo[i].channels*sizeof(int));
-					h->linfo[i].chindex = checkmalloc((h->linfo[i].channels+2)*sizeof(int));
-					h->linfo[i].chindex += 2; // so we can index array from [-2] (hackish)
+					li->chlengths = checkmalloc(li->channels*sizeof(psd_bytes_t));
+					li->chid = checkmalloc(li->channels*sizeof(int));
+					li->chindex = checkmalloc((li->channels+2)*sizeof(int));
+					li->chindex += 2; // so we can index array from [-2] (hackish)
 					
-					for(j = -2; j < h->linfo[i].channels; ++j)
-						h->linfo[i].chindex[j] = -1;
+					for(j = -2; j < li->channels; ++j)
+						li->chindex[j] = -1;
 		
 					// fetch info on each of the layer's channels
 					
-					for(j = 0; j < h->linfo[i].channels; ++j){
-						chid = h->linfo[i].chid[j] = get2B(f);
-						chlen = h->linfo[i].chlengths[j] = GETPSDBYTES(f);
+					for(j = 0; j < li->channels; ++j){
+						chid = li->chid[j] = get2B(f);
+						chlen = li->chlengths[j] = GETPSDBYTES(f);
 						
-						if(chid >= -2 && chid < h->linfo[i].channels)
-							h->linfo[i].chindex[chid] = j;
+						if(chid >= -2 && chid < li->channels)
+							li->chindex[chid] = j;
 						else
 							warn("unexpected channel id %d",chid);
 							
@@ -302,13 +304,13 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 								j, chlen, chid, chidstr);
 					}
 
-					fread(h->linfo[i].blend.sig,1,4,f);
-					fread(h->linfo[i].blend.key,1,4,f);
-					h->linfo[i].blend.opacity = fgetc(f);
-					h->linfo[i].blend.clipping = fgetc(f);
-					h->linfo[i].blend.flags = fgetc(f);
+					fread(li->blend.sig,1,4,f);
+					fread(li->blend.key,1,4,f);
+					li->blend.opacity = fgetc(f);
+					li->blend.clipping = fgetc(f);
+					li->blend.flags = fgetc(f);
 					fgetc(f); // padding
-					layerblendmode(f, 0, 0, &h->linfo[i].blend);
+					layerblendmode(f, 0, 0, &li->blend);
 
 					// process layer's 'extra data' section
 
@@ -318,46 +320,46 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 							LL_L("%lld","%ld") ")\n", extralen, extrastart);
 
 					// fetch layer mask data
-					if( (h->linfo[i].mask.size = get4B(f)) ){
-						h->linfo[i].mask.top = get4B(f);
-						h->linfo[i].mask.left = get4B(f);
-						h->linfo[i].mask.bottom = get4B(f);
-						h->linfo[i].mask.right = get4B(f);
-						h->linfo[i].mask.default_colour = fgetc(f);
-						h->linfo[i].mask.flags = fgetc(f);
-						fseeko(f, h->linfo[i].mask.size-18, SEEK_CUR); // skip remainder
-						h->linfo[i].mask.rows = h->linfo[i].mask.bottom - h->linfo[i].mask.top;
-						h->linfo[i].mask.cols = h->linfo[i].mask.right - h->linfo[i].mask.left;
+					if( (li->mask.size = get4B(f)) ){
+						li->mask.top = get4B(f);
+						li->mask.left = get4B(f);
+						li->mask.bottom = get4B(f);
+						li->mask.right = get4B(f);
+						li->mask.default_colour = fgetc(f);
+						li->mask.flags = fgetc(f);
+						fseeko(f, li->mask.size-18, SEEK_CUR); // skip remainder
+						li->mask.rows = li->mask.bottom - li->mask.top;
+						li->mask.cols = li->mask.right - li->mask.left;
 					}else
 						VERBOSE("  (no layer mask)\n");
 			
 					skipblock(f,"layer blending ranges");
 					
 					// layer name
-					h->linfo[i].nameno = malloc(16);
-					sprintf(h->linfo[i].nameno,"layer%d",i+1);
+					li->nameno = malloc(16);
+					sprintf(li->nameno,"layer%d",i+1);
 					namelen = fgetc(f);
-					h->linfo[i].name = checkmalloc(PAD4(namelen+1));
-					fread(h->linfo[i].name,1,PAD4(namelen+1)-1,f);
-					h->linfo[i].name[namelen] = 0;
+					li->name = checkmalloc(PAD4(namelen+1));
+					fread(li->name,1,PAD4(namelen+1)-1,f);
+					li->name[namelen] = 0;
 					if(namelen){
-						UNQUIET("    name: \"%s\"\n",h->linfo[i].name);
-						if(h->linfo[i].name[0] == '.')
-							h->linfo[i].name[0] = '_';
+						UNQUIET("    name: \"%s\"\n", li->name);
+						if(li->name[0] == '.')
+							li->name[0] = '_';
 					}
 					
 					// process layer's 'additional info'
 					
-					h->linfo[i].additionalpos = ftello(f);
-					h->linfo[i].additionallen = extrastart + extralen - h->linfo[i].additionalpos;
+					li->additionalpos = ftello(f);
+					li->additionallen = extrastart + extralen - li->additionalpos;
 					if(extra)
-						doadditional(f, 0, h->linfo[i].additionallen, 0);
+						doadditional(f, 0, li->additionallen, 0);
 			
-					// leave file positioned at 'image data' section
-					fseeko(f, extrastart+extralen, SEEK_SET);
+					// leave file positioned at end of layer's data
+					fseeko(f, extrastart + extralen, SEEK_SET);
 				}
 			} // for layers
-      
+      		// after processing all layers, file should now positioned at image data
 		}else VERBOSE("  (layer info section is empty)\n");
 		
 	}else VERBOSE("  (layer & mask info section is empty)\n");
@@ -376,37 +378,37 @@ void processlayers(psd_file_t f, struct psd_header *h){
 	if(listfile) fputs("assetlist = {\n",listfile);
 		
 	for(i = 0; i < h->nlayers; ++i){
-		long pixw = h->linfo[i].right - h->linfo[i].left,
-			 pixh = h->linfo[i].bottom - h->linfo[i].top;
+		struct layer_info *li = &h->linfo[i];
+		long pixw = li->right - li->left, pixh = li->bottom - li->top;
 
-		VERBOSE("\n  layer %d (\"%s\"):\n",i,h->linfo[i].name);
+		VERBOSE("\n  layer %d (\"%s\"):\n", i, li->name);
 	  
 		if(listfile && pixw && pixh){
 			if(numbered)
 				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
-						h->linfo[i].nameno, h->linfo[i].left, h->linfo[i].top, pixw, pixh, h->linfo[i].name);
+						li->nameno, li->left, li->top, pixw, pixh, li->name);
 			else
 				fprintf(listfile,"\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
-						h->linfo[i].name, h->linfo[i].left, h->linfo[i].top, pixw, pixh);
+						li->name, li->left, li->top, pixw, pixh);
 		}
 		if(xml){
 			fputs("\t<LAYER NAME='",xml);
-			fputsxml(h->linfo[i].name,xml);
+			fputsxml(li->name,xml);
 			fprintf(xml,"' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
-					h->linfo[i].top, h->linfo[i].left, h->linfo[i].bottom, h->linfo[i].right, pixw, pixh);
+					li->top, li->left, li->bottom, li->right, pixw, pixh);
 		}
 
-		if(xml) layerblendmode(f, 2, 1, &h->linfo[i].blend);
+		if(xml) layerblendmode(f, 2, 1, &li->blend);
 
-		doimage(f, h->linfo+i, numbered ? h->linfo[i].nameno : h->linfo[i].name,
-				h->linfo[i].channels, pixh, pixw, h);
+		doimage(f, li, numbered ? li->nameno : li->name,
+				li->channels, pixh, pixw, h);
 
 		if(extra){
 			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
 			savepos = ftello(f);
-			fseeko(f, h->linfo[i].additionalpos, SEEK_SET);
-			doadditional(f, 2, h->linfo[i].additionallen, 1);
+			fseeko(f, li->additionalpos, SEEK_SET);
+			doadditional(f, 2, li->additionallen, 1);
 			fseeko(f, savepos, SEEK_SET); // restore file position
 		}
 		if(xml) fputs("\t</LAYER>\n\n",xml);

@@ -110,10 +110,10 @@ struct psd_header{
 	short mode;
 
 	// following fields are for our purposes, not actual header fields
-	psd_bytes_t colormodepos;
-	int nlayers, mergedalpha;
-	struct layer_info *linfo;     // layer info array
-	psd_bytes_t lmistart, lmilen; // layer & mask info section
+	psd_bytes_t colormodepos; // set by dopsd()
+	int nlayers, mergedalpha; // set by dopsd()->dolayermaskinfo()
+	struct layer_info *linfo;     // layer info array, set by dopsd()->dolayermaskinfo()
+	psd_bytes_t lmistart, lmilen; // layer & mask info section, set by dopsd()->dolayermaskinfo()
 };
 
 struct layer_mask_info{
@@ -203,6 +203,10 @@ void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
 
 void skipblock(psd_file_t f,char *desc);
 void dumprow(unsigned char *b,long n,int group);
+void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
+				   int i/*channel*/, psd_pixels_t j/*row*/, psd_bytes_t rb,
+				   unsigned char *inrow/*dest buffer*/,
+				   unsigned char *rledata/*temp buffer, 2 x rb in size*/);
 int dochannel(psd_file_t f,struct layer_info *li,int idx,int channels,
 			  psd_pixels_t rows,psd_pixels_t cols,int depth,psd_bytes_t **rowpos,struct psd_header *h);
 void doimage(psd_file_t f,struct layer_info *li,char *name,int channels,

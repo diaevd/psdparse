@@ -68,12 +68,11 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 void rawwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
-	psd_pixels_t j,n,rb = (h->depth*cols+7)/8,rlebytes;
-	unsigned char *rowbuf,*inrow,*rledata;
+	psd_pixels_t j, rb = (h->depth*cols+7)/8;
+	unsigned char *inrow, *rledata;
 	psd_bytes_t savepos = ftello(psd);
 	int i;
 
-	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);
 	inrow = checkmalloc(rb);
 
@@ -82,36 +81,7 @@ void rawwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 		UNQUIET("## rawwriteimage: channel %d\n",i);
 		for(j = 0; j < rows; ++j){
 			/* get row data */
-			//printf("rowpos[%d][%4d] = %7d\n",ch,j,rowpos[ch][j]);
-
-			if(fseeko(psd, rowpos[i][j], SEEK_SET) == -1){
-				alwayswarn(LL_L("# error seeking to %lld\n","# error seeking to %ld\n"),rowpos[i][j]);
-				memset(inrow,0,rb); // zero out the row
-			}else{
-
-				if(chcomp[i] == RAWDATA){ /* uncompressed row */
-					n = fread(inrow,1,rb,psd);
-					if(n != rb){
-						warn("error reading row data (raw) @ " LL_L("%lld","%ld"), rowpos[i][j]);
-						memset(inrow+n,0,rb-n); // zero out the rest of the row
-					}
-				}
-				else if(chcomp[i] == RLECOMP){ /* RLE compressed row */
-					n = rowpos[i][j+1] - rowpos[i][j];
-					if(n > 2*rb){
-						n = 2*rb; // sanity check
-						warn("bad RLE count %5ld @ channel %2d, row %5ld",n,i,j);
-					}
-					rlebytes = fread(rledata,1,n,psd);
-					if(rlebytes < n){
-						warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[i][j]);
-						memset(inrow,0,rb); // zero it out, will probably unpack short
-					}
-					unpackbits(inrow,rledata,rb,rlebytes);
-				}else // assume it is bad
-					memset(inrow,0,rb);
-
-			}
+			readunpackrow(psd, chcomp, rowpos, i, j, rb, inrow, rledata);
 			if((psd_pixels_t)fwrite(inrow, 1, rb, png) != rb){
 				alwayswarn("# error writing raw data, aborting\n");
 				goto done;
@@ -122,7 +92,6 @@ void rawwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 
 done:
 	fclose(png);
-	free(rowbuf);
 	free(rledata);
 	free(inrow);
 

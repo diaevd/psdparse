@@ -27,6 +27,7 @@ extern char indir[];
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0;
+long hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
@@ -96,9 +97,12 @@ int main(int argc,char *argv[]){
 			UNQUIET("\"%s\"\n", argv[i]);
 
 			if(dopsd(f, argv[i], &h)){
+				// FIXME: a lot of data structures malloc'd in dopsd()
+				// and dolayermaskinfo() are never free'd
 
 				// process the layers in 'image data' section,
 				// creating PNG/raw files if requested
+
 				processlayers(f, &h);
 	
 				skipblock(f, "global layer mask info");
@@ -111,7 +115,6 @@ int main(int argc,char *argv[]){
 					
 				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
-	
 				// process merged (composite) image data
 				base = strrchr(argv[i], DIRSEP);
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);

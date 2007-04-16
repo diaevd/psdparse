@@ -47,7 +47,6 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 {
 	char pngname[PATH_MAX],*pngtype = NULL;
 	static FILE *f; // static, because it might get used post-longjmp()
-	unsigned char *palette;
 	png_color *pngpal;
 	int i,n;
 	psd_bytes_t savepos;
@@ -114,21 +113,18 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 				// go get the colour palette
 				savepos = ftello(psd);
 				fseeko(psd, h->colormodepos, SEEK_SET);
-				n = get4B(psd);
-				palette = checkmalloc(n);
-				fread(palette,1,n,psd);
-				fseeko(psd, savepos, SEEK_SET);
-				
-				n /= 3;
-				pngpal = checkmalloc(sizeof(png_color)*n);
-				for(i = 0; i < n; ++i){
-					pngpal[i].red   = palette[i];
-					pngpal[i].green = palette[i+n];
-					pngpal[i].blue  = palette[i+2*n];
+				n = get4B(psd)/3;
+				if(n > 256){ // sanity check...
+					warn("# more than 256 entries in colour palette! (%d)\n", n);
+					n = 256;
 				}
+				pngpal = checkmalloc(sizeof(png_color)*n);
+				for(i = 0; i < n; ++i) pngpal[i].red   = fgetc(psd);
+				for(i = 0; i < n; ++i) pngpal[i].green = fgetc(psd);
+				for(i = 0; i < n; ++i) pngpal[i].blue  = fgetc(psd);
+				fseeko(psd, savepos, SEEK_SET);
 				png_set_PLTE(png_ptr, info_ptr, pngpal, n);
 				free(pngpal);
-				free(palette);		 
 			}
 
 			png_write_info(png_ptr, info_ptr);
@@ -146,7 +142,7 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
 	psd_bytes_t savepos = ftello(psd);
-	psd_pixels_t rlebytes, n, i, j, rb = (h->depth*cols+7)/8, *q;
+	psd_pixels_t i, j, rb = (h->depth*cols+7)/8, *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
 	
@@ -164,6 +160,7 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 	}
 	
 	// find the alpha channel, if needed
+	// FIXME: does this work for the merged image alpha??
 	if(chancount == 2 && li){ // grey+alpha
 		if(li->chindex[-1] == -1)
 			alwayswarn("### writing Grey+Alpha PNG, but no alpha found?\n");
@@ -196,37 +193,11 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 			if(map[i] < 0 || map[i] > (li ? li->channels : h->channels)){
 				warn("bad map[%d]=%d, skipping a channel",i,map[i]);
 				memset(inrows[i],0,rb); // zero out the row
-			}else if(fseeko(psd, rowpos[ch][j], SEEK_SET) == -1){
-				alwayswarn("# error seeking to " LL_L("%lld\n","%ld\n"), rowpos[ch][j]);
-				memset(inrows[i],0,rb); // zero out the row
-			}else{
-
-				if(chcomp[ch] == RAWDATA){ /* uncompressed row */
-					n = fread(inrows[i],1,rb,psd);
-					if(n != rb){
-						warn("error reading row data (raw) @ ", LL_L("%lld","%ld"), rowpos[ch][j]);
-						memset(inrows[i]+n,0,rb-n); // zero out the rest of the row
-					}
-				}
-				else if(chcomp[ch] == RLECOMP){ /* RLE compressed row */
-					n = rowpos[ch][j+1] - rowpos[ch][j];
-					if(n > 2*rb){
-						n = 2*rb; // sanity check
-						warn("bad RLE count %5ld @ channel %2d, row %5ld", n, ch, j);
-					}
-					rlebytes = fread(rledata,1,n,psd);
-					if(rlebytes < n){
-						warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][j]);
-						memset(inrows[i],0,rb); // zero it out, will probably unpack short
-					}
-					unpackbits(inrows[i],rledata,rb,rlebytes);
-				}else // assume it is bad
-					memset(inrows[i],0,rb);
-
-			}
+			}else
+				readunpackrow(psd, chcomp, rowpos, ch, j, rb, inrows[i], rledata);
 		}
 
-		if(chancount>1){ /* interleave channels */
+		if(chancount > 1){ /* interleave channels */
 			if(h->depth == 8)
 				for(i = 0, p = rowbuf; i < rb; ++i)
 					for(ch = 0; ch < chancount; ++ch)
