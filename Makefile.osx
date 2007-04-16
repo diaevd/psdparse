@@ -70,9 +70,13 @@ test : orig.psd ../garble/garble
 		../garble/garble test.psd 100; \
 	done
 
+fat : CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
+fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
+fat : psdparse
+
 psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG)
 psdparse : $(OBJ) $(LIBPNGA)
-	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng
+	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng $(LDFLAGS)
 
 # Win32 EXE built by MinGW
 # psdparse.exe - standard CLI tool
@@ -100,9 +104,13 @@ psdparse-win.zip : README.txt gpl.html psdparse.exe psd2png.exe
 	zip -9 $@ $^
 
 # rule to build libpng
+# note -DXP_MACOSX is to work around a libpng link problem
+# (Undefined symbols: _png_mmx_support)
 
 $(LIBPNG)/libpng.a : $(LIBPNG)/scripts/makefile.darwin
-	cd $(LIBPNG) && $(MAKE) -f scripts/makefile.darwin libpng.a
+	cd $(LIBPNG) && $(MAKE) -f scripts/makefile.darwin libpng.a \
+			CFLAGS="$(CFLAGS) -DXP_MACOSX" \
+			LDFLAGS="$(LDFLAGS)"
 
 # rules to build Win32 libraries
 
