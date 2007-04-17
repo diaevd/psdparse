@@ -36,9 +36,11 @@
 	// macro chooses the '%l' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) lfmt
 	
-	// MinGW doesn't have fseeko/ftello
-	#define fseeko fseek
-	#define ftello ftell
+	#ifdef WIN32
+		// MinGW doesn't have fseeko/ftello
+		#define fseeko fseek
+		#define ftello ftell
+	#endif
 #endif
 
 typedef long psd_pixels_t;
