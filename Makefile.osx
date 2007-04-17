@@ -34,7 +34,7 @@ LIBPNGA = $(LIBPNG)/libpng.a
 
 # if building with MinGW ('make exe'), extract zlib and libpng to these directories:
 ZLIBW32 = ../zlib-1.2.3_w32
-LIBPNGW32  = ../libpng-1.2.8_w32
+LIBPNGW32  = ../libpng-1.2.16_w32
 # (zlib can be downloaded via http://www.zlib.net/)
 
 # define MinGW tools
@@ -44,7 +44,7 @@ MINGW_RANLIB  = i386-mingw32msvc-ranlib
 MINGW_WINDRES = i386-mingw32msvc-windres
 
 CFLAGS   += -W -Wall -O2 -Wno-unused-parameter
-CPPFLAGS += -DDEFAULT_VERBOSE=0 -DPSBSUPPORT -D_LARGEFILE_SOURCE
+CPPFLAGS += -DDEFAULT_VERBOSE=0 #-DPSBSUPPORT -D_LARGEFILE_SOURCE
 
 SRC    = main.c writepng.c writeraw.c unpackbits.c resources.c \
 		 additional.c constants.c util.c descriptor.c channel.c psd.c
@@ -58,7 +58,9 @@ obj_w32/%.o : %.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 
 all : psdparse
 
-clean : ; rm -f psdparse psdparse.exe $(OBJ) $(OBJW32)
+clean :
+	rm -f psdparse psdparse.exe $(OBJ) $(OBJW32) $(LIBPNG)/*.[oa] $(LIBPNGW32)/*.[oa]
+	$(MAKE) -C $(ZLIBW32) clean
 
 # fuzz testing. depends on 'garble' tool, 
 # see http://www.telegraphics.com.au/svn/garble/trunk/
@@ -70,13 +72,14 @@ test : orig.psd ../garble/garble
 		../garble/garble test.psd 100; \
 	done
 
+psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG) -DPSBSUPPORT -D_LARGEFILE_SOURCE
+psdparse : $(OBJ) $(LIBPNGA)
+	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng $(LDFLAGS)
+
 fat : CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
 fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
 fat : psdparse
 
-psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG)
-psdparse : $(OBJ) $(LIBPNGA)
-	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng $(LDFLAGS)
 
 # Win32 EXE built by MinGW
 # psdparse.exe - standard CLI tool
@@ -116,7 +119,7 @@ $(LIBPNG)/libpng.a : $(LIBPNG)/scripts/makefile.darwin
 
 $(LIBPNGW32)/libpng.a : $(LIBPNGW32)/scripts/makefile.gcc
 	cd $(LIBPNGW32); \
-	$(MAKE) CC=$(MINGW_CC) CPPFLAGS="-I$(ZLIBW32)" AR="$(MINGW_AR) rcs" RANLIB=$(MINGW_RANLIB) \
+	$(MAKE) CC=$(MINGW_CC) CRELEASE=-I$(ZLIBW32) AR="$(MINGW_AR) rcs" RANLIB=$(MINGW_RANLIB) \
 		-f scripts/makefile.gcc libpng.a
 
 $(ZLIBW32)/libz.a : $(ZLIBW32)/configure
