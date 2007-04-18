@@ -38,10 +38,11 @@
   11-Apr-2007: 2.0b2 disable buggy descriptor parsing
   11-Apr-2007: 2.1b1 initial PSB support
   14-Apr-2007: 2.2b1,2 more metadata support (effects layers, etc)
+  16-Apr-2007: 2.3b1 bugs fixed, refactoring
 */
 
-#define VERSION_STR "2.2b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x20,beta,2
+#define VERSION_STR "2.3b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x30,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\

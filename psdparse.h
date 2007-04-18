@@ -67,7 +67,7 @@ typedef long psd_pixels_t;
 	int pl_fgetc(psd_file_t f);
 	int pl_feof(psd_file_t f);
 	size_t pl_fread(void *ptr, size_t s, size_t n, psd_file_t f);
-	off_t pl_fseeko(psd_file_t f, off_t pos, int wh);
+	int pl_fseeko(psd_file_t f, off_t pos, int wh);
 	off_t pl_ftello(psd_file_t f);
 	void pl_fatal(char *s);
 #else

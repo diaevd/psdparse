@@ -22,36 +22,38 @@
 int pl_fgetc(psd_file_t f){
 	// FIXME: replace with buffered version, this will be SLOW
 	unsigned char c;
-	long count = 1;
-	return FSRead(f, &count, &c) ? EOF : c;
+	FILECOUNT count = 1;
+	return fsread_large(f, &count, &c) ? EOF : c;
 }
 
 size_t pl_fread(void *ptr, size_t s, size_t n, psd_file_t f){
-	long count = s*n;
-	return FSRead(f, &count, ptr) ? 0 : n;
+	FILECOUNT count = s*n;
+	return fsread_large(f, &count, ptr) ? 0 : n;
 }
 
-off_t pl_fseeko(psd_file_t f, off_t pos, int wh){
+int pl_fseeko(psd_file_t f, off_t pos, int wh){
 	int err;
+	FILEPOS newpos;
 
 	switch(wh){
-	case SEEK_SET: err = SetFPos(f, fsFromStart, pos); break;
-	case SEEK_CUR: err = SetFPos(f, fsFromMark, pos); break;
-	case SEEK_END: err = SetFPos(f, fsFromLEOF, pos); break;
+	case SEEK_SET: err = setfpos_large(f, fsFromStart, pos); break;
+	case SEEK_CUR: err = setfpos_large(f, fsFromMark, pos); break;
+	case SEEK_END: err = setfpos_large(f, fsFromLEOF, pos); break;
 	default: return -1;
 	}
+	getfpos_large(f,&newpos);
+printf("pl_fseeko(%lld, %d) ... pos now %lld\n",pos,wh,newpos);
 	return err ? -1 : 0;
 }
 
 off_t pl_ftello(psd_file_t f){
 	FILEPOS pos;
-
-	return GetFPos(f, &pos) ? -1 : pos;
+	return getfpos_large(f, &pos) ? -1 : pos;
 }
 
 int pl_feof(psd_file_t f){
 	FILEPOS eof;
-	return !GetEOF(f, &eof) && pl_ftello(f) >= eof;
+	return !geteof_large(f, &eof) && pl_ftello(f) >= eof;
 }
 
 void pl_fatal(char *s){
