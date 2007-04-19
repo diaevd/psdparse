@@ -177,7 +177,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 			if(comp == RLECOMP){
 				n = rlebuf[k++];
 				//VERBOSE("rle count[%5d] = %5d\n",j,n);
-				if(n > 2*rb){
+				if(n < 0 || n > 2*rb){
 					warn("bad RLE count %5ld @ row %5ld",n,j);
 					n = 2*rb;
 				}

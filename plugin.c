@@ -42,7 +42,7 @@ int pl_fseeko(psd_file_t f, off_t pos, int wh){
 	default: return -1;
 	}
 	getfpos_large(f,&newpos);
-printf("pl_fseeko(%lld, %d) ... pos now %lld\n",pos,wh,newpos);
+	//printf("pl_fseeko(%lld, %d) ... pos now %lld\n",pos,wh,newpos);
 	return err ? -1 : 0;
 }
 
