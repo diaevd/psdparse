@@ -70,6 +70,9 @@ void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
 	}
 }
 
+// if rowpos is NULL, we're just skipping through this channel,
+// not collecting row start positions.
+
 int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 			  psd_pixels_t rows, psd_pixels_t cols, int depth,
 			  psd_bytes_t **rowpos, struct psd_header *h)
@@ -131,7 +134,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 		if(li && chlen < rlecounts)
 			alwayswarn("## channel too short for RLE row counts (need %ld bytes, have "
 					   LL_L("%lld","%ld") " bytes)\n", rlecounts, chlen);
-			
+
 		pos += rlecounts; /* image data starts after RLE counts */
 		rlebuf = checkmalloc(channels*rows*sizeof(psd_pixels_t));
 		/* accumulate RLE counts, to make array of row start positions */
@@ -146,8 +149,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 				if(rowpos) rowpos[ch][j] = pos;
 				pos += count;
 			}
-			if(rowpos) 
-				rowpos[ch][j] = pos; /* = end of last row */
+			if(rowpos) rowpos[ch][j] = pos; /* = end of last row */
 			if(j < rows) fatal("# couldn't read RLE counts");
 		}
 	}else if(rowpos){
