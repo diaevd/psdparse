@@ -17,13 +17,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <wchar.h>
-
 #include "psdparse.h"
 
 extern void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
-void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	double hresd, vresd;
 	extern long hres, vres; // fixed point values
 	
@@ -35,35 +33,35 @@ void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hresd, vresd);
 }
 
-void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputsxml(getpstr(f), xml);
 }
 
-void ir_1byte(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_1byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%d", fgetc(f));
 }
 
-void ir_2byte(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_2byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%d", get2B(f));
 }
 
-void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%ld", get4B(f));
 }
 
-void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
 	while(len--)
 		fprintf(xml, "%02x", fgetc(f));
 }
 
-void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *parent){
 	int v = get4B(f);
 	double ratio = getdoubleB(f);
 	fprintf(xml, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
 	UNQUIET("    (Version = %d, Ratio = %g)\n", v, ratio);
 }
 
-void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
+static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
 		fprintf(xml, "%04x", get2B(f));

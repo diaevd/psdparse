@@ -17,8 +17,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <wchar.h>
-
 #include "psdparse.h"
 
 /* 'Extra data' handling. *Work in progress*
@@ -32,8 +30,7 @@
 
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
 
-extern void ed_descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent);
-void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
+static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
 	psd_bytes_t savepos = ftello(f);
@@ -84,7 +81,7 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 	return NULL;
 }
 
-void colorspace(psd_file_t f, int level){
+static void colorspace(psd_file_t f, int level){
 	// this map is taken from Colour Samplers; I'm guessing it applies generally
 	static char *spaces[] = {"kDummySpace" /* = -1 */, "kRGBSpace",
 		"kHSBSpace", "kCMYKSpace", "kPantoneSpace", "kFocoltoneSpace",
@@ -102,7 +99,7 @@ void colorspace(psd_file_t f, int level){
 	fputs(" </COLOR>\n", xml);
 }
 
-void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align, style;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
@@ -201,7 +198,7 @@ void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry *parent
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
 
-void ed_unicodename(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	unsigned long len = get4B(f); // character count, not byte count
 
 	if(len > 0 && len < 1024){ // sanity check
@@ -217,7 +214,7 @@ void ed_unicodename(psd_file_t f, int level, int printxml, struct dictentry *par
 	}
 }
 
-void ed_long(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_long(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	unsigned long id = get4B(f);
 	if(printxml)
 		fprintf(xml, "%lu", id);
@@ -225,7 +222,7 @@ void ed_long(psd_file_t f, int level, int printxml, struct dictentry *parent){
 		UNQUIET("    (%s = %lu)\n", parent->desc, id);
 }
 
-void ed_key(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_key(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	char key[4];
 	fread(key, 1, 4, f);
 	if(printxml)
@@ -234,7 +231,7 @@ void ed_key(psd_file_t f, int level, int printxml, struct dictentry *parent){
 		UNQUIET("    (%s = '%c%c%c%c')\n", parent->desc, key[0],key[1],key[2],key[3]);
 }
 
-void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	int i, j, major = get2B(f), minor = get2B(f), len, open, flags;
 	char type[4], key[4];
 	const char *indent = tabs(level);
@@ -301,7 +298,7 @@ void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *pare
 		UNQUIET("    (%s, version = %d.%d)\n", parent->desc, major, minor);
 }
 
-void ed_byte(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_byte(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	int k = fgetc(f);
 	if(printxml)
 		fprintf(xml, "%d", k);
@@ -309,7 +306,7 @@ void ed_byte(psd_file_t f, int level, int printxml, struct dictentry *parent){
 		UNQUIET("    (%s = %d)\n", parent->desc, k);
 }
 
-void ed_referencepoint(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_referencepoint(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	double x,y;
 
 	x = getdoubleB(f);
@@ -321,26 +318,26 @@ void ed_referencepoint(psd_file_t f, int level, int printxml, struct dictentry *
 }
 
 // CS doc
-void ed_descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	if(printxml)
 		descriptor(f, level, printxml, parent); // TODO: pass flag to extract value data
 }
 
 // CS doc
-void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	if(printxml)
 		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), get4B(f));
 	ed_descriptor(f, level, printxml, parent);
 }
 
 // CS doc
-void ed_objecteffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_objecteffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	if(printxml)
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
 	ed_versdesc(f, level, printxml, parent);
 }
 
-int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *dict){
+static int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *dict){
 	char sig[4], key[4];
 	long len;
 	struct dictentry *d;
@@ -417,7 +414,7 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 }
 
 // CS doc
-void blendmode(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void blendmode(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	char sig[4], key[4];
 
 	fread(sig, 1, 4, f);
@@ -430,7 +427,7 @@ void blendmode(psd_file_t f, int level, int printxml, struct dictentry *parent){
 }
 
 // CS doc
-void fx_commonstate(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_commonstate(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	if(printxml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
 		fprintf(xml, "%s<VISIBLE>%d</VISIBLE>\n", tabs(level), fgetc(f));
@@ -438,7 +435,7 @@ void fx_commonstate(psd_file_t f, int level, int printxml, struct dictentry *par
 }
 
 // CS doc
-void fx_shadow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_shadow(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 
 	if(printxml){
@@ -457,7 +454,7 @@ void fx_shadow(psd_file_t f, int level, int printxml, struct dictentry *parent){
 }
 
 // CS doc
-void fx_outerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_outerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 
 	if(printxml){
@@ -473,7 +470,7 @@ void fx_outerglow(psd_file_t f, int level, int printxml, struct dictentry *paren
 }
 
 // CS doc
-void fx_innerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_innerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
@@ -492,7 +489,7 @@ void fx_innerglow(psd_file_t f, int level, int printxml, struct dictentry *paren
 }
 
 // CS doc
-void fx_bevel(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_bevel(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
@@ -519,7 +516,7 @@ void fx_bevel(psd_file_t f, int level, int printxml, struct dictentry *parent){
 }
 
 // CS doc
-void fx_solidfill(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_solidfill(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
@@ -535,7 +532,7 @@ void fx_solidfill(psd_file_t f, int level, int printxml, struct dictentry *paren
 }
 
 // CS doc
-void ed_layereffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_layereffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	static struct dictentry fxdict[] = {
 		{0, "cmnS", "COMMONSTATE", "common state", fx_commonstate},
 		{0, "dsdw", "DROPSHADOW", "drop shadow", fx_shadow},
@@ -556,7 +553,7 @@ void ed_layereffects(psd_file_t f, int level, int printxml, struct dictentry *pa
 	}
 }
 
-void mdblock(psd_file_t f, int level, int printxml){
+static void mdblock(psd_file_t f, int level, int printxml){
 	char sig[4], key[4];
 	long len;
 	int copy;
@@ -579,7 +576,7 @@ void mdblock(psd_file_t f, int level, int printxml){
 }
 
 // v6 doc
-void ed_metadata(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_metadata(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count;
 
 	for(count = get4B(f); count--;)

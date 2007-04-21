@@ -50,6 +50,9 @@ void warn(char *fmt,...){
 		va_end(v);
 		fflush(stdout);
 		fprintf(stderr,"#   warning: %s\n",s);
+#ifdef PSDPARSE_PLUGIN
+		warndialog(s);
+#endif
 	}
 }
 
@@ -62,6 +65,9 @@ void alwayswarn(char *fmt,...){
 	va_end(v);
 	fflush(stdout);
 	fputs(s,stderr);
+#ifdef PSDPARSE_PLUGIN
+	warndialog(s);
+#endif
 }
 
 void *checkmalloc(long n){

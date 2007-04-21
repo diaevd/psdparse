@@ -17,7 +17,17 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <stdint.h>
+#ifdef powerc // MPW MrC
+	#include <MacTypes.h>
+	typedef SInt64 int64_t, off_t;
+	#define fputwc fputc // none of that Unicode nonsense for us! (UniChar)
+	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
+#else
+	#include <stdint.h>
+	#include <sys/types.h>
+	#include <unistd.h>
+	#include <wchar.h>
+#endif
 
 #ifdef PSBSUPPORT
 	#define _FILE_OFFSET_BITS 64
@@ -45,12 +55,10 @@
 
 typedef long psd_pixels_t;
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <unistd.h>
 
 #ifdef PSDPARSE_PLUGIN
 	#include "world.h" // for DIRSEP
@@ -70,6 +78,8 @@ typedef long psd_pixels_t;
 	int pl_fseeko(psd_file_t f, off_t pos, int wh);
 	off_t pl_ftello(psd_file_t f);
 	void pl_fatal(char *s);
+	
+	Boolean warndialog(char *s);
 #else
 	typedef FILE *psd_file_t;
 #endif
@@ -238,11 +248,11 @@ int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_
 	#include <direct.h>
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
 #else
-	#include <sys/stat.h>
+	#if defined(macintosh) && !defined(_SYS_STAT_H_)
+		// don't clash with OS X header -- this prototype is meant for MPW build.
+		int mkdir(char *s,int mode);
+	#else
+		#include <sys/stat.h>
+	#endif
 	#define MKDIR mkdir
-#endif
-
-// don't clash with OS X header -- this prototype is meant for MPW build.
-#if defined(macintosh) && !defined(_SYS_STAT_H_)
-	int mkdir(char *s,int mode);
 #endif
