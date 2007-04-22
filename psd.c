@@ -22,7 +22,7 @@
 #include "png.h"
 
 extern int verbose, quiet, rsrc, extra, makedirs, numbered,
-		   help, split, nwarns, writepng, writelist, writexml;
+		   help, split, nwarns, writepng, writelist, writexml, xmlout;
 extern char *pngdir;
 
 char indir[PATH_MAX], dirsep[] = {DIRSEP,0};
@@ -457,8 +457,14 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				listfile = fopen(fname,"w");
 			}
 			if(writexml){
-				setupfile(fname,pngdir,"psd",".xml");
-				if( (xml = fopen(fname,"w")) )
+				if(xmlout){
+					quiet = 1;
+					xml = stdout;
+				}else{
+					setupfile(fname,pngdir,"psd",".xml");
+					xml = fopen(fname,"w");
+				}
+				if(xml)
 					fputs("<?xml version=\"1.0\"?>\n",xml);
 			}
 

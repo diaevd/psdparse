@@ -26,7 +26,7 @@ extern char indir[];
 
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
-	makedirs = 0, numbered = 0, help = 0, split = 0;
+	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0;
 long hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
@@ -36,6 +36,24 @@ long hres, vres; // we don't use these, but they're set within doresources()
 #else
 	int writepng = 0,writelist = 0,writexml = 0;
 #endif
+
+void usage(char *prog, int status){
+	fprintf(stderr,"usage: %s [options] psdfile...\n\
+  -h, --help         show this help\n\
+  -v, --verbose      print more information\n\
+  -q, --quiet        work silently\n\
+  -r, --resources    process 'image resources' metadata\n\
+  -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
+  -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
+  -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
+  -d, --pngdir dir   put PNGs in specified directory (implies --writepng)\n\
+  -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
+  -l, --list         write an 'asset list' of layer sizes and positions\n\
+  -x, --xml          write XML describing document, layers, and any output files\n\
+      --xmlout       direct XML to standard output, not a file (implies --quiet)\n\
+  -s, --split        write each composite channel to individual (grey scale) PNG\n", prog, DIRSEP);
+	exit(status);
+}
 
 int main(int argc,char *argv[]){
 	static struct option longopts[] = {
@@ -50,6 +68,7 @@ int main(int argc,char *argv[]){
 		{"makedirs", no_argument, &makedirs, 1},
 		{"list",     no_argument, &writelist, 1},
 		{"xml",      no_argument, &writexml, 1},
+		{"xmlout",   no_argument, &xmlout, 1},
 		{"split",    no_argument, &split, 1},
 		{NULL,0,NULL,0}
 	};
@@ -61,42 +80,33 @@ int main(int argc,char *argv[]){
 
 	while( (opt = getopt_long(argc,argv,"hvqrewnd:mlxs",longopts,&indexptr)) != -1 )
 		switch(opt){
-		default:
+		case 0: break; // long option
 		case 'h': help = 1; break;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
 		case 'r': rsrc = 1; break;
 		case 'e': extra = 1; break;
+		case 'd': pngdir = optarg; // fall through
 		case 'w': writepng = 1; break;
 		case 'n': numbered = 1; break;
-		case 'd': pngdir = optarg;
 		case 'm': makedirs = 1; break;
 		case 'l': writelist = 1; break;
 		case 'x': writexml = 1; break;
 		case 's': split = 1; break;
+		default:  usage(argv[0], EXIT_FAILURE);
 		}
 
-	if(help || optind >= argc)
-		fprintf(stderr,"usage: %s [options] psdfile...\n\
-  -h, --help         show this help\n\
-  -v, --verbose      print more information\n\
-  -q, --quiet        work silently\n\
-  -r, --resources    process 'image resources' metadata\n\
-  -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
-  -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
-  -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
-  -d, --pngdir dir   put PNGs in specified directory (implies --writepng)\n\
-  -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
-  -l, --list         write an 'asset list' of layer sizes and positions\n\
-  -x, --xml          write XML describing document, layers, and any output files\n\
-  -s, --split        write each composite channel to individual (grey scale) PNG\n", argv[0], DIRSEP);
+	if(optind >= argc)
+		usage(argv[0], EXIT_FAILURE);
+	else if(help)
+		usage(argv[0], EXIT_SUCCESS);
 
 	for(i = optind; i < argc; ++i){
 		if( (f = fopen(argv[i], "rb")) ){
 			nwarns = 0;
-			UNQUIET("\"%s\"\n", argv[i]);
 
 			if(dopsd(f, argv[i], &h)){
+				UNQUIET("\"%s\"\n", argv[i]);
 				// FIXME: a lot of data structures malloc'd in dopsd()
 				// and dolayermaskinfo() are never free'd
 
