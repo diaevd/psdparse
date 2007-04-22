@@ -94,8 +94,6 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 		fprintf(xml, "%04x", get2B(f));
 }
 
-extern void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent);
-
 // id, key, tag, desc, func
 static struct dictentry rdesc[] = {
 	{1000, NULL, NULL, "PS2.0 mode data", NULL},

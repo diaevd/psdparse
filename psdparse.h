@@ -219,6 +219,8 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
 
+void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent);
+
 void skipblock(psd_file_t f,char *desc);
 void dumprow(unsigned char *b,long n,int group);
 void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
