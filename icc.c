@@ -19,8 +19,18 @@
 
 #include "psdparse.h"
 
+double s15fixed16(psd_file_t f){ return get4B(f)/65536.; }
+
+static void icc_xyz(psd_file_t f, int level, int len, struct dictentry *parent){
+	for(; len >= 12; len -= 12){
+		fprintf(xml, " <X>%g</X>",  s15fixed16(f));
+		fprintf(xml, " <Y>%g</Y>",  s15fixed16(f));
+		fprintf(xml, " <Z>%g</Z> ", s15fixed16(f));
+	}
+}
+
 static void icc_text(psd_file_t f, int level, int len, struct dictentry *parent){
-	len -= 9; // exclude terminating NUL
+	--len; // exclude terminating NUL
 	while(len--)
 		fputcxml(fgetc(f), xml);
 }
@@ -93,8 +103,8 @@ static void icc_tag(psd_file_t f, int level, int len, struct dictentry *parent){
 	    {0, "ui64", "UInt64Array", "icSigUInt64ArrayType", NULL},
 	    {0, "ui08", "UInt8Array", "icSigUInt8ArrayType", NULL},
 	    {0, "view", "ViewingConditions", "icSigViewingConditionsType", NULL},
-	    {0, "XYZ ", "XYZ", "icSigXYZType", NULL},
-	    {0, "XYZ ", "XYZArray", "icSigXYZArrayType", NULL},
+	    {0, "XYZ ", "-XYZ", "icSigXYZType", icc_xyz},
+	    //{0, "XYZ ", "-XYZArray", "icSigXYZArrayType", icc_xyz},
 	    {0, "ncl2", "NamedColor2", "icSigNamedColor2Type", NULL},
 	    {0, "crdi", "CrdInfo", "icSigCrdInfoType", NULL},
 		{0, NULL, NULL, NULL, NULL}
@@ -102,7 +112,7 @@ static void icc_tag(psd_file_t f, int level, int len, struct dictentry *parent){
 	
 	char *key = getkey(f);
 	get4B(f); // skip reserved field
-	findbykey(f, level, typedict, key, len);
+	findbykey(f, level, typedict, key, len-8);
 }
 
 void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -227,10 +237,12 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<platform>\n", indent);
 	fprintf(xml, "%s<flags>%08lx</flags>\n", indent, get4B(f));
 	fprintf(xml, "%s<manufacturer>%s</manufacturer>\n", indent, getkey(f));
-	fprintf(xml, "%s<model>%ld</model>\n", indent, get4B(f));
+	fprintf(xml, "%s<model>%s</model>\n", indent, getkey(f));
 	fprintf(xml, "%s<attributes>%016llx</attributes>\n", indent, get8B(f));
 	fprintf(xml, "%s<renderingIntent>%08lx</renderingIntent>\n", indent, get4B(f));
-	fseeko(f, 12, SEEK_CUR); // skip illuminant XYZ
+	fprintf(xml, "%s<illuminant>", indent);
+	icc_xyz(f, level, 12, parent);
+	fputs("</illuminant>\n", xml);
 	fprintf(xml, "%s<creator>%s</creator>\n", indent, getkey(f));
 	fseeko(f, 44, SEEK_CUR); // skip reserved bytes
 
