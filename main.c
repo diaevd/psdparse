@@ -105,8 +105,10 @@ int main(int argc,char *argv[]){
 		if( (f = fopen(argv[i], "rb")) ){
 			nwarns = 0;
 
+			if(!quiet && !xmlout)
+				printf("Processing \"%s\"\n", argv[i]);
+
 			if(dopsd(f, argv[i], &h)){
-				UNQUIET("\"%s\"\n", argv[i]);
 				// FIXME: a lot of data structures malloc'd in dopsd()
 				// and dolayermaskinfo() are never free'd
 

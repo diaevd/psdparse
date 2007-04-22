@@ -456,17 +456,17 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				setupfile(fname,pngdir,"list",".txt");
 				listfile = fopen(fname,"w");
 			}
-			if(writexml){
-				if(xmlout){
-					quiet = 1;
-					xml = stdout;
-				}else{
-					setupfile(fname,pngdir,"psd",".xml");
-					xml = fopen(fname,"w");
-				}
-				if(xml)
-					fputs("<?xml version=\"1.0\"?>\n",xml);
+
+			if(xmlout){
+				quiet = writexml = 1;
+				verbose = 0;
+				xml = stdout;
+			}else if(writexml){
+				setupfile(fname,pngdir,"psd",".xml");
+				xml = fopen(fname,"w");
 			}
+			if(xml)
+				fputs("<?xml version=\"1.0\"?>\n",xml);
 
 			if(listfile) fprintf(listfile,"-- PSD file: %s\n",psdpath);
 			if(xml){

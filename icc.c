@@ -32,8 +32,39 @@ static void icc_textdescription(psd_file_t f, int level, int len, struct dictent
 	// ignore other fields of this tag
 }
 
-static void icc_signature(psd_file_t f, int level, int len, struct dictentry *parent){
+static void icc_rawsignature(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputsxml(getkey(f), xml);
+}
+static void icc_signature(psd_file_t f, int level, int len, struct dictentry *parent){
+	static struct dictentry sigdict[] = {
+		// technology
+	    {0, "dcam", "DigitalCamera", "icSigDigitalCamera", NULL},
+	    {0, "fscn", "FilmScanner", "icSigFilmScanner", NULL},
+	    {0, "rscn", "ReflectiveScanner", "icSigReflectiveScanner", NULL},
+	    {0, "ijet", "InkJetPrinter", "icSigInkJetPrinter", NULL},
+	    {0, "twax", "ThermalWaxPrinter", "icSigThermalWaxPrinter", NULL},
+	    {0, "epho", "ElectrophotographicPrinter", "icSigElectrophotographicPrinter", NULL},
+	    {0, "esta", "ElectrostaticPrinter", "icSigElectrostaticPrinter", NULL},
+	    {0, "dsub", "DyeSublimationPrinter", "icSigDyeSublimationPrinter", NULL},
+	    {0, "rpho", "PhotographicPaperPrinter", "icSigPhotographicPaperPrinter", NULL},
+	    {0, "fprn", "FilmWriter", "icSigFilmWriter", NULL},
+	    {0, "vidm", "VideoMonitor", "icSigVideoMonitor", NULL},
+	    {0, "vidc", "VideoCamera", "icSigVideoCamera", NULL},
+	    {0, "pjtv", "ProjectionTelevision", "icSigProjectionTelevision", NULL},
+	    {0, "CRT ", "CRTDisplay", "icSigCRTDisplay", NULL},
+	    {0, "PMD ", "PMDisplay", "icSigPMDisplay", NULL},
+	    {0, "AMD ", "AMDisplay", "icSigAMDisplay", NULL},
+	    {0, "KPCD", "PhotoCD", "icSigPhotoCD", NULL},
+	    {0, "imgs", "PhotoImageSetter", "icSigPhotoImageSetter", NULL},
+	    {0, "grav", "Gravure", "icSigGravure", NULL},
+	    {0, "offs", "OffsetLithography", "icSigOffsetLithography", NULL},
+	    {0, "silk", "Silkscreen", "icSigSilkscreen", NULL},
+	    {0, "flex", "Flexography", "icSigFlexography", NULL},
+	    // ...add other categories as required
+		{0, NULL, NULL, NULL, NULL}
+	};
+
+	findbykey(f, level, sigdict, getkey(f), len);
 }
 
 static void icc_datetime(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -52,7 +83,7 @@ static void icc_tag(psd_file_t f, int level, int len, struct dictentry *parent){
 	    {0, "ncol", "NamedColor", "icSigNamedColorType", NULL},
 	    {0, "sf32", "S15Fixed16Array", "icSigS15Fixed16ArrayType", NULL},
 	    {0, "scrn", "Screening", "icSigScreeningType", NULL},
-	    {0, "sig ", "-Signature", "icSigSignatureType", icc_signature},
+	    {0, "sig ", "Signature", "icSigSignatureType", icc_signature},
 	    {0, "text", "-Text", "icSigTextType", icc_text},
 	    {0, "desc", "-TextDescription", "icSigTextDescriptionType", icc_textdescription},
 	    {0, "uf32", "U16Fixed16Array", "icSigU16Fixed16ArrayType", NULL},
