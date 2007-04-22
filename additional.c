@@ -56,6 +56,8 @@ void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, s
 	fseeko(f, savepos, SEEK_SET);
 }
 
+// This uses a dumb linear search. But it's efficient enough in practice.
+
 struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, char *key, int printxml){
 	struct dictentry *d;
 
@@ -223,12 +225,11 @@ static void ed_long(psd_file_t f, int level, int printxml, struct dictentry *par
 }
 
 static void ed_key(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	char key[4];
-	fread(key, 1, 4, f);
+	char *key = getkey(f);
 	if(printxml)
-		fprintf(xml, "%c%c%c%c", key[0],key[1],key[2],key[3]);
+		fprintf(xml, "%s", key);
 	else
-		UNQUIET("    (%s = '%c%c%c%c')\n", parent->desc, key[0],key[1],key[2],key[3]);
+		UNQUIET("    (%s = '%s')\n", parent->desc, key);
 }
 
 static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *parent){

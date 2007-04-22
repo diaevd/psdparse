@@ -36,11 +36,16 @@ static void icc_signature(psd_file_t f, int level, int len, struct dictentry *pa
 	fputsxml(getkey(f), xml);
 }
 
+static void icc_datetime(psd_file_t f, int level, int len, struct dictentry *parent){
+	int y = get2B(f), mo = get2B(f), d = get2B(f), h = get2B(f), m = get2B(f), s = get2B(f);
+	fprintf(xml, "%04d-%02d-%02d %02d:%02d:%02d", y, mo, d, h, m, s);
+}
+
 static void icc_tag(psd_file_t f, int level, int len, struct dictentry *parent){
 	static struct dictentry typedict[] = {
 	    {0, "curv", "Curve", "icSigCurveType", NULL},
 	    {0, "data", "Data", "icSigDataType", NULL},
-	    {0, "dtim", "DateTime", "icSigDateTimeType", NULL},
+	    {0, "dtim", "-DateTime", "icSigDateTimeType", icc_datetime},
 	    {0, "mft2", "Lut16", "icSigLut16Type", NULL},
 	    {0, "mft1", "Lut8", "icSigLut8Type", NULL},
 	    {0, "meas", "Measurement", "icSigMeasurementType", NULL},
@@ -166,7 +171,6 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 
 	long size, offset, count, tagsize;
 	const char *indent = tabs(level);
-	int y,mo,d,h,m,s;
 	char sig[4];
 	off_t iccpos, pos;
 
@@ -183,8 +187,9 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<pcs>\n", indent);
 	findbykey(f, level+1, spacedict, getkey(f), 1);
 	fprintf(xml, "%s</pcs>\n", indent);
-	y = get2B(f); mo = get2B(f); d = get2B(f); h = get2B(f); m = get2B(f); s = get2B(f);
-	fprintf(xml, "%s<date>%04d-%02d-%02d %02d:%02d:%02d</date>\n", indent, y, mo, d, h, m, s);
+	fprintf(xml, "%s<date>", indent);
+	icc_datetime(f, level, 0, parent);
+	fputs("</date>\n", xml);
 	fprintf(xml, "%s<magic>%s</magic>\n", indent, getkey(f));
 	fprintf(xml, "%s<platform>\n", indent);
 	findbykey(f, level+1, platdict, getkey(f), 1);
