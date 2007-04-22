@@ -162,7 +162,7 @@ static struct dictentry rdesc[] = {
 	{1066, NULL, NULL, "Alternate duotone colors", NULL},
 	{1067, NULL, NULL, "Alternate spot colors", NULL},
 	
-	{2999, NULL, NULL, "Name of clipping path", NULL},
+	{2999, NULL, "-CLIPPINGPATH", "Name of clipping path", ir_pstring},
 	{10000,NULL, NULL, "Print flags info", NULL},
 	{-1, NULL, NULL, NULL, NULL}
 };
