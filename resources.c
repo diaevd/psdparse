@@ -33,8 +33,35 @@ static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *pa
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hresd, vresd);
 }
 
+#define BYTESPERLINE 16
+
+static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
+	unsigned char row[BYTESPERLINE];
+	int i, n;
+
+	for(; len; len -= n){
+		n = len < BYTESPERLINE ? len : BYTESPERLINE;
+		fread(row, 1, n, f);
+		for(i = 0; i < n; ++i)
+			VERBOSE("%02x ", row[i]);
+		putchar('\n');
+	}
+}
+
 static void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputsxml(getpstr(f), xml);
+}
+
+static void ir_pstrings(psd_file_t f, int level, int len, struct dictentry *parent){
+	char *s;
+
+	for(; len > 1; len -= strlen(s)+1){        // this loop will do the wrong thing
+		fprintf(xml, "%s<NAME>", tabs(level)); // if any string contains NUL byte
+		s = getpstr(f);
+		fputsxml(s, xml);
+		fputs("</NAME>\n", xml);
+		VERBOSE("    %s\n", s);
+	}
 }
 
 static void ir_1byte(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -67,13 +94,15 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 		fprintf(xml, "%04x", get2B(f));
 }
 
+extern void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent);
+
 // id, key, tag, desc, func
 static struct dictentry rdesc[] = {
 	{1000, NULL, NULL, "PS2.0 mode data", NULL},
 	{1001, NULL, NULL, "Macintosh print record", NULL},
 	{1003, NULL, NULL, "PS2.0 indexed color table", NULL},
 	{1005, NULL, "-RESOLUTION", "ResolutionInfo", ir_resolution},
-	{1006, NULL, NULL, "Alpha names", NULL},
+	{1006, NULL, "ALPHA", "Alpha names", ir_pstrings},
 	{1007, NULL, NULL, "DisplayInfo", NULL},
 	{1008, NULL, "-CAPTION", "Caption", ir_pstring},
 	{1009, NULL, NULL, "Border information", NULL},
@@ -104,7 +133,7 @@ static struct dictentry rdesc[] = {
 	{1036, NULL, NULL, "Thumbnail resource (5.0)", NULL},
 	{1037, NULL, "-GLOBALANGLE", "Global Angle", ir_4byte},
 	{1038, NULL, NULL, "Color samplers resource", NULL},
-	{1039, NULL, NULL, "ICC Profile", NULL},
+	{1039, NULL, "ICC34", "ICC Profile", ir_icc34profile},
 	{1040, NULL, "-WATERMARK", "Watermark", ir_1byte},
 	{1041, NULL, "-ICCUNTAGGED", "ICC Untagged Profile", ir_1byte},
 	{1042, NULL, "-EFFECTSVISIBLE", "Effects visible", ir_1byte},
@@ -178,7 +207,7 @@ static long doirb(psd_file_t f){
 		if(namelen) fprintf(xml, " NAME='%s'", name);
 		if(d->func){
 			fputs(">\n", xml);
-			entertag(f, 2, 1, &resource, d);
+			entertag(f, 2, size, &resource, d); // HACK: abuse 'printxml' parameter
 			fputs("\t</RESOURCE>\n\n", xml);
 		}else{
 			fputs(" />\n", xml);

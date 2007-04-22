@@ -50,9 +50,6 @@ void warn(char *fmt,...){
 		va_end(v);
 		fflush(stdout);
 		fprintf(stderr,"#   warning: %s\n",s);
-#ifdef PSDPARSE_PLUGIN
-		warndialog(s);
-#endif
 	}
 }
 
@@ -65,9 +62,6 @@ void alwayswarn(char *fmt,...){
 	va_end(v);
 	fflush(stdout);
 	fputs(s,stderr);
-#ifdef PSDPARSE_PLUGIN
-	warndialog(s);
-#endif
 }
 
 void *checkmalloc(long n){
@@ -102,21 +96,34 @@ void fputsxml(char *str,FILE *f){
 }
 
 // fetch Pascal string (length byte followed by text)
+// N.B. This returns a pointer to the string as a C string (no length
+//      byte, and terminated by NUL).
 char *getpstr(psd_file_t f){
 	static char pstr[0x100];
-	int len = fgetc(f) & 0xff;
-	fread(pstr, 1, len, f);
-	pstr[len] = 0;
+	int len = fgetc(f);
+	if(len != EOF){
+		fread(pstr, 1, len, f);
+		pstr[len] = 0;
+	}else
+		pstr[0] = 0;
 	return pstr;
 }
 
 // Pascal string, aligned to 2 byte
 char *getpstr2(psd_file_t f){
-	static char pstr[0x100];
-	int len = fgetc(f) & 0xff;
-	fread(pstr, 1, PAD2(len+1)-1, f);
-	pstr[len] = 0;
-	return pstr;
+	char *p = getpstr(f);
+	if(!(p[0] & 1))
+		fgetc(f);
+	return p;
+}
+
+char *getkey(FILE *f){
+	static char k[5];
+	if(fread(k, 1, 4, f) == 4)
+		k[4] = 0;
+	else
+		k[0] = 0; // or return NULL?
+	return k;
 }
 
 static int platform_is_LittleEndian(){

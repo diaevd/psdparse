@@ -61,7 +61,7 @@ int pl_feof(psd_file_t f){
 }
 
 void pl_fatal(char *s){
-	// TODO
+	warndialog(s);
 }
 
 // stubs to keep linker happy.

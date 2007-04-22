@@ -46,7 +46,7 @@ MINGW_WINDRES = i386-mingw32msvc-windres
 CFLAGS   += -W -Wall -O2 -Wno-unused-parameter
 CPPFLAGS += -DDEFAULT_VERBOSE=0 #-DPSBSUPPORT -D_LARGEFILE_SOURCE
 
-SRC    = main.c writepng.c writeraw.c unpackbits.c resources.c \
+SRC    = main.c writepng.c writeraw.c unpackbits.c resources.c icc.c \
 		 additional.c constants.c util.c descriptor.c channel.c psd.c
 OBJ    = $(patsubst %.c, obj/%.o, $(SRC))
 OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC)) obj_w32/res.o
