@@ -174,7 +174,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	char sig[4];
 	off_t iccpos, pos;
 
-	iccpos = ftell(f);
+	iccpos = ftello(f);
 	size = get4B(f);
 	fprintf(xml, "%s<cmmId>%s</cmmId>\n", indent, getkey(f));
 	fprintf(xml, "%s<version>%08lx</version>\n", indent, get4B(f));
@@ -199,18 +199,18 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<model>%ld</model>\n", indent, get4B(f));
 	fprintf(xml, "%s<attributes>%016llx</attributes>\n", indent, get8B(f));
 	fprintf(xml, "%s<renderingIntent>%08lx</renderingIntent>\n", indent, get4B(f));
-	fseek(f, 12, SEEK_CUR); // skip illuminant XYZ
+	fseeko(f, 12, SEEK_CUR); // skip illuminant XYZ
 	fprintf(xml, "%s<creator>%s</creator>\n", indent, getkey(f));
-	fseek(f, 44, SEEK_CUR); // skip reserved bytes
+	fseeko(f, 44, SEEK_CUR); // skip reserved bytes
 
 	count = get4B(f);
 	while(count--){
 		fread(sig, 1, 4, f);
 		offset = get4B(f);
 		tagsize = get4B(f);
-		pos = ftell(f);
-		fseek(f, iccpos + offset, SEEK_SET);
+		pos = ftello(f);
+		fseeko(f, iccpos + offset, SEEK_SET);
 		findbykey(f, level, tagdict, sig, tagsize);
-		fseek(f, pos, SEEK_SET);
+		fseeko(f, pos, SEEK_SET);
 	}
 }

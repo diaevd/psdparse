@@ -201,7 +201,7 @@ void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
-char *getkey(FILE *f);
+char *getkey(psd_file_t f);
 double getdoubleB(psd_file_t f);
 long get4B(psd_file_t f);
 int64_t get8B(psd_file_t f);

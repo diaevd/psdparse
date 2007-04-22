@@ -117,7 +117,7 @@ char *getpstr2(psd_file_t f){
 	return p;
 }
 
-char *getkey(FILE *f){
+char *getkey(psd_file_t f){
 	static char k[5];
 	if(fread(k, 1, 4, f) == 4)
 		k[4] = 0;
