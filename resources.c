@@ -48,6 +48,11 @@ static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
 	}
 }
 
+static void ir_xml(psd_file_t f, int level, int len, struct dictentry *parent){
+	while(len--)
+		fputc(fgetc(f), xml);
+}
+
 static void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputsxml(getpstr(f), xml);
 }
@@ -151,7 +156,7 @@ static struct dictentry rdesc[] = {
 	// v7.0 - from CS doc
 	{1058, NULL, NULL, "EXIF data 1", NULL},
 	{1059, NULL, NULL, "EXIF data 3", NULL},
-	{1060, NULL, NULL, "XMP metadata", NULL},
+	{1060, NULL, "XMP", "XMP metadata", ir_xml},
 	{1061, NULL, "-CAPTIONDIGEST", "Caption digest (RSA MD5)", ir_digest},
 	{1062, NULL, NULL, "Print scale", NULL},
 	// CS
