@@ -40,10 +40,11 @@
   14-Apr-2007: 2.2b1,2 more metadata support (effects layers, etc)
   16-Apr-2007: 2.3b1 bugs fixed, refactoring
   21-Apr-2007: 2.4b1 dump ICC profile to XML (for Leo Revzin)
+  22-Jul-2007: 2.4b2 fix encoding of Unicode characters in XML (TODO: write UTF)
 */
 
-#define VERSION_STR "2.4b1"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x40,beta,1
+#define VERSION_STR "2.4b2"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x40,beta,2
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -52,7 +53,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 2,4,0x60,1
+#define VI_VERS_NUM 2,4,0x60,2
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

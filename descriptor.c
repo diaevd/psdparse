@@ -157,7 +157,7 @@ static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dicten
 	if(count){
 		fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
 		while(count--)
-			fprintf(xml, "%04x", get2B(f));
+			fprintf(xml, "&#x%04x;", get2Bu(f));
 		fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 	}
 }

@@ -174,10 +174,10 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				align = get2B(f);
 				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
 				for(j = 0; j < charcount; ++j){
-					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
+					unsigned wc = get2Bu(f); // FIXME: this is not the right way to get ASCII
+					buf[j] = wc;
 					style = get2B(f);
-					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>%04x</UNICODE>", indent, style, wc); // FIXME
-					//if(isprint(wc)) fprintf(xmlfile, " <!--%c-->", wc);
+					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>&#x%04x;</UNICODE>", indent, style, wc);
 					fputc('\n', xml);
 				}
 				buf[j] = 0;
@@ -185,7 +185,6 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				fputsxml(buf, xml);
 				fprintf(xml, "</STRING>\n%s\t</LINE>\n", indent);
 				free(buf);
-
 			}
 			colorspace(f, level);
 			fprintf(xml, "%s\t<ANTIALIAS>%d</ANTIALIAS>\n", indent, fgetc(f));
@@ -204,13 +203,13 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 	unsigned long len = get4B(f); // character count, not byte count
 
 	if(len > 0 && len < 1024){ // sanity check
-		if(printxml) // FIXME: what's the right way to represent a Unicode string in XML? UTF-8?
+		if(printxml)
 			while(len--)
-				fprintf(xml,"%04x",get2B(f));
+				fprintf(xml, "&#x%04x;", get2Bu(f));
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
-				fputwc(get2B(f), stdout); // FIXME: not working
+				fputwc(get2Bu(f), stdout); // FIXME: not working
 			fputs("')\n", stdout);
 		}
 	}
@@ -277,8 +276,8 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 				char *buf = malloc(datalen/2+1);
 				fprintf(xml, ">\n%s\t<UNICODE>", indent);
 				for(j = 0; j < datalen/2; ++j){
-					wchar_t wc = buf[j] = get2B(f); // FIXME: this is not the right way to get ASCII
-					fprintf(xml, "%04x", wc);
+					unsigned wc = buf[j] = get2Bu(f); // FIXME: this is not the right way to get ASCII
+					fprintf(xml, "&#x%04x;", wc);
 				}
 				buf[j] = 0;
 				fprintf(xml, "</UNICODE>\n%s\t<STRING>", indent);

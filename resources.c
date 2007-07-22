@@ -96,7 +96,7 @@ static void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *p
 static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
-		fprintf(xml, "%04x", get2B(f));
+		fprintf(xml, "&#x%04x;", get2Bu(f));
 }
 
 // id, key, tag, desc, func
