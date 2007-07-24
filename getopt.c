@@ -70,8 +70,12 @@
 #ifdef _LIBC
 # include <libintl.h>
 #else
+#ifdef powerc
+#define _(msgid) msgid
+#else
 # include "gettext.h"
 # define _(msgid) gettext (msgid)
+#endif
 #endif
 
 #if defined _LIBC && defined USE_IN_LIBIO

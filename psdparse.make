@@ -30,9 +30,9 @@ ZLIBOBJ = ¶
 	{ZLIBDIR}inffast.c.x {ZLIBDIR}inflate.c.x {ZLIBDIR}inftrees.c.x ¶
 	{ZLIBDIR}trees.c.x {ZLIBDIR}uncompr.c.x {ZLIBDIR}zutil.c.x
 
-OBJ = main.c.x extra.c channel.c constants.c descriptor.c psd.c icc.c ¶
-	resources.c writeraw.c writepng.c.x unpackbits.c.x mkdir_unimpl.c.x ¶
-	{PNGOBJ} {ZLIBOBJ}
+OBJ = main.c.x extra.c.x channel.c.x constants.c.x descriptor.c.x psd.c.x icc.c.x ¶
+	resources.c.x writeraw.c.x writepng.c.x unpackbits.c.x mkdir_unimpl.c.x util.c.x ¶
+	getopt_init.c.x getopt.c.x getopt1.c.x {PNGOBJ} {ZLIBOBJ}
 
 LIB =	"{SharedLibraries}InterfaceLib" ¶
 		"{SharedLibraries}StdCLib" ¶
@@ -42,7 +42,7 @@ LIB =	"{SharedLibraries}InterfaceLib" ¶
 		"{PPCLibraries}PPCToolLibs.o"
 
 # "-enum int -d STDC" are needed to make zlib build happily
-CFLAGS = -enum int -i {PNGDIR},{ZLIBDIR} -w 2 ¶
+CFLAGS = -enum int -i {PNGDIR},{ZLIBDIR} -w 2,35 ¶
 	-d STDC -d MAC_ENV -d DEFAULT_VERBOSE=0 -d DIRSEP=¶':¶'
 
 .c.x Ä .c

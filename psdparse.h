@@ -20,6 +20,7 @@
 #ifdef powerc // MPW MrC
 	#include <MacTypes.h>
 	typedef SInt64 int64_t, off_t;
+	typedef unsigned short uint16_t;
 	#define fputwc fputc // none of that Unicode nonsense for us! (UniChar)
 	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
 #else
@@ -46,11 +47,12 @@
 	// macro chooses the '%l' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) lfmt
 	
-	#ifdef WIN32
-		// MinGW doesn't have fseeko/ftello
-		#define fseeko fseek
-		#define ftello ftell
-	#endif
+#endif
+
+#if defined WIN32 || defined powerc
+	// MinGW doesn't have fseeko/ftello, nor does MPW
+	#define fseeko fseek
+	#define ftello ftell
 #endif
 
 typedef long psd_pixels_t;
