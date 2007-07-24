@@ -17,10 +17,9 @@
 
 PNGDIR = ::libpng-1.2.16:
 PNGOBJ = ¶
-	{PNGDIR}png.c.x {PNGDIR}pngerror.c.x {PNGDIR}pnggccrd.c.x {PNGDIR}pngget.c.x ¶
-	{PNGDIR}pngmem.c.x {PNGDIR}pngpread.c.x {PNGDIR}pngread.c.x {PNGDIR}pngrio.c.x ¶
-	{PNGDIR}pngrtran.c.x {PNGDIR}pngrutil.c.x {PNGDIR}pngset.c.x {PNGDIR}pngtest.c.x ¶
-	{PNGDIR}pngtrans.c.x {PNGDIR}pngvcrd.c.x {PNGDIR}pngwio.c.x {PNGDIR}pngwrite.c.x ¶
+	{PNGDIR}png.c.x {PNGDIR}pngerror.c.x {PNGDIR}pngget.c.x ¶
+	{PNGDIR}pngmem.c.x {PNGDIR}pngset.c.x ¶
+	{PNGDIR}pngtrans.c.x {PNGDIR}pngwio.c.x {PNGDIR}pngwrite.c.x ¶
 	{PNGDIR}pngwtran.c.x {PNGDIR}pngwutil.c.x 
 
 ZLIBDIR = ::zlib-1.2.3:
