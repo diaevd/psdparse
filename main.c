@@ -50,7 +50,7 @@ void usage(char *prog, int status){
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\
   -x, --xml          write XML describing document, layers, and any output files\n\
-      --xmlout       direct XML to standard output, not a file (implies --quiet)\n\
+      --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n", prog, DIRSEP);
 	exit(status);
 }

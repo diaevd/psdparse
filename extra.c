@@ -174,11 +174,12 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				align = get2B(f);
 				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
 				for(j = 0; j < charcount; ++j){
-					unsigned wc = get2Bu(f); // FIXME: this is not the right way to get ASCII
-					buf[j] = wc;
+					wchar_t wc = get2Bu(f);
+					buf[j] = wc; // FIXME: this is not the right way to get ASCII
 					style = get2B(f);
-					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>&#x%04x;</UNICODE>", indent, style, wc);
-					fputc('\n', xml);
+					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>", indent, style);
+					fputwcxml(wc, xml);
+					fputs("</UNICODE>\n", xml);
 				}
 				buf[j] = 0;
 				fprintf(xml, "%s\t\t<STRING>", indent);
@@ -205,7 +206,7 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml)
 			while(len--)
-				fprintf(xml, "&#x%04x;", get2Bu(f));
+				fputwcxml(get2Bu(f), xml);
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
@@ -276,8 +277,9 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 				char *buf = malloc(datalen/2+1);
 				fprintf(xml, ">\n%s\t<UNICODE>", indent);
 				for(j = 0; j < datalen/2; ++j){
-					unsigned wc = buf[j] = get2Bu(f); // FIXME: this is not the right way to get ASCII
-					fprintf(xml, "&#x%04x;", wc);
+					wchar_t wc = get2Bu(f);
+					buf[j] = wc; // FIXME: this is not the right way to get ASCII
+					fputwcxml(wc, xml);
 				}
 				buf[j] = 0;
 				fprintf(xml, "</UNICODE>\n%s\t<STRING>", indent);

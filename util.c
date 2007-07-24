@@ -74,25 +74,34 @@ void *checkmalloc(long n){
 // escape XML special characters to entities
 // see: http://www.w3.org/TR/xml/#sec-predefined-ent
 
-void fputcxml(char c,FILE *f){
+void fputcxml(wchar_t c, FILE *f){
 	switch(c){
-	case '<':  fputs("&lt;",f); break;
-	case '>':  fputs("&gt;",f); break;
-	case '&':  fputs("&amp;",f); break;
-	case '\'': fputs("&apos;",f); break;
-	case '\"': fputs("&quot;",f); break;
+	case '<':  fputs("&lt;", f); break;
+	case '>':  fputs("&gt;", f); break;
+	case '&':  fputs("&amp;", f); break;
+	case '\'': fputs("&apos;", f); break;
+	case '\"': fputs("&quot;", f); break;
 	default:
+		/*if(c >= 0x80 && utf8)
+			fputwc(c, f);
+		else*/
 		if(isprint(c))
-			fputc(c,f);
+			fputc(c, f);
 		else
-			fprintf(f,"&#%d;",c & 0xff);
+			fprintf(f, "&#%d;", c & 0xff);
 	}
 }
 
-void fputsxml(char *str,FILE *f){
+void fputsxml(char *str, FILE *f){
 	char *p = str;
 	while(*p)
 		fputcxml(*p++, f);
+}
+
+void fputwcxml(wchar_t wc, FILE *f){
+	/*if(utf8) fputcxml(wc, f);
+	else*/
+	fprintf(f, "&#x%04x;", wc);
 }
 
 // fetch Pascal string (length byte followed by text)

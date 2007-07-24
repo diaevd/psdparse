@@ -444,7 +444,7 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 	if(!feof(f) && !memcmp(h->sig,"8BPS",4)){
 		if(h->version == 1
 #ifdef PSBSUPPORT
-				   || h->version == 2
+		   || h->version == 2
 #endif
 		){
 			strcpy(indir,psdpath);

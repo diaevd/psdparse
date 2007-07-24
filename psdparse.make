@@ -26,11 +26,11 @@ PNGOBJ = ¶
 ZLIBDIR = ::zlib-1.2.3:
 ZLIBOBJ = ¶
 	{ZLIBDIR}adler32.c.x {ZLIBDIR}compress.c.x {ZLIBDIR}crc32.c.x ¶
-	{ZLIBDIR}deflate.c.x {ZLIBDIR}example.c.x {ZLIBDIR}gzio.c.x {ZLIBDIR}infback.c.x ¶
+	{ZLIBDIR}deflate.c.x {ZLIBDIR}infback.c.x ¶
 	{ZLIBDIR}inffast.c.x {ZLIBDIR}inflate.c.x {ZLIBDIR}inftrees.c.x ¶
 	{ZLIBDIR}trees.c.x {ZLIBDIR}uncompr.c.x {ZLIBDIR}zutil.c.x
 
-OBJ = main.c.x additional.c channel.c constants.c descriptor.c psd.c icc.c ¶
+OBJ = main.c.x extra.c channel.c constants.c descriptor.c psd.c icc.c ¶
 	resources.c writeraw.c writepng.c.x unpackbits.c.x mkdir_unimpl.c.x ¶
 	{PNGOBJ} {ZLIBOBJ}
 
@@ -45,8 +45,8 @@ LIB =	"{SharedLibraries}InterfaceLib" ¶
 CFLAGS = -enum int -i {PNGDIR},{ZLIBDIR} -w 2 ¶
 	-d STDC -d MAC_ENV -d DEFAULT_VERBOSE=0 -d DIRSEP=¶':¶'
 
-.c.x  Ä  .c
+.c.x Ä .c
 	{PPCC} {depDir}{default}.c -o {targDir}{default}.c.x {CFLAGS}
 
-psdparse  ÄÄ  {OBJ} {LIB}
+psdparse ÄÄ {OBJ} {LIB}
 	PPCLink -o {Targ} {OBJ} {LIB} -d -t 'MPST' -c 'MPS '
