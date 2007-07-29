@@ -18,24 +18,25 @@ Mac OS X users: the Developer Tools must be installed
 (see the CDs that came with your Mac, or download from 
 http://developer.apple.com/tools/download/).
 
-QUICK BUILD INSTRUCTIONS FOR OS X
 
+Quick build instructions for OS X
+---------------------------------
 Install Subversion from package at http://metissian.com/projects/macosx/subversion/
+or http://downloads.open.collab.net/binaries.html
+
 Then:
 	$ curl http://superb-west.dl.sourceforge.net/sourceforge/libpng/libpng-1.2.16.tar.bz2 |tar -xjvf -
 	$ curl http://www.zlib.net/zlib-1.2.3.tar.bz2 |tar -xjvf -
 	$ svn checkout http://telegraphics.com.au/svn/psdparse/trunk psdparse
 	$ cd psdparse
-	$ make -f Makefile.osx
 
 1. build using the supplied Makefile:
 	$ make -f Makefile.osx
 	
-The supplied Makefile is the easiest way to CROSS-build the Win32 programs,
+The supplied Makefile is also the easiest way to CROSS-build for Win32,
 if you have MinGW installed;
 	$ make -f Makefile.osx exe
 
-It's also an easy way to build on OS X (unless you have already installed libpng).
 See the Makefile for more information and prerequisites.
 	
 OR 
@@ -51,11 +52,14 @@ See './configure --help' for standard GNU options, such as changing
 the program's final resting place, or compiler, or compiler options.
 
 
-MPW (Mac OS 7,8,9,Classic) users:
+Building with MPW (Mac OS 7,8,9,Classic)
+----------------------------------------
 An MPW makefile is provided. Simply Build Program "psdparse".
 
 
-Windows users: use Cygwin http://cygwin.com/, MinGW http://mingw.org/,
+Building on Windows
+-------------------
+Use Cygwin http://cygwin.com/, MinGW http://mingw.org/,
 or upgrade to Linux. Alternatively, the code can probably be built 
 with a freely downloadable toolset such as:
 * http://www.borland.com/products/downloads/download_cbuilder.html

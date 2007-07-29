@@ -37,11 +37,30 @@ void skipblock(psd_file_t f, char *desc){
 		VERBOSE("  (%s is empty)\n",desc);
 }
 
+static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[], 
+					   struct layer_info *li, psd_bytes_t **rowpos,
+					   int startchan, int channels, long rows, long cols,
+					   struct psd_header *h, int color_type)
+{
+	psd_bytes_t savepos = ftello(psd);
+	FILE *outfile;
+
+	if(h->depth == 32){
+		if((outfile = rawsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
+			rawwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+	}else{
+		if((outfile = pngsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
+			pngwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+	}
+
+	fseeko(psd, savepos, SEEK_SET);
+	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
+}
+
 static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[], 
 						  struct layer_info *li, psd_bytes_t **rowpos, int startchan, 
 						  int channels, long rows, long cols, struct psd_header *h)
 {
-	FILE *png;
 	char pngname[FILENAME_MAX];
 	int i,ch;
 
@@ -71,11 +90,8 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 			
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n",pngname);
-		else if(h->depth == 32){
-			if((png = rawsetupwrite(f,dir,pngname,cols,rows,1,0,li,h)))
-				rawwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
-		}else if((png = pngsetupwrite(f,dir,pngname,cols,rows,1,PNG_COLOR_TYPE_GRAY,li,h)))
-			pngwriteimage(png,f,chcomp,li,rowpos,startchan+i,1,rows,cols,h);
+		else
+			writeimage(f, dir, pngname, chcomp, li, rowpos, startchan+i, 1, rows, cols, h, PNG_COLOR_TYPE_GRAY);
 
 		if(ch == -2){
 			if(xml) fputs("\t\t</LAYERMASK>\n",xml);
@@ -88,7 +104,6 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 void doimage(psd_file_t f, struct layer_info *li, char *name,
 			 int channels, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
-	FILE *png;
 	int ch, comp, startchan, pngchan, color_type, *chcomp;
 	psd_bytes_t **rowpos;
 
@@ -158,14 +173,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 			nwarns = 0;
 			startchan = 0;
 			if(pngchan && !split){
-				if(h->depth == 32){
-					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
-						rawwriteimage(png, f, chcomp, NULL, rowpos, 0, channels, rows, cols, h);
-				}else{
-					// recognisable PNG mode, so spit out the merged image
-					if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
-						pngwriteimage(png, f, chcomp, NULL, rowpos, 0, pngchan, rows, cols, h);
-				}
+				writeimage(f, pngdir, name, chcomp, NULL, rowpos, 0,
+						   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
 				startchan += pngchan;
 			}
 			if(startchan < channels){
@@ -188,13 +197,9 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !split){
-				if(h->depth == 32){
-					if((png = rawsetupwrite(f, pngdir, name, cols, rows, channels, 0, li, h)))
-						rawwriteimage(png, f, chcomp, li, rowpos, 0, channels, rows, cols, h);
-				}else{
-					if((png = pngsetupwrite(f, pngdir, name, cols, rows, pngchan, color_type, li, h)))
-						pngwriteimage(png, f, chcomp, li, rowpos, 0, pngchan, rows, cols, h);
-				}
+				writeimage(f, pngdir, name, chcomp, li, rowpos, 0,
+						   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
+
 				// spit out any 'extra' channels (e.g. layer transparency)
 				for(ch = 0; ch < channels; ++ch)
 					if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
@@ -465,11 +470,10 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				setupfile(fname,pngdir,"psd",".xml");
 				xml = fopen(fname,"w");
 			}
-			if(xml)
-				fputs("<?xml version=\"1.0\"?>\n",xml);
 
 			if(listfile) fprintf(listfile,"-- PSD file: %s\n",psdpath);
 			if(xml){
+				fputs("<?xml version=\"1.0\"?>\n",xml);
 				fputs("<PSD FILE='",xml);
 				fputsxml(psdpath,xml);
 				fprintf(xml,"' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d'",

@@ -97,7 +97,7 @@ static void colorspace(psd_file_t f, int level){
 		fprintf(xml, " NAME='%s'", spaces[space+1]);
 	fputc('>', xml);
 	for(i = 0; i < 4; ++i)
-		fprintf(xml, " <C%d>%g</C%d>", i, get2Bu(f)/65535., i);
+		fprintf(xml, " <C%d>%g</C%d>", i, FIXEDPT(get2Bu(f)), i);
 	fputs(" </COLOR>\n", xml);
 }
 

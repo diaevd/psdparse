@@ -45,17 +45,17 @@ static png_infop info_ptr;
 FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
-	char pngname[PATH_MAX],*pngtype = NULL;
+	char pngname[PATH_MAX], *pngtype = NULL;
 	static FILE *f; // static, because it might get used post-longjmp()
 	png_color *pngpal;
-	int i,n;
+	int i, n;
 	psd_bytes_t savepos;
 
 	f = NULL;
 	
 	if(width && height){
 		
-		setupfile(pngname,dir,name,".png");
+		setupfile(pngname, dir, name, ".png");
 
 		if(channels < 1 || channels > 4){
 			alwayswarn("## (BUG) bad channel count (%d), writing PNG \"%s\"\n", channels, pngname);
@@ -79,20 +79,20 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 			return NULL;
 		}
 
-		if( (f = fopen(pngname,"wb")) ){
+		if( (f = fopen(pngname, "wb")) ){
 			if(xml){
-				fputs("\t\t<PNG NAME='",xml);
-				fputsxml(name,xml);
-				fputs("' DIR='",xml);
-				fputsxml(dir,xml);
-				fputs("' FILE='",xml);
-				fputsxml(pngname,xml);
-				fprintf(xml,"' WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
-						width,height,channels,color_type,pngtype,h->depth);
+				fputs("\t\t<PNG NAME='", xml);
+				fputsxml(name, xml);
+				fputs("' DIR='", xml);
+				fputsxml(dir, xml);
+				fputs("' FILE='", xml);
+				fputsxml(pngname, xml);
+				fprintf(xml, "' WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+						width, height, channels, color_type, pngtype, h->depth);
 			}
-			UNQUIET("# writing PNG \"%s\"\n",pngname);
+			UNQUIET("# writing PNG \"%s\"\n", pngname);
 			VERBOSE("#             %3ldx%3ld, depth=%d, channels=%d, type=%d(%s)\n", 
-					width,height,h->depth,channels,color_type,pngtype);
+					width, height, h->depth, channels, color_type, pngtype);
 
 			if( !(info_ptr = png_create_info_struct(png_ptr)) || setjmp(png_jmpbuf(png_ptr)) )
 			{ /* If we get here, libpng had a problem */
@@ -129,11 +129,11 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 
 			png_write_info(png_ptr, info_ptr);
 			
-			png_set_compression_level(png_ptr,Z_BEST_COMPRESSION);
+			png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
 
-		}else alwayswarn("### can't open \"%s\" for writing\n",pngname);
+		}else alwayswarn("### can't open \"%s\" for writing\n", pngname);
 
-	}else alwayswarn("### skipping layer \"%s\" (%ldx%ld)\n",li->name,width,height);
+	}else alwayswarn("### skipping layer \"%s\" (%ldx%ld)\n", li->name, width, height);
 
 	return f;
 }
@@ -141,14 +141,13 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
 {
-	psd_bytes_t savepos = ftello(psd);
 	psd_pixels_t i, j, rb = (h->depth*cols+7)/8;
 	uint16_t *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
 	
 	if(xml)
-		fprintf(xml," CHINDEX='%d' />\n",startchan);
+		fprintf(xml, " CHINDEX='%d' />\n", startchan);
 
 	rowbuf = checkmalloc(rb*chancount);
 	rledata = checkmalloc(2*rb);
@@ -180,7 +179,7 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 	if( setjmp(png_jmpbuf(png_ptr)) )
 	{ /* If we get here, libpng had a problem writing the file */
 		alwayswarn("### pngwriteimage: Fatal error in libpng\n");
-		goto done;
+		goto err;
 	}
 
 	for(j = 0; j < rows; ++j){
@@ -192,8 +191,8 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 			//printf("rowpos[%d][%4d] = %7d\n",ch,j,rowpos[ch][j]);
 
 			if(map[i] < 0 || map[i] > (li ? li->channels : h->channels)){
-				warn("bad map[%d]=%d, skipping a channel",i,map[i]);
-				memset(inrows[i],0,rb); // zero out the row
+				warn("bad map[%d]=%d, skipping a channel", i, map[i]);
+				memset(inrows[i], 0, rb); // zero out the row
 			}else
 				readunpackrow(psd, chcomp, rowpos, ch, j, rb, inrows[i], rledata);
 		}
@@ -215,15 +214,12 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 	
 	png_write_end(png_ptr, NULL /*info_ptr*/);
 
-done:
+err:
 	fclose(png);
 	free(rowbuf);
 	free(rledata);
 	for(ch = 0; ch < chancount; ++ch)
 		free(inrows[ch]);
-
-	fseeko(psd, savepos, SEEK_SET);
-	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 }
