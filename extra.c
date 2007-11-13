@@ -210,7 +210,7 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
-				fputwc(get2Bu(f), stdout); // FIXME: not working
+				putwchar(get2Bu(f)); // FIXME: not working
 			fputs("')\n", stdout);
 		}
 	}

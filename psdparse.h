@@ -22,6 +22,7 @@
 	typedef SInt64 int64_t, off_t;
 	typedef unsigned short uint16_t;
 	#define fputwc fputc // none of that Unicode nonsense for us! (UniChar)
+	#define putwchar putchar
 	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
 #else
 	#include <stdint.h>
@@ -223,6 +224,7 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
 
 void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent);
+double s15fixed16(psd_file_t f);
 
 void skipblock(psd_file_t f,char *desc);
 void dumprow(unsigned char *b,long n,int group);
