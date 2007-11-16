@@ -186,15 +186,15 @@ static struct dictentry *findbyid(int id){
 
 static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
-	char type[4],name[0x100];
-	int id,namelen;
+	char type[4], name[0x100];
+	int id, namelen;
 	long size;
 	struct dictentry *d;
 
-	fread(type,1,4,f);
+	fread(type, 1, 4, f);
 	id = get2B(f);
 	namelen = fgetc(f);
-	fread(name,1,PAD2(1+namelen)-1,f);
+	fread(name, 1, PAD2(1+namelen)-1, f);
 	name[namelen] = 0;
 	size = get4B(f);
 
@@ -223,7 +223,7 @@ static long doirb(psd_file_t f){
 
 void doimageresources(psd_file_t f){
 	long len = get4B(f);
-	VERBOSE("\nImage resources (%ld bytes):\n",len);
+	VERBOSE("\nImage resources (%ld bytes):\n", len);
 	while(len > 0)
 		len -= doirb(f);
 	if(len != 0) warn("image resources overran expected size by %d bytes\n", -len);

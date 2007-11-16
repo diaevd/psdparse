@@ -35,39 +35,44 @@ void dumprow(unsigned char *b, long n, int group){
 	VERBOSE("\n");
 }
 
-void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
-				   int ch /*channel*/, psd_pixels_t row /*row*/, psd_bytes_t rb,
-				   unsigned char *inrow /*dest buffer*/,
-				   unsigned char *outrow /*temp buffer, 2 x rb in size*/)
+void readunpackrow(psd_file_t psd,        // input file handle
+				   int chcomp[],          // vector of compression types used for each channel
+				   psd_bytes_t **rowpos,  // file offsets to rows, indexed by [channel] and [row]
+				   int ch,                // channel to access
+				   psd_pixels_t row,      // row index
+				   psd_bytes_t rb,        // bytes per uncompressed row
+				   unsigned char *inrow,  // dest buffer for the uncompressed row (rb bytes)
+				   unsigned char *outrow) // temporary buffer for compressed data, 2 x rb in size
 {
-	psd_pixels_t n, rlebytes;
+	psd_pixels_t n = 0, rlebytes;
 
 	if(fseeko(psd, rowpos[ch][row], SEEK_SET) == -1){
-		alwayswarn(LL_L("# error seeking to %lld\n","# error seeking to %ld\n"),rowpos[ch][row]);
-		memset(inrow,0,rb); // zero out the row
+		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), rowpos[ch][row]);
 	}else{
-		if(chcomp[ch] == RAWDATA){ /* uncompressed row */
-			n = fread(inrow,1,rb,psd);
-			if(n != rb){
-				warn("error reading row data (raw) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
-				memset(inrow+n,0,rb-n); // zero out the rest of the row
-			}
+		if(chcomp[ch] == RAWDATA){
+			/* uncompressed */
+			n = fread(inrow, 1, rb, psd);
+			if(n < rb)
+				warn("can't read row data (raw) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
 		}
-		else if(chcomp[ch] == RLECOMP){ /* RLE compressed row */
-			n = rowpos[ch][row+1] - rowpos[ch][row];
+		else if(chcomp[ch] == RLECOMP){
+			/* RLE data */
+			n = rowpos[ch][row+1] - rowpos[ch][row]; // get RLE byte count
 			if(n > 2*rb){
 				n = 2*rb; // sanity check
-				warn("bad RLE count %5ld @ channel %2d, row %5ld",n,ch,row);
+				warn("bad RLE byte count %5ld @ channel %2d, row %5ld", n, ch, row);
 			}
-			rlebytes = fread(outrow,1,n,psd);
-			if(rlebytes < n){
-				warn("error reading row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
-				memset(inrow,0,rb); // zero it out, will probably unpack short
-			}
-			unpackbits(inrow,outrow,rb,rlebytes);
-		}else // assume it is bad
-			memset(inrow,0,rb);
+			rlebytes = fread(outrow, 1, n, psd);
+			if(rlebytes < n)
+				warn("can't read row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
+			n = unpackbits(inrow, outrow, rb, rlebytes);
+		}
+		// if we don't recognise the compression type, skip the row
+		// FIXME: or would it be better to use the last valid type seen?
 	}
+	
+	if(n < rb)
+		memset(inrow+n, 0, rb-n); // zero out whatever part of row wasn't written
 }
 
 // if rowpos is NULL, we're just skipping through this channel,
@@ -112,17 +117,17 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 	comp = get2Bu(f);
 	chlen -= 2;
 	if(comp > RLECOMP){
-		alwayswarn("## bad compression type %d\n",comp);
+		alwayswarn("## bad compression type %d\n", comp);
 		if(li){ // make a guess based on channel byte count
 			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
-			alwayswarn("## guessing: %s\n",comptype[comp]);
+			alwayswarn("## guessing: %s\n", comptype[comp]);
 		}else{
 			alwayswarn("## skipping channel (" LL_L("%lld","%ld") " bytes)\n", chlen);
 			fseeko(f, chlen, SEEK_CUR);
 			return -1;
 		}
 	}else
-		VERBOSE("    compression = %d (%s)\n",comp,comptype[comp]);
+		VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
 	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
 			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*rows*rb, rb);
 

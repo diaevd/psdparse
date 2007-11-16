@@ -25,29 +25,29 @@
 int unpackbits(unsigned char *outp, unsigned char *inp,
 			   psd_pixels_t outlen, psd_pixels_t inlen)
 {
-	psd_pixels_t i,len;
+	psd_pixels_t i, len;
 	int val;
 
 	/* i counts output bytes; outlen = expected output size */
 	for(i = 0; inlen > 1 && i < outlen;){
 		/* get flag byte */
-		len = *inp++; 
+		len = *inp++;
 		--inlen;
-		
+
 		if(len == 128) /* ignore this flag value */
 			; // warn("RLE flag byte=128 ignored");
 		else{
 			if(len > 128){
 				len = 1+256-len;
-				
+
 				/* get value to repeat */
-				val = *inp++; 
-				--inlen; 
-				
+				val = *inp++;
+				--inlen;
+
 				if((i+len) <= outlen)
-					memset(outp,val,len);
-				else{ 
-					memset(outp,val,outlen-i); // fill enough to complete row
+					memset(outp, val, len);
+				else{
+					memset(outp, val, outlen-i); // fill enough to complete row
 					warn("unpacked RLE data would overflow row (run)");
 					len = 0; // effectively ignore this run, probably corrupt flag byte
 				}
@@ -57,11 +57,11 @@ int unpackbits(unsigned char *outp, unsigned char *inp,
 					if(len > inlen)
 						break; // abort - ran out of input data
 					/* copy verbatim run */
-					memcpy(outp,inp,len); 
+					memcpy(outp, inp, len);
 					inp += len;
-					inlen -= len; 
+					inlen -= len;
 				}else{
-					memcpy(outp,inp,outlen-i); // copy enough to complete row
+					memcpy(outp, inp, outlen-i); // copy enough to complete row
 					warn("unpacked RLE data would overflow row (copy)");
 					len = 0; // effectively ignore
 				}
@@ -70,7 +70,7 @@ int unpackbits(unsigned char *outp, unsigned char *inp,
 			i += len;
 		}
 	}
-	if(i < outlen) 
+	if(i < outlen)
 		warn("not enough RLE data for row");
 	return i;
 }

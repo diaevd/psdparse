@@ -26,7 +26,7 @@
 
 void fatal(char *s){
 	fflush(stdout);
-	fputs(s,stderr);
+	fputs(s, stderr);
 #ifdef PSDPARSE_PLUGIN
 	// FIXME: show user a message
 	// caller must be prepared for this function to return, of course
@@ -38,30 +38,30 @@ void fatal(char *s){
 
 int nwarns = 0;
 
-void warn(char *fmt,...){
+void warn(char *fmt, ...){
 	char s[0x200];
 	va_list v;
 
-	if(nwarns == WARNLIMIT) fputs("#   (further warnings suppressed)\n",stderr);
+	if(nwarns == WARNLIMIT) fputs("#   (further warnings suppressed)\n", stderr);
 	++nwarns;
 	if(nwarns <= WARNLIMIT){
-		va_start(v,fmt);
-		vsnprintf(s,0x200,fmt,v);
+		va_start(v, fmt);
+		vsnprintf(s, 0x200, fmt, v);
 		va_end(v);
 		fflush(stdout);
-		fprintf(stderr,"#   warning: %s\n",s);
+		fprintf(stderr, "#   warning: %s\n", s);
 	}
 }
 
-void alwayswarn(char *fmt,...){
+void alwayswarn(char *fmt, ...){
 	char s[0x200];
 	va_list v;
 
-	va_start(v,fmt);
-	vsnprintf(s,0x200,fmt,v);
+	va_start(v, fmt);
+	vsnprintf(s, 0x200, fmt, v);
 	va_end(v);
 	fflush(stdout);
-	fputs(s,stderr);
+	fputs(s, stderr);
 }
 
 void *checkmalloc(long n){
@@ -142,7 +142,7 @@ static int platform_is_LittleEndian(){
 }
 
 double getdoubleB(psd_file_t f){
-	unsigned char be[8],le[8];;
+	unsigned char be[8], le[8];;
 
 	if(fread(be, 1, 8, f) == 8){
 		if(platform_is_LittleEndian()){
@@ -200,28 +200,28 @@ const char *tabs(int n){
 // construct the destination filename, and create enclosing directories
 // as needed (and if requested).
 
-void setupfile(char *dstname,char *dir,char *name,char *suffix){
-	char *last,d[PATH_MAX];
+void setupfile(char *dstname, char *dir, char *name, char *suffix){
+	char *last, d[PATH_MAX];
 
-	MKDIR(dir,0755);
+	MKDIR(dir, 0755);
 
-	if(strchr(name,DIRSEP)){
+	if(strchr(name, DIRSEP)){
 		if(!makedirs)
-			alwayswarn("# warning: replaced %c's in filename (use --makedirs if you want subdirectories)\n",DIRSEP);
-		for(last = name; (last = strchr(last+1,'/')); )
+			alwayswarn("# warning: replaced %c's in filename (use --makedirs if you want subdirectories)\n", DIRSEP);
+		for(last = name; (last = strchr(last+1, '/')); )
 			if(makedirs){
 				last[0] = 0;
-				strcpy(d,dir);
-				strcat(d,dirsep);
-				strcat(d,name);
-				if(!MKDIR(d,0755)) VERBOSE("# made subdirectory \"%s\"\n",d);
+				strcpy(d, dir);
+				strcat(d, dirsep);
+				strcat(d, name);
+				if(!MKDIR(d, 0755)) VERBOSE("# made subdirectory \"%s\"\n", d);
 				last[0] = DIRSEP;
 			}else 
 				last[0] = '_';
 	}
 
-	strcpy(dstname,dir);
-	strcat(dstname,dirsep);
-	strcat(dstname,name);
-	strcat(dstname,suffix);
+	strcpy(dstname, dir);
+	strcat(dstname, dirsep);
+	strcat(dstname, name);
+	strcat(dstname, suffix);
 }

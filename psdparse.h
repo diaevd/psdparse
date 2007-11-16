@@ -47,13 +47,6 @@
 	
 	// macro chooses the '%l' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) lfmt
-	
-#endif
-
-#if defined WIN32 || defined powerc
-	// MinGW doesn't have fseeko/ftello, nor does MPW
-	#define fseeko fseek
-	#define ftello ftell
 #endif
 
 typedef long psd_pixels_t;
@@ -73,6 +66,7 @@ typedef long psd_pixels_t;
 	#define fread pl_fread
 	#define fseeko pl_fseeko
 	#define ftello pl_ftello
+	#undef feof // it's a macro in Metrowerks stdio
 	#define feof pl_feof
 
 	int pl_fgetc(psd_file_t f);
@@ -85,6 +79,12 @@ typedef long psd_pixels_t;
 	Boolean warndialog(char *s);
 #else
 	typedef FILE *psd_file_t;
+
+	#if defined WIN32 || defined powerc
+		// MinGW doesn't have fseeko/ftello, nor does MPW
+		#define fseeko fseek
+		#define ftello ftell
+	#endif
 #endif
 
 #ifndef PATH_MAX
@@ -191,8 +191,9 @@ struct dictentry{
 	void (*func)(psd_file_t f, int level, int printxml, struct dictentry *dict);
 };
 
-extern char *channelsuffixes[],*mode_names[],dirsep[];
-extern int verbose,quiet,makedirs;
+extern char *channelsuffixes[], *mode_names[], dirsep[], *pngdir;
+extern int verbose, quiet, rsrc, extra, makedirs, numbered,
+		   help, split, nwarns, writepng, writelist, writexml, xmlout;
 
 extern FILE *xml, *listfile;
 

@@ -86,7 +86,6 @@ void rawwriteimage(FILE *raw, psd_file_t psd, int chcomp[], struct layer_info *l
 				goto err;
 			}
 		}
-
 	}
 
 err:

@@ -59,7 +59,7 @@ void usage(char *prog, int status){
 	exit(status);
 }
 
-int main(int argc,char *argv[]){
+int main(int argc, char *argv[]){
 	static struct option longopts[] = {
 		{"help",     no_argument, &help, 1},
 		{"verbose",  no_argument, &verbose, 1},
@@ -77,12 +77,12 @@ int main(int argc,char *argv[]){
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
-	int i,indexptr,opt;
+	int i, indexptr, opt;
 	struct psd_header h;
 	psd_bytes_t k;
 	char *base;
 
-	while( (opt = getopt_long(argc,argv,"hvqrewnd:mlxs",longopts,&indexptr)) != -1 )
+	while( (opt = getopt_long(argc, argv, "hvqrewnd:mlxs", longopts, &indexptr)) != -1 )
 		switch(opt){
 		case 0: break; // long option
 		case 'h': help = 1; break;
