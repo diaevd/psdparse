@@ -99,6 +99,24 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 		fputwcxml(get2Bu(f), xml);
 }
 
+static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	long v = get4B(f), gv = get4B(f), gh = get4B(f);
+	long i, n = get4B(f);
+	fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
+	// Note that these quantities are "document coordinates".
+	// This is not documented, but appears to mean fixed point with 5 fraction bits,
+	// so we divide by 32 to obtain pixel position.
+	fprintf(xml, "%s<GRIDCYCLE> <V>%g</V> <H>%g</H> </GRIDCYCLE>\n", indent, gv/32., gh/32.);
+	fprintf(xml, "%s<GUIDES>\n", indent);
+	for(i = n; i--;){
+		long ord = get4B(f);
+		char c = fgetc(f) ? 'H' : 'V';
+		fprintf(xml, "%s\t<%cGUIDE>%g</%cGUIDE>\n", indent, c, ord/32., c);
+	}
+	fprintf(xml, "%s</GUIDES>\n", indent);
+}
+
 // id, key, tag, desc, func
 static struct dictentry rdesc[] = {
 	{1000, NULL, NULL, "PS2.0 mode data", NULL},
@@ -128,7 +146,7 @@ static struct dictentry rdesc[] = {
 	{1029, NULL, NULL, "Image mode for raw format files", NULL},
 	{1030, NULL, NULL, "JPEG quality", NULL},
 	// v4.0
-	{1032, NULL, NULL, "Grid and guides info", NULL},
+	{1032, NULL, "GRIDGUIDES", "Grid and guides info", ir_gridguides},
 	{1033, NULL, NULL, "Thumbnail resource", NULL},
 	{1034, NULL, "-COPYRIGHTFLAG", "Copyright flag", ir_1byte},
 	{1035, NULL, "-URL", "URL", ir_pstring},
