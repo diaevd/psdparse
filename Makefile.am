@@ -1,5 +1,5 @@
 #    This file is part of "psdparse"
-#    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+#    Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by  
@@ -23,5 +23,5 @@ psdparse_SOURCES  = main.c writepng.c writeraw.c unpackbits.c write.c \
 					psdparse.h version.h
 psdparse_CFLAGS   = -W -Wall -O2
 psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 \
-		-DPSBSUPPORT -D_LARGEFILE_SOURCE$(LIBPNG_CPPFLAGS)
+		-DPSBSUPPORT -D_LARGEFILE_SOURCE $(LIBPNG_CPPFLAGS)
 psdparse_LDADD    = $(LIBPNG_LIBS)

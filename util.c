@@ -142,7 +142,7 @@ static int platform_is_LittleEndian(){
 }
 
 double getdoubleB(psd_file_t f){
-	unsigned char be[8], le[8];;
+	unsigned char be[8], le[8];
 
 	if(fread(be, 1, 8, f) == 8){
 		if(platform_is_LittleEndian()){

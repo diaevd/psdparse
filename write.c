@@ -56,9 +56,9 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 			if(xml){
 				fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
 						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols, li->mask.default_colour);
-				if(li->mask.flags & 1) fprintf(xml, "\t\t\t<POSITIONRELATIVE />\n");
-				if(li->mask.flags & 2) fprintf(xml, "\t\t\t<DISABLED />\n");
-				if(li->mask.flags & 4) fprintf(xml, "\t\t\t<INVERT />\n");
+				if(li->mask.flags & 1) fputs("\t\t\t<POSITIONRELATIVE />\n", xml);
+				if(li->mask.flags & 2) fputs("\t\t\t<DISABLED />\n", xml);
+				if(li->mask.flags & 4) fputs("\t\t\t<INVERT />\n", xml);
 			}
 			strcat(pngname, ".lmask");
 			// layer mask channel is a special case, gets its own dimensions
@@ -69,7 +69,7 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 			strcat(pngname, li ? ".trans" : ".alpha");
 		}else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
 			sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][ch]);
-		else // give up an use a number
+		else // give up and use a number
 			sprintf(pngname+strlen(pngname), ".%d", ch);
 			
 		if(chcomp[i] == -1)
