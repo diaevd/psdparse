@@ -15,7 +15,7 @@
 @SET_MAKE@
 
 #    This file is part of "psdparse"
-#    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+#    Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by  
@@ -69,8 +69,9 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_psdparse_OBJECTS = psdparse-main.$(OBJEXT) \
 	psdparse-writepng.$(OBJEXT) psdparse-writeraw.$(OBJEXT) \
-	psdparse-unpackbits.$(OBJEXT) psdparse-resources.$(OBJEXT) \
-	psdparse-extradata.$(OBJEXT) psdparse-constants.$(OBJEXT) \
+	psdparse-unpackbits.$(OBJEXT) psdparse-write.$(OBJEXT) \
+	psdparse-resources.$(OBJEXT) psdparse-icc.$(OBJEXT) \
+	psdparse-extra.$(OBJEXT) psdparse-constants.$(OBJEXT) \
 	psdparse-util.$(OBJEXT) psdparse-descriptor.$(OBJEXT) \
 	psdparse-channel.$(OBJEXT) psdparse-psd.$(OBJEXT)
 psdparse_OBJECTS = $(am_psdparse_OBJECTS)
@@ -172,13 +173,14 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c resources.c \
-					extradata.c constants.c util.c descriptor.c channel.c psd.c \
+psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c write.c \
+					resources.c icc.c extra.c constants.c util.c \
+					descriptor.c channel.c psd.c \
 					psdparse.h version.h
 
 psdparse_CFLAGS = -W -Wall -O2
 psdparse_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 \
-		-DPSBSUPPORT -D_LARGEFILE_SOURCE$(LIBPNG_CPPFLAGS)
+		-DPSBSUPPORT -D_LARGEFILE_SOURCE $(LIBPNG_CPPFLAGS)
 
 psdparse_LDADD = $(LIBPNG_LIBS)
 all: all-am
@@ -254,12 +256,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-channel.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-constants.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-descriptor.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-extradata.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-extra.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-icc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-psd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-resources.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-unpackbits.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-write.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-writepng.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psdparse-writeraw.Po@am__quote@
 
@@ -333,6 +337,20 @@ psdparse-unpackbits.obj: unpackbits.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-unpackbits.obj `if test -f 'unpackbits.c'; then $(CYGPATH_W) 'unpackbits.c'; else $(CYGPATH_W) '$(srcdir)/unpackbits.c'; fi`
 
+psdparse-write.o: write.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-write.o -MD -MP -MF "$(DEPDIR)/psdparse-write.Tpo" -c -o psdparse-write.o `test -f 'write.c' || echo '$(srcdir)/'`write.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-write.Tpo" "$(DEPDIR)/psdparse-write.Po"; else rm -f "$(DEPDIR)/psdparse-write.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='write.c' object='psdparse-write.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-write.o `test -f 'write.c' || echo '$(srcdir)/'`write.c
+
+psdparse-write.obj: write.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-write.obj -MD -MP -MF "$(DEPDIR)/psdparse-write.Tpo" -c -o psdparse-write.obj `if test -f 'write.c'; then $(CYGPATH_W) 'write.c'; else $(CYGPATH_W) '$(srcdir)/write.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-write.Tpo" "$(DEPDIR)/psdparse-write.Po"; else rm -f "$(DEPDIR)/psdparse-write.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='write.c' object='psdparse-write.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-write.obj `if test -f 'write.c'; then $(CYGPATH_W) 'write.c'; else $(CYGPATH_W) '$(srcdir)/write.c'; fi`
+
 psdparse-resources.o: resources.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-resources.o -MD -MP -MF "$(DEPDIR)/psdparse-resources.Tpo" -c -o psdparse-resources.o `test -f 'resources.c' || echo '$(srcdir)/'`resources.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-resources.Tpo" "$(DEPDIR)/psdparse-resources.Po"; else rm -f "$(DEPDIR)/psdparse-resources.Tpo"; exit 1; fi
@@ -347,19 +365,33 @@ psdparse-resources.obj: resources.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-resources.obj `if test -f 'resources.c'; then $(CYGPATH_W) 'resources.c'; else $(CYGPATH_W) '$(srcdir)/resources.c'; fi`
 
-psdparse-extradata.o: extradata.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-extradata.o -MD -MP -MF "$(DEPDIR)/psdparse-extradata.Tpo" -c -o psdparse-extradata.o `test -f 'extradata.c' || echo '$(srcdir)/'`extradata.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-extradata.Tpo" "$(DEPDIR)/psdparse-extradata.Po"; else rm -f "$(DEPDIR)/psdparse-extradata.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='extradata.c' object='psdparse-extradata.o' libtool=no @AMDEPBACKSLASH@
+psdparse-icc.o: icc.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-icc.o -MD -MP -MF "$(DEPDIR)/psdparse-icc.Tpo" -c -o psdparse-icc.o `test -f 'icc.c' || echo '$(srcdir)/'`icc.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-icc.Tpo" "$(DEPDIR)/psdparse-icc.Po"; else rm -f "$(DEPDIR)/psdparse-icc.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='icc.c' object='psdparse-icc.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-extradata.o `test -f 'extradata.c' || echo '$(srcdir)/'`extradata.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-icc.o `test -f 'icc.c' || echo '$(srcdir)/'`icc.c
 
-psdparse-extradata.obj: extradata.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-extradata.obj -MD -MP -MF "$(DEPDIR)/psdparse-extradata.Tpo" -c -o psdparse-extradata.obj `if test -f 'extradata.c'; then $(CYGPATH_W) 'extradata.c'; else $(CYGPATH_W) '$(srcdir)/extradata.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-extradata.Tpo" "$(DEPDIR)/psdparse-extradata.Po"; else rm -f "$(DEPDIR)/psdparse-extradata.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='extradata.c' object='psdparse-extradata.obj' libtool=no @AMDEPBACKSLASH@
+psdparse-icc.obj: icc.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-icc.obj -MD -MP -MF "$(DEPDIR)/psdparse-icc.Tpo" -c -o psdparse-icc.obj `if test -f 'icc.c'; then $(CYGPATH_W) 'icc.c'; else $(CYGPATH_W) '$(srcdir)/icc.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-icc.Tpo" "$(DEPDIR)/psdparse-icc.Po"; else rm -f "$(DEPDIR)/psdparse-icc.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='icc.c' object='psdparse-icc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-extradata.obj `if test -f 'extradata.c'; then $(CYGPATH_W) 'extradata.c'; else $(CYGPATH_W) '$(srcdir)/extradata.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-icc.obj `if test -f 'icc.c'; then $(CYGPATH_W) 'icc.c'; else $(CYGPATH_W) '$(srcdir)/icc.c'; fi`
+
+psdparse-extra.o: extra.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-extra.o -MD -MP -MF "$(DEPDIR)/psdparse-extra.Tpo" -c -o psdparse-extra.o `test -f 'extra.c' || echo '$(srcdir)/'`extra.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-extra.Tpo" "$(DEPDIR)/psdparse-extra.Po"; else rm -f "$(DEPDIR)/psdparse-extra.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='extra.c' object='psdparse-extra.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-extra.o `test -f 'extra.c' || echo '$(srcdir)/'`extra.c
+
+psdparse-extra.obj: extra.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-extra.obj -MD -MP -MF "$(DEPDIR)/psdparse-extra.Tpo" -c -o psdparse-extra.obj `if test -f 'extra.c'; then $(CYGPATH_W) 'extra.c'; else $(CYGPATH_W) '$(srcdir)/extra.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/psdparse-extra.Tpo" "$(DEPDIR)/psdparse-extra.Po"; else rm -f "$(DEPDIR)/psdparse-extra.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='extra.c' object='psdparse-extra.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -c -o psdparse-extra.obj `if test -f 'extra.c'; then $(CYGPATH_W) 'extra.c'; else $(CYGPATH_W) '$(srcdir)/extra.c'; fi`
 
 psdparse-constants.o: constants.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(psdparse_CPPFLAGS) $(CPPFLAGS) $(psdparse_CFLAGS) $(CFLAGS) -MT psdparse-constants.o -MD -MP -MF "$(DEPDIR)/psdparse-constants.Tpo" -c -o psdparse-constants.o `test -f 'constants.c' || echo '$(srcdir)/'`constants.c; \
