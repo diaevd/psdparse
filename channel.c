@@ -94,23 +94,23 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 		chlen = li->chlengths[idx];
 		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld bytes=%7lld\n","%7ld bytes=%7ld\n"),
 				idx, channels, chpos, chlen);
+
+		if(chlen < 2){
+			alwayswarn("## channel too short (", LL_L("%lld","%ld") " bytes)\n", chlen);
+			if(chlen > 0)
+				fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
+			return -1;
+		}
+
+		if(li->chid[idx] == -2){
+			rows = li->mask.rows;
+			cols = li->mask.cols;
+			VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",
+					li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
+		}
 	}else
 		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld\n","%7ld\n"),
 				idx, channels, chpos);
-
-	if(li && chlen < 2){
-		alwayswarn("## channel too short (", LL_L("%lld","%ld") " bytes)\n", chlen);
-		if(chlen > 0)
-			fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
-		return -1;
-	}
-	
-	if(li && li->chid[idx] == -2){
-		rows = li->mask.rows;
-		cols = li->mask.cols;
-		VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",
-				li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
-	}
 
 	rb = ((long)cols*depth + 7)/8;
 
