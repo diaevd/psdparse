@@ -281,10 +281,13 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 			}else if(writexml){
 				setupfile(fname, pngdir, "psd", ".xml");
 				xml = fopen(fname, "w");
+				// XML file is always encoded in UTF-8
+				loc = newlocale(LC_CTYPE_MASK, "UTF-8", NULL);
 			}
 
 			if(listfile) fprintf(listfile, "-- PSD file: %s\n", psdpath);
 			if(xml){
+				if(loc) fputwc_l(0xFEFF, xml, loc); // Byte Order Mark
 				fputs("<?xml version=\"1.0\"?>\n", xml);
 				fputs("<PSD FILE='", xml);
 				fputsxml(psdpath, xml);

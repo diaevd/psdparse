@@ -29,6 +29,7 @@
 	#include <sys/types.h>
 	#include <unistd.h>
 	#include <wchar.h>
+	#include <xlocale.h> // TODO: make this dependent on configure #define
 #endif
 
 #ifdef PSBSUPPORT
@@ -194,6 +195,7 @@ struct dictentry{
 extern char *channelsuffixes[], *mode_names[], dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout;
+extern locale_t loc;
 
 extern FILE *xml, *listfile;
 
@@ -203,7 +205,6 @@ void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
 void fputcxml(wchar_t c, FILE *f);
 void fputsxml(char *str, FILE *f);
-void fputwcxml(wchar_t wc, FILE *f);
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
 char *getkey(psd_file_t f);

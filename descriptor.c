@@ -38,11 +38,8 @@ static void stringorid(psd_file_t f, int level, char *tag){
 		while(count--)
 			fputcxml(fgetc(f), xml);
 		fprintf(xml, "</STRING>");
-	}else{
-		char id[4];
-		fread(id, 1, 4, f);
-		fprintf(xml, " <ID>%c%c%c%c</ID>", id[0],id[1],id[2],id[3]);
-	}
+	}else
+		fprintf(xml, " <ID>%s</ID>", getkey(f));
 	fprintf(xml, " </%s>\n", tag);
 }
 
@@ -157,7 +154,7 @@ static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dicten
 	if(count){
 		fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
 		while(count--)
-			fputwcxml(get2Bu(f), xml);
+			fputcxml(get2Bu(f), xml);
 		fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 	}
 }

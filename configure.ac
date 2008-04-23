@@ -15,7 +15,7 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_INIT(psdparse, 2.4.2)
+AC_INIT(psdparse, 2.5.1)
 AC_CONFIG_SRCDIR(main.c)
 AM_INIT_AUTOMAKE
 
@@ -29,6 +29,7 @@ AC_CHECK_LIB(png, png_create_info_struct,
 
 # Don't bother checking, we can't build at all without these.
 #AC_CHECK_HEADERS([stdarg.h stdlib.h string.h getopt.h limits.h sys/stat.h])
+AC_CHECK_HEADERS([xlocale.h])
 
 # Only test for functions where it is possible to work around
 # their absence.

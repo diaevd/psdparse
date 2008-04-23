@@ -82,13 +82,12 @@ void fputcxml(wchar_t c, FILE *f){
 	case '\'': fputs("&apos;", f); break;
 	case '\"': fputs("&quot;", f); break;
 	default:
-		/*if(c >= 0x80 && utf8)
-			fputwc(c, f);
-		else*/
-		if(isprint(c))
+		if(loc)
+			fputwc_l(c, f, loc);
+		else if(c < 0x80 && isprint(c)) // ASCII printable
 			fputc(c, f);
 		else
-			fprintf(f, "&#%d;", c & 0xff);
+			fprintf(f, "&#x%04x;", c);
 	}
 }
 
@@ -96,12 +95,6 @@ void fputsxml(char *str, FILE *f){
 	char *p = str;
 	while(*p)
 		fputcxml(*p++, f);
-}
-
-void fputwcxml(wchar_t wc, FILE *f){
-	/*if(utf8) fputcxml(wc, f);
-	else*/
-	fprintf(f, "&#x%04x;", wc);
 }
 
 // fetch Pascal string (length byte followed by text)
@@ -122,7 +115,7 @@ char *getpstr(psd_file_t f){
 char *getpstr2(psd_file_t f){
 	char *p = getpstr(f);
 	if(!(p[0] & 1))
-		fgetc(f);
+		fgetc(f); // skip padding
 	return p;
 }
 
@@ -142,21 +135,21 @@ static int platform_is_LittleEndian(){
 }
 
 double getdoubleB(psd_file_t f){
-	unsigned char be[8], le[8];
+	unsigned char raw[8], rev[8];
 
-	if(fread(be, 1, 8, f) == 8){
+	if(fread(raw, 1, 8, f) == 8){
 		if(platform_is_LittleEndian()){
-			le[0] = be[7];
-			le[1] = be[6];
-			le[2] = be[5];
-			le[3] = be[4];
-			le[4] = be[3];
-			le[5] = be[2];
-			le[6] = be[1];
-			le[7] = be[0];
-			return *(double*)le;
+			rev[0] = raw[7];
+			rev[1] = raw[6];
+			rev[2] = raw[5];
+			rev[3] = raw[4];
+			rev[4] = raw[3];
+			rev[5] = raw[2];
+			rev[6] = raw[1];
+			rev[7] = raw[0];
+			return *(double*)rev;
 		}else
-			return *(double*)be;
+			return *(double*)raw;
 	}
 	return 0;
 }

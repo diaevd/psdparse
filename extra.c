@@ -178,7 +178,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 					buf[j] = wc; // FIXME: this is not the right way to get ASCII
 					style = get2B(f);
 					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>", indent, style);
-					fputwcxml(wc, xml);
+					fputcxml(wc, xml);
 					fputs("</UNICODE>\n", xml);
 				}
 				buf[j] = 0;
@@ -187,7 +187,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				fprintf(xml, "</STRING>\n%s\t</LINE>\n", indent);
 				free(buf);
 			}
-			colorspace(f, level);
+			colorspace(f, level+1);
 			fprintf(xml, "%s\t<ANTIALIAS>%d</ANTIALIAS>\n", indent, fgetc(f));
 
 			fprintf(xml, "%s</TEXT>\n", indent);
@@ -206,7 +206,7 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml)
 			while(len--)
-				fputwcxml(get2Bu(f), xml);
+				fputcxml(get2Bu(f), xml);
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
@@ -279,7 +279,7 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 				for(j = 0; j < datalen/2; ++j){
 					wchar_t wc = get2Bu(f);
 					buf[j] = wc; // FIXME: this is not the right way to get ASCII
-					fputwcxml(wc, xml);
+					fputcxml(wc, xml);
 				}
 				buf[j] = 0;
 				fprintf(xml, "</UNICODE>\n%s\t<STRING>", indent);

@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -40,20 +40,21 @@
   14-Apr-2007: 2.2b1,2 more metadata support (effects layers, etc)
   16-Apr-2007: 2.3b1 bugs fixed, refactoring
   21-Apr-2007: 2.4b1 dump ICC profile to XML (for Leo Revzin)
-  22-Jul-2007: 2.4b2 fix encoding of Unicode characters in XML (TODO: write UTF)
+  22-Jul-2007: 2.4b2 fix encoding of Unicode characters in XML
+  19-Apr-2008: 2.5b1 write UTF-8 XML
 */
 
-#define VERSION_STR "2.4b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x40,beta,2
+#define VERSION_STR "2.5b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x50,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-7 http://www.telegraphics.com.au/" 
+	VERSION_STR ", Copyright (C) Toby Thain 2004-8 http://www.telegraphics.com.au/" 
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 2,4,0x60,2
+#define VI_VERS_NUM 2,5,0x60,1
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 
