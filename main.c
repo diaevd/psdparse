@@ -31,7 +31,7 @@ extern char indir[];
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0;
-locale_t loc = NULL;
+locale_t utf_locale = NULL;
 long hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]){
 				}
 				UNQUIET("  done.\n\n");
 			}
-			if(loc) freelocale(loc);
+			if(utf_locale) freelocale(utf_locale);
 			fclose(f);
 		}else
 			alwayswarn("# \"%s\": couldn't open\n", argv[i]);

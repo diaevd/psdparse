@@ -195,7 +195,7 @@ struct dictentry{
 extern char *channelsuffixes[], *mode_names[], dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout;
-extern locale_t loc;
+extern locale_t utf_locale;
 
 extern FILE *xml, *listfile;
 
