@@ -46,9 +46,9 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	char *chidstr, tmp[10];
 
 	h->nlayers = 0;
-	if( (h->lmilen = GETPSDBYTES(f)) ){
-		h->lmistart = ftello(f);
-
+	h->lmilen = GETPSDBYTES(f);
+	h->lmistart = ftello(f);
+	if(h->lmilen){
 		// process layer info section
 		if( (layerlen = GETPSDBYTES(f)) ){
 			// layers structure
