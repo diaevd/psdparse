@@ -1,5 +1,5 @@
 # This file is part of "psdparse"
-# Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+# Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by  
@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-PNGDIR = ::libpng-1.2.16:
+PNGDIR = ::libpng-1.2.32:
 PNGOBJ = ¶
 	{PNGDIR}png.c.x {PNGDIR}pngerror.c.x {PNGDIR}pngget.c.x ¶
 	{PNGDIR}pngmem.c.x {PNGDIR}pngset.c.x ¶
@@ -29,9 +29,11 @@ ZLIBOBJ = ¶
 	{ZLIBDIR}inffast.c.x {ZLIBDIR}inflate.c.x {ZLIBDIR}inftrees.c.x ¶
 	{ZLIBDIR}trees.c.x {ZLIBDIR}uncompr.c.x {ZLIBDIR}zutil.c.x
 
-OBJ = main.c.x extra.c.x channel.c.x constants.c.x descriptor.c.x psd.c.x icc.c.x ¶
-	resources.c.x writeraw.c.x writepng.c.x unpackbits.c.x mkdir_unimpl.c.x util.c.x ¶
-	getopt_init.c.x getopt.c.x getopt1.c.x {PNGOBJ} {ZLIBOBJ}
+OBJ = main.c.x extra.c.x channel.c.x constants.c.x descriptor.c.x ¶
+	psd.c.x icc.c.x resources.c.x write.c.x writeraw.c.x writepng.c.x ¶
+	unpackbits.c.x mkdir_unimpl.c.x util.c.x ¶
+	getopt_init.c.x getopt.c.x getopt1.c.x ¶
+	{PNGOBJ} {ZLIBOBJ}
 
 LIB =	"{SharedLibraries}InterfaceLib" ¶
 		"{SharedLibraries}StdCLib" ¶
@@ -42,7 +44,8 @@ LIB =	"{SharedLibraries}InterfaceLib" ¶
 
 # "-enum int -d STDC" are needed to make zlib build happily
 CFLAGS = -enum int -i {PNGDIR},{ZLIBDIR} -w 2,35 ¶
-	-d STDC -d MAC_ENV -d DEFAULT_VERBOSE=0 -d DIRSEP=¶':¶'
+	-d STDC -d MAC_ENV -d DEFAULT_VERBOSE=0 -d DIRSEP=¶':¶' ¶
+	-d PNG_NO_SNPRINTF
 
 .c.x Ä .c
 	{PPCC} {depDir}{default}.c -o {targDir}{default}.c.x {CFLAGS}

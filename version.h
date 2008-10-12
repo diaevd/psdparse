@@ -43,10 +43,11 @@
   22-Jul-2007: 2.4b2 fix encoding of Unicode characters in XML
   19-Apr-2008: 2.5b1 write UTF-8 XML
   13-Sep-2008: 2.5b2 fix Layer/Mask Info bug found by John Sauter
+  12-Oct-2008: 2.5b3 improve build system - remove autotools derived files from repo
 */
 
-#define VERSION_STR "2.5b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x50,beta,2
+#define VERSION_STR "2.5b3"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x50,beta,3
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -55,7 +56,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 2,5,0x60,2
+#define VI_VERS_NUM 2,5,0x60,3
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

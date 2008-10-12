@@ -82,9 +82,12 @@ void fputcxml(wchar_t c, FILE *f){
 	case '\'': fputs("&apos;", f); break;
 	case '\"': fputs("&quot;", f); break;
 	default:
+#ifdef HAVE_NEWLOCALE
 		if(utf_locale)
 			fputwc_l(c, f, utf_locale);
-		else if(c < 0x80 && isprint(c)) // ASCII printable
+		else
+#endif
+		if(c < 0x80 && isprint(c)) // ASCII printable
 			fputc(c, f);
 		else
 			fprintf(f, "&#x%04x;", c);

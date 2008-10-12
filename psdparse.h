@@ -29,7 +29,9 @@
 	#include <sys/types.h>
 	#include <unistd.h>
 	#include <wchar.h>
-	#include <xlocale.h> // TODO: make this dependent on configure #define
+	#ifdef HAVE_NEWLOCALE
+	#include <xlocale.h>
+	#endif
 #endif
 
 #ifdef PSBSUPPORT
@@ -195,7 +197,9 @@ struct dictentry{
 extern char *channelsuffixes[], *mode_names[], dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout;
-extern locale_t utf_locale;
+#ifdef HAVE_NEWLOCALE
+	extern locale_t utf_locale;
+#endif
 
 extern FILE *xml, *listfile;
 
