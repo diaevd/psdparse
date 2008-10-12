@@ -43,7 +43,7 @@
   22-Jul-2007: 2.4b2 fix encoding of Unicode characters in XML
   19-Apr-2008: 2.5b1 write UTF-8 XML
   13-Sep-2008: 2.5b2 fix Layer/Mask Info bug found by John Sauter
-  12-Oct-2008: 2.5b3 improve build system - remove autotools derived files from repo
+  12-Oct-2008: 2.5b3 #ifdef out the UTF-8 locale code, this broke build on most platforms :(
 */
 
 #define VERSION_STR "2.5b3"  // <-- remember to change in configure.ac!
