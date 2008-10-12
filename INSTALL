@@ -53,12 +53,18 @@ Then:
 
 1. build using the supplied Makefile:
 	$ make -f Makefile.osx
+
+
+Cross-build Win32 EXE from OS X or Linux
+----------------------------------------
 	
 The supplied Makefile is also the easiest way to CROSS-build for Win32,
 if you have MinGW installed;
 	$ make -f Makefile.osx exe
 
 See the Makefile for more information and prerequisites.
+
+This may also work in MinGW and Cygwin on Windows.
 
 
 Building with MPW (Mac OS 7,8,9,Classic)
