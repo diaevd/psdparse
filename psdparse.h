@@ -40,14 +40,14 @@
 
 	typedef int64_t psd_bytes_t;
 	#define GETPSDBYTES(f) (h->version==1 ? get4B(f) : get8B(f))
-	
+
 	// macro chooses the '%ll' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) llfmt
 #else
 	typedef long psd_bytes_t;
 	//typedef int psd_pixels_t;
 	#define GETPSDBYTES get4B
-	
+
 	// macro chooses the '%l' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) lfmt
 #endif
@@ -78,7 +78,7 @@ typedef long psd_pixels_t;
 	int pl_fseeko(psd_file_t f, off_t pos, int wh);
 	off_t pl_ftello(psd_file_t f);
 	void pl_fatal(char *s);
-	
+
 	Boolean warndialog(char *s);
 #else
 	typedef FILE *psd_file_t;
@@ -148,7 +148,7 @@ struct layer_mask_info{
 	char default_colour;
 	char flags;
 	//char reserved[2]
-	
+
 	// runtime data
 	psd_pixels_t rows,cols;
 };
@@ -168,7 +168,7 @@ struct layer_info{
 	long bottom;
 	long right;
 	short channels;
-	
+
 	// runtime data (not in file)
 	psd_bytes_t *chlengths; // array of channel lengths
 	int *chid;       // channel ids
@@ -246,12 +246,12 @@ void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 void doimageresources(psd_file_t f);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
-FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
 void pngwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
 
-FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
+FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
 void rawwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
 				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
