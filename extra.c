@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -20,7 +20,7 @@
 #include "psdparse.h"
 
 /* 'Extra data' handling. *Work in progress*
- * 
+ *
  * There's guesswork and trial-and-error in here,
  * due to many errors and omissions in Adobe's documentation on this (PS6 SDK).
  * It's amazing that they would try to describe a hierarchical format
@@ -44,9 +44,9 @@ void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, s
 		if(!oneline)
 			fputc('\n', xml);
 	}
-	
+
 	d->func(f, level+1, printxml, d); // parse contents of this datum
-	
+
 	if(printxml){
 		fprintf(xml, "%s</%s>", oneline ? "" : tabs(level), tagname);
 		// if parent's not one-line, then we can safely newline after our tag.
@@ -116,7 +116,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 		for(i = 0; i < 6; ++i)
 			fprintf(xml, " <%s>%g</%s>", coeff[i], getdoubleB(f), coeff[i]);
 		fputs(" </TRANSFORM>\n", xml);
-		
+
 		// read font information
 		v = get2B(f);
 		fprintf(xml, "%s<FONTINFOVERSION>%d</FONTINFOVERSION>\n", indent, v);
@@ -129,7 +129,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				fprintf(xml, " FONTSTYLE='%s'", getpstr(f));
 				script = get2B(f);
 				fprintf(xml, " SCRIPT='%d'>\n", script);
-				
+
 				// doc is unclear, but this may work:
 				fprintf(xml, "%s\t<DESIGNVECTOR>", indent);
 				for(j = get4B(f); j--;)
@@ -360,7 +360,8 @@ static int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *
 	return 0; // bad signature
 }
 
-static struct dictentry bmdict[] = {
+/* not 'static'; these are referenced by scavenge.c */
+struct dictentry bmdict[] = {
 	{0, "norm", "NORMAL", "normal", NULL},
 	{0, "dark", "DARKEN", "darken", NULL},
 	{0, "lite", "LIGHTEN", "lighten", NULL},
