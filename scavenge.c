@@ -60,7 +60,8 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *
 {
 	unsigned char *p = addr, *q;
 	size_t i;
-	unsigned j, n = 0, ps_ptr_bytes = psb_flag ? 8 : 4;
+	int j, k;
+	unsigned n = 0, ps_ptr_bytes = psb_flag ? 8 : 4;
 	struct dictentry *de;
 
 	for(i = 0; i < len;)
@@ -76,21 +77,31 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *
 					// try to guess number of channels
 					for(j = 1; j < 64; ++j){
 						q = p + i - 4 - j*(ps_ptr_bytes + 2) - 2;
-						if(peek2Bu(q) == j){
+						if(peek2B(q) == j){
 							long t = peek4B(q-16), l = peek4B(q-12), b = peek4B(q-8), r = peek4B(q-4);
+							// sanity check bounding box
 							if(b >= t && r >= l){
-								++n;
-								if(li){
-									li->filepos = q - p - 16;
-									++li;
+								// sanity check channel ids
+								for(k = 0; k < j; ++k){
+									int chid = peek2B(q+2+k*(ps_ptr_bytes + 2));
+									if(chid < -2 || chid >= j)
+										break; // smells bad, give up
 								}
-								else
-									VERBOSE("@ %8d : key: %c%c%c%c  could be %d channels: t = %lu, l = %lu, b = %lu, r = %lu\n",
-										   q - p - 16,
-										   de->key[0], de->key[1], de->key[2], de->key[3],
-										   j,
-										   t, l, b, r);
-								break;
+								if(k == j){
+									// channel ids were ok. could still be a valid guess...
+									++n;
+									if(li){
+										li->filepos = q - p - 16;
+										++li;
+									}
+									else
+										VERBOSE("@ %8d : key: %c%c%c%c  could be %d channels: t = %ld, l = %ld, b = %ld, r = %ld\n",
+											   q - p - 16,
+											   de->key[0], de->key[1], de->key[2], de->key[3],
+											   j,
+											   t, l, b, r);
+									break;
+								}
 							}
 						}
 					}
