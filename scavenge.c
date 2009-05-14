@@ -119,7 +119,7 @@ int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode
 			h->nlayers = scan(addr, sb.st_size, 0, NULL);
 			if( h->nlayers && (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
 				scan(addr, sb.st_size, psb_flag, h->linfo);
-			UNQUIET("possible layers (PSD): %d\n", h->nlayers);
+			UNQUIET("possible layers (PS%c): %d\n", psb_flag ? 'B' : 'D', h->nlayers);
 			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 
 			munmap(addr, sb.st_size);
