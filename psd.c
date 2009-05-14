@@ -19,7 +19,7 @@
 
 #include "psdparse.h"
 
-char indir[PATH_MAX], dirsep[] = {DIRSEP,0};
+char dirsep[] = {DIRSEP,0};
 FILE *listfile = NULL, *xml = NULL;
 
 void skipblock(psd_file_t f, char *desc){
@@ -257,7 +257,6 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 	int result = 0;
-	char *ext, fname[PATH_MAX], *dirsuffix;
 
 	// file header
 	fread(h->sig, 1, 4, f);
@@ -275,35 +274,10 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 		   || h->version == 2
 #endif
 		){
-			strcpy(indir, psdpath);
-			ext = strrchr(indir, '.');
-			dirsuffix = h->depth < 32 ? "_png" : "_raw";
-			ext ? strcpy(ext, dirsuffix) : strcat(indir, dirsuffix);
-
-			if(writelist){
-				setupfile(fname, pngdir, "list", ".txt");
-				listfile = fopen(fname, "w");
-			}
-
-			if(xmlout){
-				quiet = writexml = 1;
-				verbose = 0;
-				xml = stdout;
-			}else if(writexml){
-				setupfile(fname, pngdir, "psd", ".xml");
-				xml = fopen(fname, "w");
-#ifdef HAVE_NEWLOCALE
-				// XML file is always encoded in UTF-8
-				utf_locale = newlocale(LC_CTYPE_MASK, "UTF-8", NULL);
-#endif
-			}
+			openfiles(psdpath, h);
 
 			if(listfile) fprintf(listfile, "-- PSD file: %s\n", psdpath);
 			if(xml){
-#ifdef HAVE_NEWLOCALE
-				if(utf_locale) fputwc_l(0xFEFF, xml, utf_locale); // Byte Order Mark
-#endif
-				fputs("<?xml version=\"1.0\"?>\n", xml);
 				fputs("<PSD FILE='", xml);
 				fputsxml(psdpath, xml);
 				fprintf(xml, "' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d'",
@@ -335,6 +309,9 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 			alwayswarn("# \"%s\": version %d not supported\n", psdpath, h->version);
 	}else
 		alwayswarn("# \"%s\": couldn't read header, or is not a PSD/PSB\n", psdpath);
+
+	if(!result)
+		alwayswarn("# Try --scavenge (and related options) to see if any layer data can be found.\n");
 
 	return result;
 }

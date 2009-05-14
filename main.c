@@ -124,8 +124,11 @@ int main(int argc, char *argv[]){
 			if(!quiet && !xmlout)
 				printf("Processing \"%s\"\n", argv[i]);
 
-			if(scavenge || scavenge_psb){
+			if(scavenge || scavenge_psb)
+			{
 				scavenge_psd(fileno(f), &h, scavenge_psb, scavenge_depth, scavenge_mode);
+
+				openfiles(argv[i], &h);
 
 				for(j = 0; j < h.nlayers; ++j){
 					fseek(f, h.linfo[j].filepos, SEEK_SET);

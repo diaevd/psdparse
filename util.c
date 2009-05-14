@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -173,7 +173,7 @@ int64_t get8B(psd_file_t f){
 	return (msl << 32) | (unsigned long)get4B(f);
 }
 
-// Read a 2-byte signed binary value in BigEndian format. 
+// Read a 2-byte signed binary value in BigEndian format.
 // Meant to work even where sizeof(short) > 2
 int get2B(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
@@ -181,7 +181,7 @@ int get2B(psd_file_t f){
 	return n < 0x8000 ? n : n - 0x10000;
 }
 
-// Read a 2-byte unsigned binary value in BigEndian format. 
+// Read a 2-byte unsigned binary value in BigEndian format.
 unsigned get2Bu(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
 	return n |= fgetc(f);
@@ -191,6 +191,39 @@ unsigned get2Bu(psd_file_t f){
 const char *tabs(int n){
 	static const char forty[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 	return forty + (sizeof(forty) - 1 - n);
+}
+
+char indir[PATH_MAX];
+
+void openfiles(char *psdpath, struct psd_header *h)
+{
+	char *ext, fname[PATH_MAX], *dirsuffix;
+
+	strcpy(indir, psdpath);
+	ext = strrchr(indir, '.');
+	dirsuffix = h->depth < 32 ? "_png" : "_raw";
+	ext ? strcpy(ext, dirsuffix) : strcat(indir, dirsuffix);
+
+	if(writelist){
+		setupfile(fname, pngdir, "list", ".txt");
+		listfile = fopen(fname, "w");
+	}
+
+	if(xmlout){
+		quiet = writexml = 1;
+		verbose = 0;
+		xml = stdout;
+	}else if(writexml){
+		setupfile(fname, pngdir, "psd", ".xml");
+		xml = fopen(fname, "w");
+	#ifdef HAVE_NEWLOCALE
+		// XML file is always encoded in UTF-8
+		utf_locale = newlocale(LC_CTYPE_MASK, "UTF-8", NULL);
+		if(utf_locale) fputwc_l(0xFEFF, xml, utf_locale); // Byte Order Mark
+	#endif
+	}
+	if(xml)
+		fputs("<?xml version=\"1.0\"?>\n", xml);
 }
 
 // construct the destination filename, and create enclosing directories
@@ -212,7 +245,7 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 				strcat(d, name);
 				if(!MKDIR(d, 0755)) VERBOSE("# made subdirectory \"%s\"\n", d);
 				last[0] = DIRSEP;
-			}else 
+			}else
 				last[0] = '_';
 	}
 

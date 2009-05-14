@@ -220,6 +220,7 @@ int64_t get8B(psd_file_t f);
 int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
 const char *tabs(int n);
+void openfiles(char *psdpath, struct psd_header *h);
 
 int dopsd(psd_file_t f, char *fname, struct psd_header *h);
 void processlayers(psd_file_t f, struct psd_header *h);
