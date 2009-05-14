@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -21,7 +21,7 @@
 
 #include "png.h"
 
-static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[], 
+static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
 					   struct layer_info *li, psd_bytes_t **rowpos,
 					   int startchan, int channels, long rows, long cols,
 					   struct psd_header *h, int color_type)
@@ -41,8 +41,8 @@ static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
 	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 }
 
-static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[], 
-						  struct layer_info *li, psd_bytes_t **rowpos, int startchan, 
+static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
+						  struct layer_info *li, psd_bytes_t **rowpos, int startchan,
 						  int channels, long rows, long cols, struct psd_header *h)
 {
 	char pngname[FILENAME_MAX];
@@ -71,7 +71,7 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 			sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][ch]);
 		else // give up and use a number
 			sprintf(pngname+strlen(pngname), ".%d", ch);
-			
+
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n", pngname);
 		else
@@ -90,10 +90,12 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 {
 	int ch, comp, startchan, pngchan, color_type, *chcomp;
 	psd_bytes_t **rowpos;
+	static int png_mode[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
+								PNG_COLOR_TYPE_RGB,  PNG_COLOR_TYPE_RGB_ALPHA};
 
 	chcomp = checkmalloc(channels*sizeof(int));
 	rowpos = checkmalloc(channels*sizeof(psd_bytes_t*));
-	
+
 	for(ch = 0; ch < channels; ++ch){
 		// is it a layer mask? if so, use special case row count
 		psd_pixels_t chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
@@ -128,28 +130,31 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 			pngchan = 4;
 		}
 		break;
+	case SCAVENGE_MODE:
+		pngchan = channels;
+		color_type = png_mode[pngchan];
 	}
 
 	if(!li){
 		VERBOSE("\n  merged channels:\n");
-		
+
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
 		// It consists of:
 		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - the merged image (1 or 3 channels)
 		// - any remaining alpha or spot channels.
-		// For an identifiable image mode (Bitmap, GreyScale, Duotone, Indexed or RGB), 
-		// we should ideally 
+		// For an identifiable image mode (Bitmap, GreyScale, Duotone, Indexed or RGB),
+		// we should ideally
 		// 1) write the first 1[2] or 3[4] channels in appropriate PNG format
 		// 2) write the remaining channels as extra GRAY PNG files.
 		// (For multichannel (and maybe other?) modes, we should just write all
 		// channels per step 2)
-		
+
 		comp = dochannel(f, NULL, 0/*no index*/, channels, rows, cols, h->depth, rowpos, h);
-		for(ch = 0; ch < channels; ++ch) 
+		for(ch = 0; ch < channels; ++ch)
 			chcomp[ch] = comp; /* merged channels share same compression type */
-		
+
 		if(xml)
 			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld'>\n",
 					channels, rows, cols);
@@ -164,14 +169,14 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 			if(startchan < channels){
 				if(!pngchan)
 					UNQUIET("# writing %s image as split channels...\n", mode_names[h->mode]);
-				writechannels(f, pngdir, name, chcomp, NULL, rowpos, 
+				writechannels(f, pngdir, name, chcomp, NULL, rowpos,
 							  startchan, channels-startchan, rows, cols, h);
 			}
 		}
 		if(xml) fputs("\t</COMPOSITE>\n", xml);
 	}else{
 		// Process layer:
-		// for each channel, store its row pointers sequentially 
+		// for each channel, store its row pointers sequentially
 		// in the rowpos[] array, and its compression type in chcomp[] array
 		// (pngwriteimage() will take care of interleaving this data for libpng)
 		for(ch = 0; ch < channels; ++ch){
@@ -197,7 +202,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		}
 	}
 
-	for(ch = 0; ch < channels; ++ch) 
+	for(ch = 0; ch < channels; ++ch)
 		free(rowpos[ch]);
 	free(rowpos);
 	free(chcomp);

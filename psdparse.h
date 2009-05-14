@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -97,6 +97,7 @@ typedef long psd_pixels_t;
 enum{RAWDATA,RLECOMP};
 
 /* Photoshop's mode constants */
+#define SCAVENGE_MODE -1
 #define ModeBitmap		 0
 #define ModeGrayScale		 1
 #define ModeIndexedColor 2
@@ -179,6 +180,7 @@ struct layer_info{
 	char *nameno; // "layerNN"
 	psd_bytes_t additionalpos;
 	psd_bytes_t additionallen;
+	psd_bytes_t filepos; // only used in scavenge mode
 };
 
 struct extra_data{
@@ -242,8 +244,11 @@ int dochannel(psd_file_t f,struct layer_info *li,int idx,int channels,
 			  psd_pixels_t rows,psd_pixels_t cols,int depth,psd_bytes_t **rowpos,struct psd_header *h);
 void doimage(psd_file_t f,struct layer_info *li,char *name,int channels,
 			 psd_pixels_t rows,psd_pixels_t cols,struct psd_header *h);
+void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 void doimageresources(psd_file_t f);
+
+int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
 FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,

@@ -27,11 +27,6 @@
 
 #include "psdparse.h"
 
-int verbose = 0, quiet = 0, makedirs = 0;
-
-char dirsep[] = {'/',0};
-FILE *xml = NULL;
-
 extern struct dictentry bmdict[];
 
 // memory-mapped analogues of the routines in util.c
@@ -61,7 +56,7 @@ unsigned peek2Bu(unsigned char *p){
 	return (p[0]<<8) | p[1];
 }
 
-unsigned scan(unsigned char *addr, size_t len, int psb_flag)
+unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *li)
 {
 	unsigned char *p = addr, *q;
 	size_t i;
@@ -80,16 +75,21 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag)
 					// found a possible layer blendmode signature
 					// try to guess number of channels
 					for(j = 1; j < 64; ++j){
-						q = p + i - 4 - j*(ps_ptr_bytes + 2) - 2; // for PSD. for PSB, j*8 !
+						q = p + i - 4 - j*(ps_ptr_bytes + 2) - 2;
 						if(peek2Bu(q) == j){
 							long t = peek4B(q-16), l = peek4B(q-12), b = peek4B(q-8), r = peek4B(q-4);
-							if(b > t && r > l){
+							if(b >= t && r >= l){
 								++n;
-								printf("@ %8d : key: %c%c%c%c  could be %d channels: t = %lu, l = %lu, b = %lu, r = %lu\n",
-									   q - p - 16,
-									   de->key[0], de->key[1], de->key[2], de->key[3],
-									   j,
-									   t, l, b, r);
+								if(li){
+									li->filepos = q - p - 16;
+									++li;
+								}
+								else
+									VERBOSE("@ %8d : key: %c%c%c%c  could be %d channels: t = %lu, l = %lu, b = %lu, r = %lu\n",
+										   q - p - 16,
+										   de->key[0], de->key[1], de->key[2], de->key[3],
+										   j,
+										   t, l, b, r);
 								break;
 							}
 						}
@@ -103,34 +103,30 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag)
 	return n;
 }
 
-int scavenge(char *path)
+int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode)
 {
-	int fd, status = 0;
 	void *addr;
 	struct stat sb;
 
-	if( (fd = open(path, O_RDONLY, 0)) != -1 )
+	if(fstat(fd, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG)
 	{
-		if(fstat(fd, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG)
+		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE, fd, 0);
+		if(addr != MAP_FAILED)
 		{
-			addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE, fd, 0);
-			if(addr != MAP_FAILED)
-			{
-				printf("possible layers (PSD): %d\n", scan(addr, sb.st_size, 0));
-				//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
+			h->version = 1 + psb_flag;
+			h->depth = depth;
+			h->mode = mode;
+			h->nlayers = scan(addr, sb.st_size, 0, NULL);
+			if( h->nlayers && (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
+				scan(addr, sb.st_size, psb_flag, h->linfo);
+			UNQUIET("possible layers (PSD): %d\n", h->nlayers);
+			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 
-				munmap(addr, sb.st_size);
-				status = 1;
-			}
-			else
-				fputs("mmap() failed", stderr);
+			munmap(addr, sb.st_size);
+			return h->nlayers;
 		}
-		close(fd);
+		else
+			fputs("mmap() failed", stderr);
 	}
-	return status;
-}
-
-int main(int argc, char *argv[])
-{
-	return argc == 2 && scavenge(argv[1]) ? EXIT_SUCCESS : EXIT_FAILURE;
+	return 0;
 }

@@ -1,9 +1,9 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -30,7 +30,7 @@
   02-May-2006: 1.6b1 add ability to skip channels if data format error
   03-May-2006: 1.6b2,3,4 major improvements to handling corrupt RLE data (thanks Torsten Will)
   04-May-2006: 1.7b1 now extract layer masks, and use channel ids to identify masks, alphas
-  04-Jun-2006: 1.7b2 close PNG file after writing; add option to use 
+  04-Jun-2006: 1.7b2 close PNG file after writing; add option to use
                      generic names for PNG layer files (thanks Tankko Omaskio)
   30-Jan-2007: 1.8b1 for 32 bit PSD, don't try to write PNG - but write raw file instead
   26-Mar-2007: 1.9b1 write XML description
@@ -44,19 +44,20 @@
   19-Apr-2008: 2.5b1 write UTF-8 XML
   13-Sep-2008: 2.5b2 fix Layer/Mask Info bug found by John Sauter
   12-Oct-2008: 2.5b3 #ifdef out the UTF-8 locale code, this broke build on most platforms :(
+  14-May-2009: 2.6b1 add 'scavenge' mode that does not need header, but searches exhaustively for layer info
 */
 
-#define VERSION_STR "2.5b3"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x50,beta,3
+#define VERSION_STR "2.6b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x60,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-8 http://www.telegraphics.com.au/" 
+	VERSION_STR ", Copyright (C) Toby Thain 2004-9 http://www.telegraphics.com.au/"
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 2,5,0x60,3
+#define VI_VERS_NUM 2,6,0x60,1
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 
