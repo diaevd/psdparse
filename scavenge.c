@@ -134,7 +134,7 @@ int is_resource(unsigned char *addr, size_t len, size_t offset)
 
 void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_header *h)
 {
-	size_t i, j = 0, ps_ptr_bytes = psb_flag ? 8 : 4;
+	size_t i, j, ps_ptr_bytes = psb_flag ? 8 : 4;
 
 	// if no valid layer signature was found, then look for an empty layer/mask info block
 	// which would imply only merged data is in the file (no layers)
@@ -165,7 +165,7 @@ void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_heade
 		if(lmilen > 0 && (i+lmilen) < len && layerlen == 0)
 		{
 			// sanity check compression type
-			int comptype = peek2Bu(addr+i + lmilen);
+			int comptype = peek2Bu(addr + i + lmilen);
 			if(comptype == 0 || comptype == 1)
 			{
 				h->lmistart = i+ps_ptr_bytes;
