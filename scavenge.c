@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include "psdparse.h"
 
@@ -183,7 +184,7 @@ int scavenge_psd(int fd, struct psd_header *h)
 
 	if(fstat(fd, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG)
 	{
-		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE, fd, 0);
+		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE|MAP_SHARED, fd, 0);
 		if(addr != MAP_FAILED)
 		{
 			h->nlayers = scan(addr, sb.st_size, h);
@@ -201,7 +202,7 @@ int scavenge_psd(int fd, struct psd_header *h)
 			return h->nlayers;
 		}
 		else
-			fputs("mmap() failed", stderr);
+			fprintf(stderr, "mmap() failed: %d\n", errno);
 	}
 	return 0;
 }

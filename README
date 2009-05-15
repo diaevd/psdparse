@@ -36,7 +36,7 @@ the program's final resting place, or compiler, or compiler options.
 Build from repository (Subversion checkout)
 ---------------------
 
-	$ autoreconf -f -i
+	$ automake -a -f --foreign
 	...then follow steps for "General build instructions"
 
 
