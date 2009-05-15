@@ -164,12 +164,17 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h)
 	h->nlayers = 0;
 	h->lmilen = GETPSDBYTES(f);
 	h->lmistart = ftello(f);
+	printf("lmilen = %lld\n", h->lmilen);
+	printf("lmistart = %lld\n", h->lmistart);
 	if(h->lmilen){
 		// process layer info section
-		if( (layerlen = GETPSDBYTES(f)) ){
+		layerlen = GETPSDBYTES(f);
+		printf("layerlen = %lld\n", layerlen);
+		if(layerlen){
 			// layers structure
 			h->nlayers = get2B(f);
-			if( (h->mergedalpha = h->nlayers < 0) ){
+			h->mergedalpha = h->nlayers < 0;
+			if(h->mergedalpha){
 				h->nlayers = - h->nlayers;
 				VERBOSE("  (first alpha is transparency for merged image)\n");
 			}

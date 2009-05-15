@@ -249,7 +249,8 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 void doimageresources(psd_file_t f);
 
-int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode);
+int scavenge_psd(int fd, struct psd_header *h, int psb_flag,
+				 int depth, int mode, int rows, int cols, int chan);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
 FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,

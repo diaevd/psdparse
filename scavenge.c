@@ -66,13 +66,13 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *
 
 	for(i = 0; i < len;)
 	{
-		if(!strncmp("8BIM", (char*)p+i, 4)){
+		if(!memcmp("8BIM", (char*)p+i, 4)){
 			i += 4;
 
 			// found possible layer signature
 			// check next 4 bytes for a known blend mode
 			for(de = bmdict; de->key; ++de)
-				if(!strncmp(de->key, (char*)p+i, 4)){
+				if(!memcmp(de->key, (char*)p+i, 4)){
 					// found a possible layer blendmode signature
 					// try to guess number of channels
 					for(j = 1; j < 64; ++j){
@@ -83,7 +83,7 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *
 							if(b >= t && r >= l){
 								// sanity check channel ids
 								for(k = 0; k < j; ++k){
-									int chid = peek2B(q+2+k*(ps_ptr_bytes + 2));
+									int chid = peek2B(q + 2 + k*(ps_ptr_bytes + 2));
 									if(chid < -2 || chid >= j)
 										break; // smells bad, give up
 								}
@@ -114,7 +114,36 @@ unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *
 	return n;
 }
 
-int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode)
+void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_header *h)
+{
+	size_t i, ps_ptr_bytes = psb_flag ? 8 : 4;
+
+	// if no valid layer signature was found, then look for an empty layer/mask info block
+	// which would imply only merged data is in the file (no layers)
+
+	h->lmistart = h->lmilen = 0;
+
+	for(i = 0; i < len; ++i)
+	{
+		psd_bytes_t lmilen = psb_flag ? peek8B(addr+i) : peek4B(addr+i),
+				  layerlen = psb_flag ? peek8B(addr+i+ps_ptr_bytes) : peek4B(addr+i+ps_ptr_bytes);;
+		if(lmilen > 0 && (i+lmilen) < len && layerlen == 0)
+		{
+			// sanity check compression type
+			int comptype = peek2Bu(addr+i + lmilen);
+			if(comptype == 0 || comptype == 1)
+			{
+				h->lmistart = i+ps_ptr_bytes;
+				h->lmilen = lmilen;
+				VERBOSE("possible empty LMI @ %lld\n", h->lmistart);
+				//break;
+			}
+		}
+	}
+}
+
+int scavenge_psd(int fd, struct psd_header *h, int psb_flag,
+				 int depth, int mode, int rows, int cols, int chan)
 {
 	void *addr;
 	struct stat sb;
@@ -125,11 +154,19 @@ int scavenge_psd(int fd, struct psd_header *h, int psb_flag, int depth, int mode
 		if(addr != MAP_FAILED)
 		{
 			h->version = 1 + psb_flag;
+			h->channels = chan; // merged image only
+			h->rows = rows;     // merged image only
+			h->cols = cols;     // merged image only
 			h->depth = depth;
 			h->mode = mode;
 			h->nlayers = scan(addr, sb.st_size, 0, NULL);
-			if( h->nlayers && (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
-				scan(addr, sb.st_size, psb_flag, h->linfo);
+			if(h->nlayers){
+				if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
+					scan(addr, sb.st_size, psb_flag, h->linfo);
+			}
+			else if(rows && cols)
+				scan_merged(addr, sb.st_size, psb_flag, h);
+
 			UNQUIET("possible layers (PS%c): %d\n", psb_flag ? 'B' : 'D', h->nlayers);
 			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 

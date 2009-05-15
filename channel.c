@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -70,7 +70,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 		// if we don't recognise the compression type, skip the row
 		// FIXME: or would it be better to use the last valid type seen?
 	}
-	
+
 	if(n < rb)
 		memset(inrow+n, 0, rb-n); // zero out whatever part of row wasn't written
 }
@@ -122,8 +122,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n", comptype[comp]);
 		}else{
-			alwayswarn("## skipping channel (" LL_L("%lld","%ld") " bytes)\n", chlen);
-			fseeko(f, chlen, SEEK_CUR);
+			alwayswarn("## skipping channel\n");
 			return -1;
 		}
 	}else
@@ -168,17 +167,16 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 		}
 	}
 
-	for(ch = k = 0; ch < channels; ++ch){
-		
-		//if(channels>1)
+	for(ch = k = 0; ch < channels; ++ch)
+	{
 		VERBOSE("\n    channel %d (@ " LL_L("%7lld):\n","%7ld):\n"), ch, (psd_bytes_t)ftello(f));
 
 		for(j = 0; j < rows; ++j){
 			if(rows > 3*CONTEXTROWS){
-				if(j == rows-CONTEXTROWS) 
+				if(j == rows-CONTEXTROWS)
 					VERBOSE("    ...%ld rows not shown...\n", rows-2*CONTEXTROWS);
 				dumpit = j < CONTEXTROWS || j >= rows-CONTEXTROWS;
-			}else 
+			}else
 				dumpit = 1;
 
 			if(comp == RLECOMP){
@@ -212,7 +210,7 @@ int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
 		} // for rows
 
 	} // for channels
-	
+
 	if(li && ftello(f) != (chpos+2+chlen)){
 		warn("currentpos = " LL_L("%lld, should be %lld !",
 			 "%ld, should be %ld !"), ftello(f), chpos+2+chlen);

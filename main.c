@@ -31,6 +31,7 @@ extern char indir[];
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
+	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0;
 #ifdef HAVE_NEWLOCALE
 	locale_t utf_locale = NULL;
@@ -40,9 +41,9 @@ long hres, vres; // we don't use these, but they're set within doresources()
 #ifdef ALWAYS_WRITE_PNG
 	// for the Windows console app, we want to be able to drag and drop a PSD
 	// giving us no way to specify a destination directory, so use a default
-	int writepng = 1,writelist = 1,writexml = 1;
+	int writepng = 1, writelist = 1, writexml = 1;
 #else
-	int writepng = 0,writelist = 0,writexml = 0;
+	int writepng = 0, writelist = 0, writexml = 0;
 #endif
 
 void usage(char *prog, int status){
@@ -52,10 +53,6 @@ void usage(char *prog, int status){
   -q, --quiet        work silently\n\
   -r, --resources    process 'image resources' metadata\n\
   -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
-      --scavenge     ignore file header, search entire file for image layers\n\
-         --psb          for scavenge, assume PSB (default PSD)\n\
-         --depth N      for scavenge, assume this bit depth (default 8)\n\
-         --mode N       for scavenge, assume this mode (optional)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
   -d, --pngdir dir   put PNGs in specified directory (implies --writepng)\n\
@@ -63,29 +60,40 @@ void usage(char *prog, int status){
   -l, --list         write an 'asset list' of layer sizes and positions\n\
   -x, --xml          write XML describing document, layers, and any output files\n\
       --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
-  -s, --split        write each composite channel to individual (grey scale) PNG\n", prog, DIRSEP);
+  -s, --split        write each composite channel to individual (grey scale) PNG\n\
+      --scavenge     ignore file header, search entire file for image layers\n\
+         --psb           for scavenge, assume PSB (default PSD)\n\
+         --depth N       for scavenge, assume this bit depth (default %d)\n\
+         --mode N        for scavenge, assume this mode (optional)\n\
+         --mergedrows N  to scavenge merged image, row count must be known\n\
+         --mergedcols N  to scavenge merged image, column count must be known\n\
+         --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n",
+            prog, DIRSEP, scavenge_depth, scavenge_chan);
 	exit(status);
 }
 
 int main(int argc, char *argv[]){
 	static struct option longopts[] = {
-		{"help",     no_argument, &help, 1},
-		{"verbose",  no_argument, &verbose, 1},
-		{"quiet",    no_argument, &quiet, 1},
-		{"resources",no_argument, &rsrc, 1},
-		{"extra",    no_argument, &extra, 1},
-		{"scavenge", no_argument, &scavenge, 1},
-		{"psb",      no_argument, &scavenge_psb, 1},
-		{"depth",    required_argument, &scavenge_depth, 1},
-		{"mode",     required_argument, &scavenge_mode, 1},
-		{"writepng", no_argument, &writepng, 1},
-		{"numbered", no_argument, &numbered, 1},
-		{"pngdir",   required_argument, NULL, 'd'},
-		{"makedirs", no_argument, &makedirs, 1},
-		{"list",     no_argument, &writelist, 1},
-		{"xml",      no_argument, &writexml, 1},
-		{"xmlout",   no_argument, &xmlout, 1},
-		{"split",    no_argument, &split, 1},
+		{"help",       no_argument, &help, 1},
+		{"verbose",    no_argument, &verbose, 1},
+		{"quiet",      no_argument, &quiet, 1},
+		{"resources",  no_argument, &rsrc, 1},
+		{"extra",      no_argument, &extra, 1},
+		{"writepng",   no_argument, &writepng, 1},
+		{"numbered",   no_argument, &numbered, 1},
+		{"pngdir",     required_argument, NULL, 'd'},
+		{"makedirs",   no_argument, &makedirs, 1},
+		{"list",       no_argument, &writelist, 1},
+		{"xml",        no_argument, &writexml, 1},
+		{"xmlout",     no_argument, &xmlout, 1},
+		{"split",      no_argument, &split, 1},
+		{"scavenge",   no_argument, &scavenge, 1},
+		{"psb",        no_argument, &scavenge_psb, 1},
+		{"depth",      required_argument, NULL, 'D'},
+		{"mode",       required_argument, NULL, 'M'},
+		{"mergedrows", required_argument, NULL, 'R'},
+		{"mergedcols", required_argument, NULL, 'C'},
+		{"mergedchan", required_argument, NULL, 'H'},
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
@@ -109,6 +117,11 @@ int main(int argc, char *argv[]){
 		case 'l': writelist = 1; break;
 		case 'x': writexml = 1; break;
 		case 's': split = 1; break;
+		case 'D': scavenge_depth = atoi(optarg); break;
+		case 'M': scavenge_mode  = atoi(optarg); break;
+		case 'R': scavenge_rows  = atoi(optarg); break;
+		case 'C': scavenge_cols  = atoi(optarg); break;
+		case 'H': scavenge_chan  = atoi(optarg); break;
 		default:  usage(argv[0], EXIT_FAILURE);
 		}
 
@@ -124,9 +137,12 @@ int main(int argc, char *argv[]){
 			if(!quiet && !xmlout)
 				printf("Processing \"%s\"\n", argv[i]);
 
+			base = strrchr(argv[i], DIRSEP);
+
 			if(scavenge || scavenge_psb)
 			{
-				scavenge_psd(fileno(f), &h, scavenge_psb, scavenge_depth, scavenge_mode);
+				scavenge_psd(fileno(f), &h, scavenge_psb, scavenge_depth, scavenge_mode,
+							 scavenge_rows, scavenge_cols, scavenge_chan);
 
 				openfiles(argv[i], &h);
 
@@ -139,8 +155,17 @@ int main(int argc, char *argv[]){
 				// If we did not correctly locate the *last* layer, we are not going to
 				// succeed in extracting data for any layer.
 				processlayers(f, &h);
+
+				// if no layers found, try to locate merged data
+				if(!h.nlayers && h.rows && h.cols && h.lmistart){
+					// position file after 'layer & mask info'
+					fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
+					// process merged (composite) image data
+					doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
+				}
 			}
-			else if(dopsd(f, argv[i], &h)){
+			else if(dopsd(f, argv[i], &h))
+			{
 				// FIXME: a lot of data structures malloc'd in dopsd()
 				// and dolayermaskinfo() are never free'd
 
@@ -160,19 +185,18 @@ int main(int argc, char *argv[]){
 				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 				// process merged (composite) image data
-				base = strrchr(argv[i], DIRSEP);
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
-
-				if(listfile){
-					fputs("}\n", listfile);
-					fclose(listfile);
-				}
-				if(xml){
-					fputs("</PSD>\n", xml);
-					fclose(xml);
-				}
-				UNQUIET("  done.\n\n");
 			}
+			if(listfile){
+				fputs("}\n", listfile);
+				fclose(listfile);
+			}
+			if(xml){
+				fputs("</PSD>\n", xml);
+				fclose(xml);
+			}
+			UNQUIET("  done.\n\n");
+
 #ifdef HAVE_NEWLOCALE
 			if(utf_locale) freelocale(utf_locale);
 #endif
