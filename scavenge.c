@@ -56,13 +56,14 @@ unsigned peek2Bu(unsigned char *p){
 	return (p[0]<<8) | p[1];
 }
 
-unsigned scan(unsigned char *addr, size_t len, int psb_flag, struct layer_info *li)
+unsigned scan(unsigned char *addr, size_t len, struct psd_header *h)
 {
 	unsigned char *p = addr, *q;
 	size_t i;
 	int j, k;
-	unsigned n = 0, ps_ptr_bytes = psb_flag ? 8 : 4;
+	unsigned n = 0, ps_ptr_bytes = 2 << h->version;
 	struct dictentry *de;
+	struct layer_info *li = h->linfo;
 
 	for(i = 0; i < len;)
 	{
@@ -132,12 +133,12 @@ int is_resource(unsigned char *addr, size_t len, size_t offset)
 	return 0;
 }
 
-void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_header *h)
-{
-	size_t i, j, ps_ptr_bytes = psb_flag ? 8 : 4;
+// if no valid layer signature was found, then look for an empty layer/mask info block
+// which would imply only merged data is in the file (no layers)
 
-	// if no valid layer signature was found, then look for an empty layer/mask info block
-	// which would imply only merged data is in the file (no layers)
+void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
+{
+	size_t i, j = 0, ps_ptr_bytes = 2 << h->version;
 
 	h->lmistart = h->lmilen = 0;
 
@@ -148,7 +149,7 @@ void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_heade
 		if(j && j < len-4){
 			VERBOSE("possible resource id=%d @ %lu\n", peek2B(addr+i+4), i);
 			i = j; // found an apparently valid resource; skip over it
-			
+
 			// is it followed by another resource?
 			if(memcmp("8BIM", addr+j, 4))
 				break; // no - stop looking
@@ -156,12 +157,10 @@ void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_heade
 			++i;
 	}
 
-	if(!j) i = 0; // saw no resources, start over
-
-	for(; i < len; ++i)
+	for(i = j; i < len; ++i)
 	{
-		psd_bytes_t lmilen = psb_flag ? peek8B(addr+i) : peek4B(addr+i),
-				  layerlen = psb_flag ? peek8B(addr+i+ps_ptr_bytes) : peek4B(addr+i+ps_ptr_bytes);;
+		psd_bytes_t lmilen = h->version == 2 ? peek8B(addr+i) : peek4B(addr+i),
+				  layerlen = h->version == 2 ? peek8B(addr+i+ps_ptr_bytes) : peek4B(addr+i+ps_ptr_bytes);;
 		if(lmilen > 0 && (i+lmilen) < len && layerlen == 0)
 		{
 			// sanity check compression type
@@ -177,8 +176,7 @@ void scan_merged(unsigned char *addr, size_t len, int psb_flag, struct psd_heade
 	}
 }
 
-int scavenge_psd(int fd, struct psd_header *h, int psb_flag,
-				 int depth, int mode, int rows, int cols, int chan)
+int scavenge_psd(int fd, struct psd_header *h)
 {
 	void *addr;
 	struct stat sb;
@@ -188,21 +186,15 @@ int scavenge_psd(int fd, struct psd_header *h, int psb_flag,
 		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE, fd, 0);
 		if(addr != MAP_FAILED)
 		{
-			h->version = 1 + psb_flag;
-			h->channels = chan; // merged image only
-			h->rows = rows;     // merged image only
-			h->cols = cols;     // merged image only
-			h->depth = depth;
-			h->mode = mode;
-			h->nlayers = scan(addr, sb.st_size, 0, NULL);
+			h->nlayers = scan(addr, sb.st_size, h);
 			if(h->nlayers){
 				if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
-					scan(addr, sb.st_size, psb_flag, h->linfo);
+					scan(addr, sb.st_size, h);
 			}
 			else
-				scan_merged(addr, sb.st_size, psb_flag, h);
+				scan_merged(addr, sb.st_size, h);
 
-			UNQUIET("possible layers (PS%c): %d\n", psb_flag ? 'B' : 'D', h->nlayers);
+			UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
 			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 
 			munmap(addr, sb.st_size);

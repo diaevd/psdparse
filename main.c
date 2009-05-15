@@ -141,11 +141,16 @@ int main(int argc, char *argv[]){
 
 			if(scavenge || scavenge_psb)
 			{
-				scavenge_psd(fileno(f), &h, scavenge_psb, scavenge_depth, scavenge_mode,
-							 scavenge_rows, scavenge_cols, scavenge_chan);
+				h.version = 1 + scavenge_psb;
+				h.channels = scavenge_chan;
+				h.rows = scavenge_rows;
+				h.cols = scavenge_cols;
+				h.depth = scavenge_depth;
+				h.mode = scavenge_mode;
+				scavenge_psd(fileno(f), &h);
 
 				openfiles(argv[i], &h);
-				
+
 				if(xml){
 					fputs("<PSD FILE='", xml);
 					fputsxml(argv[i], xml);
