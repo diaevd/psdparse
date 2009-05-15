@@ -145,6 +145,12 @@ int main(int argc, char *argv[]){
 							 scavenge_rows, scavenge_cols, scavenge_chan);
 
 				openfiles(argv[i], &h);
+				
+				if(xml){
+					fputs("<PSD FILE='", xml);
+					fputsxml(argv[i], xml);
+					fputs("'>\n", xml);
+				}
 
 				for(j = 0; j < h.nlayers; ++j){
 					fseek(f, h.linfo[j].filepos, SEEK_SET);
