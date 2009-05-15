@@ -59,7 +59,10 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 
 		if(channels < 1 || channels > 4){
 			alwayswarn("## (BUG) bad channel count (%d), writing PNG \"%s\"\n", channels, pngname);
-			return NULL;
+			if(channels > 4)
+				channels = 4; // try anyway
+			else
+				return NULL;
 		}
 
 		switch(color_type){
