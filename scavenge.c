@@ -187,6 +187,7 @@ int scavenge_psd(int fd, struct psd_header *h)
 		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE|MAP_SHARED, fd, 0);
 		if(addr != MAP_FAILED)
 		{
+			h->linfo = NULL;
 			h->nlayers = scan(addr, sb.st_size, h);
 			if(h->nlayers){
 				if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
