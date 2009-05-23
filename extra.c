@@ -351,13 +351,34 @@ static int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *
 		if(!printxml)
 			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
 					key[0],key[1],key[2],key[3], len);
-		if(dict && (d = findbykey(f, level, dict, key, printxml)) && !d->func && !printxml)
+		if(dict && (d = findbykey(f, level, dict, key, printxml)) && !d->func && !printxml){
 			// there is no function to parse this block
 			UNQUIET("    (data: %s)\n", d->desc);
+			if(verbose){
+				printf("    ");
+				psd_bytes_t pos = ftello(f);
+				int n = len > 32 ? 32 : len;
+				while(n--)
+					printf("%02x ", fgetc(f));
+				printf(len > 32 ? "...\n" : "\n");
+				fseeko(f, pos, SEEK_SET);
+			}
+		}
 		fseeko(f, len, SEEK_CUR);
 		return len + 12; // return number of bytes consumed
 	}
 	return 0; // bad signature
+}
+
+static void dumpblock(psd_file_t f, int level, int printxml, struct dictentry *dict){
+	// FIXME: this can over-run the actual block; need to pass block length into the function
+	if(verbose){
+		printf("%s: ", dict->desc);
+		int n = 32;
+		while(n--)
+			printf("%02x ", fgetc(f));
+		putchar('\n');
+	}
 }
 
 /* not 'static'; these are referenced by scavenge.c */
@@ -586,16 +607,126 @@ static void ed_metadata(psd_file_t f, int level, int printxml, struct dictentry 
 		mdblock(f, level, printxml);
 }
 
+// v6 doc
+static void adj_levels(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int i, j, v[5], version = get2B(f);
+
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
+		for(i = 0; i < 29; ++i){
+			for(j = 0; j < 5; ++j)
+				v[j] = get2B(f);
+
+			fprintf(xml, "%s<CHANNEL>\n", indent);
+			fprintf(xml, "\t%s<INPUTFLOOR>%d</INPUTFLOOR>\n",   indent, v[0]);
+			fprintf(xml, "\t%s<INPUTCEIL>%d</INPUTCEIL>\n",     indent, v[1]);
+			fprintf(xml, "\t%s<OUTPUTFLOOR>%d</OUTPUTFLOOR>\n", indent, v[2]);
+			fprintf(xml, "\t%s<OUTPUTCEIL>%d</OUTPUTCEIL>\n",   indent, v[3]);
+			fprintf(xml, "\t%s<GAMMA>%g</GAMMA>\n",             indent, v[4]/100.);
+			fprintf(xml, "%s</CHANNEL>\n", indent);
+		}
+	}
+}
+
+// v6 doc
+static void adj_curves(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int i, j, version, count;
+
+	fgetc(f); // mystery data - not mentioned in v6 doc?!
+	version = get2B(f);
+	get2B(f); // mystery data
+	count = get2B(f);
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
+		for(i = 0; i < count; ++i){
+			int points = get2B(f);
+			fprintf(xml, "%s<CURVE>\n", indent);
+			for(j = 0; j < points; ++j){
+				int output = get2B(f), input = get2B(f);
+				fprintf(xml, "\t%s<POINT> <OUTPUT>%d</OUTPUT> <INPUT>%d</INPUT> </POINT>\n",
+						indent, output, input);
+			}
+			fprintf(xml, "%s</CURVE>\n", indent);
+		}
+	}
+}
+
+const char *hsl[] = {"HUE", "SATURATION", "LIGHTNESS"};
+// v6 doc
+static void adj_huesat4(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int i, j, version = get2B(f), mode = fgetc(f);
+	fgetc(f);
+
+	if(printxml){
+		int h = get2B(f), s = get2B(f), l = get2B(f);
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
+		fprintf(xml, "%s<%s/>\n", indent, mode ? "COLORISE" : "HUEADJUST");
+		fprintf(xml, "%s<H>%d</H> <S>%d</S> <L>%d</L>\n", indent, h, s, l);
+		for(i = 0; i < 3; ++i){
+			fprintf(xml, "%s<%s>\n", indent, hsl[i]);
+			for(j = 0; j < 7; ++j)
+				fprintf(xml, "\t%s<VALUE>%d</VALUE>\n", indent, get2B(f));
+			fprintf(xml, "%s</%s>\n", indent, hsl[i]);
+		}
+	}
+}
+
+// v6 doc
+static void adj_huesat5(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int i, j, version = get2B(f), mode = fgetc(f);
+	fgetc(f);
+
+	if(printxml){
+		int h = get2B(f), s = get2B(f), l = get2B(f);
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
+		fprintf(xml, "%s<%s/>\n", indent, mode ? "COLORISE" : "HUEADJUST");
+		fprintf(xml, "%s<H>%d</H> <S>%d</S> <L>%d</L>\n", indent, h, s, l);
+		for(i = 0; i < 6; ++i){
+			fprintf(xml, "%s<HEXTANT>\n", indent);
+			for(j = 0; j < 4; ++j)
+				fprintf(xml, "\t%s<RANGE>%d</RANGE>\n", indent, get2B(f));
+			for(j = 0; j < 3; ++j)
+				fprintf(xml, "\t%s<SETTING>%d</SETTING>\n", indent, get2B(f));
+			fprintf(xml, "%s</HEXTANT>\n", indent);
+		}
+	}
+}
+
+// v6 doc
+static void adj_selcol(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int i, version = get2B(f);
+	static char *colours[] = {"RESERVED", "REDS", "YELLOWS", "GREENS", "CYANS",
+							  "BLUES", "MAGENTAS", "WHITES", "NEUTRALS", "BLACKS"};
+	fgetc(f);
+
+	if(printxml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
+		for(i = 0; i < 10; ++i){
+			fprintf(xml, "%s<%s>", indent, colours[i]);
+			fprintf(xml, " <C>%d</C>", get2B(f));
+			fprintf(xml, " <M>%d</M>", get2B(f));
+			fprintf(xml, " <Y>%d</Y>", get2B(f));
+			fprintf(xml, " <K>%d</K>", get2B(f));
+			fprintf(xml, " </%s>\n", colours[i]);
+		}
+	}
+}
+
 void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml){
 	static struct dictentry extradict[] = {
 		// v4.0
-		{0, "levl", "LEVELS", "Levels", NULL},
-		{0, "curv", "CURVES", "Curves", NULL},
+		{0, "levl", "LEVELS", "Levels", adj_levels},
+		{0, "curv", "CURVES", "Curves", adj_curves},
 		{0, "brit", "BRIGHTNESSCONTRAST", "Brightness/contrast", NULL},
 		{0, "blnc", "COLORBALANCE", "Color balance", NULL},
-		{0, "hue ", "HUESATURATION4", "Old Hue/saturation, Photoshop 4.0", NULL},
-		{0, "hue2", "HUESATURATION5", "New Hue/saturation, Photoshop 5.0", NULL},
-		{0, "selc", "SELECTIVECOLOR", "Selective color", NULL},
+		{0, "hue ", "HUESATURATION4", "Old Hue/saturation, Photoshop 4.0", adj_huesat4},
+		{0, "hue2", "HUESATURATION5", "New Hue/saturation, Photoshop 5.0", adj_huesat5},
+		{0, "selc", "SELECTIVECOLOR", "Selective color", adj_selcol},
 		{0, "thrs", "THRESHOLD", "Threshold", NULL},
 		{0, "nvrt", "INVERT", "Invert", NULL},
 		{0, "post", "POSTERIZE", "Posterize", NULL},
