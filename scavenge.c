@@ -157,6 +157,9 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 		}else
 			++i;
 	}
+	
+	if(!j)
+		alwayswarn("Did not find any plausible image resources; probably cannot locate merged image data.\n");
 
 	for(i = j; i < len; ++i)
 	{
@@ -171,6 +174,9 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 				h->lmistart = i+ps_ptr_bytes;
 				h->lmilen = lmilen;
 				VERBOSE("possible empty LMI @ %lld\n", h->lmistart);
+				UNQUIET(
+"May be able to recover merged image if you can provide correct values\n\
+for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
 				break; // take first one
 			}
 		}
@@ -196,7 +202,10 @@ int scavenge_psd(int fd, struct psd_header *h)
 			else
 				scan_merged(addr, sb.st_size, h);
 
-			UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
+			if(h->nlayers)
+				UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
+			else
+				alwayswarn("Did not find any plausible layer signatures.");
 			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 
 			munmap(addr, sb.st_size);
