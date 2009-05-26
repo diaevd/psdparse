@@ -29,7 +29,7 @@ AC_CHECK_LIB(png, png_create_info_struct,
 
 # Don't bother checking, we can't build at all without these.
 #AC_CHECK_HEADERS([stdarg.h stdlib.h string.h getopt.h limits.h sys/stat.h])
-AC_CHECK_HEADERS([xlocale.h])
+AC_CHECK_HEADERS([xlocale.h sys/mman.h])
 
 # Only test for functions where it is possible to work around
 # their absence.

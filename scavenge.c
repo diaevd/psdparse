@@ -22,7 +22,6 @@
 #include <fcntl.h>
 
 #include <sys/types.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <errno.h>
 
@@ -190,8 +189,7 @@ int scavenge_psd(int fd, struct psd_header *h)
 
 	if(fstat(fd, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG)
 	{
-		addr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE|MAP_SHARED, fd, 0);
-		if(addr != MAP_FAILED)
+		if( (addr = map_file(fd, sb.st_size)) )
 		{
 			h->linfo = NULL;
 			h->nlayers = scan(addr, sb.st_size, h);
@@ -202,17 +200,20 @@ int scavenge_psd(int fd, struct psd_header *h)
 			else
 				scan_merged(addr, sb.st_size, h);
 
-			if(h->nlayers)
+			if(h->nlayers){
 				UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
-			else
+			}else
 				alwayswarn("Did not find any plausible layer signatures.");
 			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 
-			munmap(addr, sb.st_size);
+			unmap_file(addr, sb.st_size);
 			return h->nlayers;
 		}
 		else
 			fprintf(stderr, "mmap() failed: %d\n", errno);
+
+		unmap_file(addr, sb.st_size); // needed for Windows cleanup, will do nothing on UNIX
 	}
+
 	return 0;
 }

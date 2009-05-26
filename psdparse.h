@@ -264,6 +264,9 @@ void rawwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, 
 
 int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_pixels_t inlen);
 
+void *map_file(int fd, size_t len);
+void unmap_file(void *addr, size_t len);
+
 #ifdef WIN32
 	#include <direct.h>
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.

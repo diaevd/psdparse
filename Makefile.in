@@ -67,7 +67,8 @@ am_psdparse_OBJECTS = main.$(OBJEXT) writepng.$(OBJEXT) \
 	writeraw.$(OBJEXT) unpackbits.$(OBJEXT) write.$(OBJEXT) \
 	resources.$(OBJEXT) icc.$(OBJEXT) extra.$(OBJEXT) \
 	constants.$(OBJEXT) util.$(OBJEXT) descriptor.$(OBJEXT) \
-	channel.$(OBJEXT) psd.$(OBJEXT) scavenge.$(OBJEXT)
+	channel.$(OBJEXT) psd.$(OBJEXT) scavenge.$(OBJEXT) \
+	mmap.$(OBJEXT)
 psdparse_OBJECTS = $(am_psdparse_OBJECTS)
 psdparse_LDADD = $(LDADD)
 psdparse_DEPENDENCIES =
@@ -180,7 +181,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c write.c \
                    resources.c icc.c extra.c constants.c util.c \
-                   descriptor.c channel.c psd.c scavenge.c \
+                   descriptor.c channel.c psd.c scavenge.c mmap.c \
                    psdparse.h version.h
 
 AM_CFLAGS = -W -Wall -O2
@@ -265,6 +266,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/extra.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mmap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/psd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resources.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scavenge.Po@am__quote@
