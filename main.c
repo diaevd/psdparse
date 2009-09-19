@@ -25,6 +25,12 @@
 
 #include "psdparse.h"
 
+#include <fcntl.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+
 extern int nwarns;
 extern char indir[];
 
@@ -99,10 +105,13 @@ int main(int argc, char *argv[]){
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
-	int i, j, indexptr, opt;
+	int i, j, indexptr, opt, fd, map_flag;
 	struct psd_header h;
 	psd_bytes_t k;
 	char *base;
+	void *addr = NULL;
+	struct stat sb;
+	char temp_str[PATH_MAX];
 
 	while( (opt = getopt_long(argc, argv, "hvqrewnd:mlxs", longopts, &indexptr)) != -1 )
 		switch(opt){
@@ -141,7 +150,15 @@ int main(int argc, char *argv[]){
 
 			base = strrchr(argv[i], DIRSEP);
 
-			if(scavenge || scavenge_psb)
+			// need to memory map the file, for scavenging routines?
+			fd = fileno(f);
+			map_flag = (scavenge || scavenge_psb || scavenge_rle)
+					   && fstat(fd, &sb) == 0
+					   && (sb.st_mode & S_IFMT) == S_IFREG;
+			if(map_flag && !(addr = map_file(fd, sb.st_size)))
+				fprintf(stderr, "mmap() failed: %d\n", errno);
+
+			if((scavenge || scavenge_psb) && addr)
 			{
 				h.version = 1 + scavenge_psb;
 				h.channels = scavenge_chan;
@@ -149,7 +166,7 @@ int main(int argc, char *argv[]){
 				h.cols = scavenge_cols;
 				h.depth = scavenge_depth;
 				h.mode = scavenge_mode;
-				scavenge_psd(fileno(f), &h);
+				scavenge_psd(addr, sb.st_size, &h);
 
 				openfiles(argv[i], &h);
 
@@ -163,6 +180,8 @@ int main(int argc, char *argv[]){
 					fseeko(f, h.linfo[j].filepos, SEEK_SET);
 					readlayerinfo(f, &h, j);
 				}
+
+				h.layerdatapos = ftello(f);
 
 				// Layer content starts immediately after the last layer's 'metadata'.
 				// If we did not correctly locate the *last* layer, we are not going to
@@ -182,6 +201,9 @@ int main(int argc, char *argv[]){
 				// FIXME: a lot of data structures malloc'd in dopsd()
 				// and dolayermaskinfo() are never free'd
 
+				h.layerdatapos = ftello(f);
+				UNQUIET("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
+
 				// process the layers in 'image data' section,
 				// creating PNG/raw files if requested
 
@@ -198,24 +220,27 @@ int main(int argc, char *argv[]){
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 				// process merged (composite) image data
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
-
-				if(scavenge_rle){
-					scavenge_psd(fileno(f), &h);
-					// process scavenged layer data
-					for(j = 0; j < h.nlayers; ++j)
-						if(h.linfo[j].chpos){
-							char s[PATH_MAX];
-							strcpy(s, numbered ? h.linfo[j].nameno : h.linfo[j].name);
-							strcat(s, ".scavenged");
-							fseeko(f, h.linfo[j].chpos, SEEK_SET);
-							doimage(f, &h.linfo[j], s,
-									h.linfo[j].channels,
-									h.linfo[j].bottom - h.linfo[j].top,
-									h.linfo[j].right - h.linfo[j].left,
-									&h);
-						}
-				}
 			}
+
+			if(scavenge_rle && addr){
+				scan_channels(addr, sb.st_size, &h);
+
+				// process scavenged layer channel data
+				for(j = 0; j < h.nlayers; ++j)
+					if(h.linfo[j].chpos){
+						strcpy(temp_str, numbered ? h.linfo[j].nameno : h.linfo[j].name);
+						strcat(temp_str, ".scavenged");
+						fseeko(f, h.linfo[j].chpos, SEEK_SET);
+						doimage(f, &h.linfo[j], temp_str, h.linfo[j].channels,
+								h.linfo[j].bottom - h.linfo[j].top,
+								h.linfo[j].right - h.linfo[j].left,
+								&h);
+					}
+			}
+
+			if(map_flag)
+				unmap_file(addr, sb.st_size); // needed for Windows cleanup, even if mmap() failed
+
 			if(listfile){
 				fputs("}\n", listfile);
 				fclose(listfile);

@@ -19,11 +19,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
 
 #include "psdparse.h"
 
@@ -98,7 +93,7 @@ unsigned scan(unsigned char *addr, size_t len, struct psd_header *h)
 										++li;
 									}
 									else
-										VERBOSE("@ %8d : key: %c%c%c%c  could be %d channel layer: t = %ld, l = %ld, b = %ld, r = %ld\n",
+										VERBOSE("scavenge @ %8d : key: %c%c%c%c  could be %d channel layer: t = %ld, l = %ld, b = %ld, r = %ld\n",
 											   q - p - 16,
 											   de->key[0], de->key[1], de->key[2], de->key[3],
 											   j,
@@ -149,7 +144,7 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 	{
 		j = is_resource(addr, len, i);
 		if(j && j < len-4){
-			VERBOSE("possible resource id=%d @ %lu\n", peek2B(addr+i+4), i);
+			VERBOSE("scavenge: possible resource id=%d @ %lu\n", peek2B(addr+i+4), i);
 			i = j; // found an apparently valid resource; skip over it
 
 			// is it followed by another resource?
@@ -158,7 +153,7 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 		}else
 			++i;
 	}
-	
+
 	if(!j)
 		alwayswarn("Did not find any plausible image resources; probably cannot locate merged image data.\n");
 
@@ -174,7 +169,7 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 			{
 				h->lmistart = i+ps_ptr_bytes;
 				h->lmilen = lmilen;
-				VERBOSE("possible empty LMI @ %lld\n", h->lmistart);
+				VERBOSE("scavenge: possible empty LMI @ %lld\n", h->lmistart);
 				UNQUIET(
 "May be able to recover merged image if you can provide correct values\n\
 for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
@@ -186,15 +181,16 @@ for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
 
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	int i, n, c, rows, cols, rb, totalrle, countbytes = 2*h->version, count;
+	int i, n, c, rows, cols, rb, totalrle, countbytes = 2*h->version;
 	struct layer_info *li = h->linfo;
-	size_t lastpos = h->layerdatapos, pos, p;
+	size_t lastpos = h->layerdatapos, pos, p, count;
 
+	UNQUIET("scavengerle: searching for channel info starting @ %lu\n", lastpos);
 	for(i = 0; i < h->nlayers; ++i)
 	{
 		li[i].chpos = 0;
 		rows = li[i].bottom - li[i].top;
-		cols = li[i].right - li[i].left;
+		cols = li[i].right  - li[i].left;
 		rb = ((long)cols*h->depth + 7)/8;
 		if(rows && cols)
 		{
@@ -211,7 +207,7 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 						p += 2;
 						totalrle = 0;
 						for(n = rows; n-- && p < len-countbytes; p += countbytes){ // assume PSD for now
-							count = h->version == 1 ? peek2Bu(addr+p) : peek4B(addr+p);
+							count = h->version == 1 ? peek2Bu(addr+p) : (size_t)peek4B(addr+p);
 							if(count < 2)
 								goto mismatch; // bad RLE count
 							else
@@ -231,10 +227,10 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 				if(c == -1)
 				{
 					// found likely match for RLE counts location
-					UNQUIET("Likely start pos for layer %d: %7lu  end=%7lu\n", i, pos, p);
+					UNQUIET("scavengerle: Likely start pos for layer %d: %7lu\n", i, pos);
 					li[i].chpos = pos;
 					lastpos = p; // step past it
-				
+
 					goto next_layer;
 				}
 mismatch:
@@ -246,43 +242,24 @@ next_layer:
 	}
 }
 
-int scavenge_psd(int fd, struct psd_header *h)
+int scavenge_psd(void *addr, size_t st_size, struct psd_header *h)
 {
-	void *addr;
-	struct stat sb;
-
-	if(fstat(fd, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG)
-	{
-		if( (addr = map_file(fd, sb.st_size)) )
-		{
-			if(scavenge){
-				h->linfo = NULL;
-				h->nlayers = scan(addr, sb.st_size, h);
-				if(h->nlayers){
-					if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
-						scan(addr, sb.st_size, h);
-				}
-				else
-					scan_merged(addr, sb.st_size, h);
-	
-				if(h->nlayers){
-					UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
-				}else
-					alwayswarn("Did not find any plausible layer signatures.");
-				//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
-			}
-			
-			if(scavenge_rle)
-				scan_channels(addr, sb.st_size, h);
-
-			unmap_file(addr, sb.st_size);
-			return h->nlayers;
+	if(scavenge){
+		h->linfo = NULL;
+		h->nlayers = scan(addr, st_size, h);
+		if(h->nlayers){
+			if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
+				scan(addr, st_size, h);
 		}
 		else
-			fprintf(stderr, "mmap() failed: %d\n", errno);
+			scan_merged(addr, st_size, h);
 
-		unmap_file(addr, sb.st_size); // needed for Windows cleanup, will do nothing on UNIX
+		if(h->nlayers){
+			UNQUIET("scavenge: possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
+		}else
+			alwayswarn("Did not find any plausible layer signatures (flattened file?)\n");
+		//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 	}
 
-	return 0;
+	return h->nlayers;
 }
