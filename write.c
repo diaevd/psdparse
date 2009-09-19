@@ -90,6 +90,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 {
 	int ch, comp, startchan, pngchan, color_type, *chcomp;
 	psd_bytes_t **rowpos;
+	
+	// map channel count to a suitable PNG mode (when scavenging and actual mode is not known)
 	static int png_mode[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
 								PNG_COLOR_TYPE_RGB,  PNG_COLOR_TYPE_RGB_ALPHA};
 

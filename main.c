@@ -204,14 +204,14 @@ int main(int argc, char *argv[]){
 					// process scavenged layer data
 					for(j = 0; j < h.nlayers; ++j)
 						if(h.linfo[j].chpos){
-							char s[0x100];
+							char s[PATH_MAX];
 							strcpy(s, numbered ? h.linfo[j].nameno : h.linfo[j].name);
 							strcat(s, ".scavenged");
 							fseeko(f, h.linfo[j].chpos, SEEK_SET);
 							doimage(f, &h.linfo[j], s,
 									h.linfo[j].channels,
-									h.linfo[j].right - h.linfo[j].left,
 									h.linfo[j].bottom - h.linfo[j].top,
+									h.linfo[j].right - h.linfo[j].left,
 									&h);
 						}
 				}

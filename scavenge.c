@@ -231,7 +231,7 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 				if(c == -1)
 				{
 					// found likely match for RLE counts location
-					UNQUIET("Likely start pos for layer %d: %lu  end=%lu\n", i, pos, p);
+					UNQUIET("Likely start pos for layer %d: %7lu  end=%7lu\n", i, pos, p);
 					li[i].chpos = pos;
 					lastpos = p; // step past it
 				
