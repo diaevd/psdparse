@@ -29,6 +29,8 @@
 
 extern struct dictentry bmdict[];
 
+extern int scavenge, scavenge_rle;
+
 // memory-mapped analogues of the routines in util.c
 
 // Read a 4-byte signed binary value in BigEndian format.
@@ -182,6 +184,68 @@ for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
 	}
 }
 
+void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
+{
+	int i, n, c, rows, cols, rb, totalrle, countbytes = 2*h->version, count;
+	struct layer_info *li = h->linfo;
+	size_t lastpos = h->layerdatapos, pos, p;
+
+	for(i = 0; i < h->nlayers; ++i)
+	{
+		li[i].chpos = 0;
+		rows = li[i].bottom - li[i].top;
+		cols = li[i].right - li[i].left;
+		rb = ((long)cols*h->depth + 7)/8;
+		if(rows && cols)
+		{
+			// scan forward for compression type value
+			for(pos = lastpos; pos < len-2; pos += 2)
+			{
+				p = pos;
+				for(c = li[i].channels; c-- && p < len-2;)
+				{
+					if(peek2Bu(addr+p) == 1)
+					{
+						//UNQUIET("possible rle start pos for layer %d channel %d: %lu ch=%d rows=%d\n",
+						//		i, c, pos, li[i].channels, rows);
+						p += 2;
+						totalrle = 0;
+						for(n = rows; n-- && p < len-countbytes; p += countbytes){ // assume PSD for now
+							count = h->version == 1 ? peek2Bu(addr+p) : peek4B(addr+p);
+							if(count < 2)
+								goto mismatch; // bad RLE count
+							else
+								totalrle += count;
+						}
+						p += totalrle;
+					}
+					else if(peek2Bu(addr+p) == 0)
+					{
+						//UNQUIET("possible raw start pos for layer %d channel %d: %lu ch=%d rows=%d\n",
+						//		i, c, pos, li[i].channels, rows);
+						p += 2+rows*rb;
+					}
+					else
+						goto mismatch;
+				}
+				if(c == -1)
+				{
+					// found likely match for RLE counts location
+					UNQUIET("Likely start pos for layer %d: %lu  end=%lu\n", i, pos, p);
+					li[i].chpos = pos;
+					lastpos = p; // step past it
+				
+					goto next_layer;
+				}
+mismatch:
+				;
+			}
+		}
+next_layer:
+		;
+	}
+}
+
 int scavenge_psd(int fd, struct psd_header *h)
 {
 	void *addr;
@@ -191,20 +255,25 @@ int scavenge_psd(int fd, struct psd_header *h)
 	{
 		if( (addr = map_file(fd, sb.st_size)) )
 		{
-			h->linfo = NULL;
-			h->nlayers = scan(addr, sb.st_size, h);
-			if(h->nlayers){
-				if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
-					scan(addr, sb.st_size, h);
+			if(scavenge){
+				h->linfo = NULL;
+				h->nlayers = scan(addr, sb.st_size, h);
+				if(h->nlayers){
+					if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
+						scan(addr, sb.st_size, h);
+				}
+				else
+					scan_merged(addr, sb.st_size, h);
+	
+				if(h->nlayers){
+					UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
+				}else
+					alwayswarn("Did not find any plausible layer signatures.");
+				//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
 			}
-			else
-				scan_merged(addr, sb.st_size, h);
-
-			if(h->nlayers){
-				UNQUIET("possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
-			}else
-				alwayswarn("Did not find any plausible layer signatures.");
-			//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
+			
+			if(scavenge_rle)
+				scan_channels(addr, sb.st_size, h);
 
 			unmap_file(addr, sb.st_size);
 			return h->nlayers;

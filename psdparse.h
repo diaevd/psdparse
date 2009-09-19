@@ -138,6 +138,7 @@ struct psd_header{
 	int nlayers, mergedalpha; // set by dopsd()->dolayermaskinfo()
 	struct layer_info *linfo;     // layer info array, set by dopsd()->dolayermaskinfo()
 	psd_bytes_t lmistart, lmilen; // layer & mask info section, set by dopsd()->dolayermaskinfo()
+	psd_bytes_t layerdatapos; // set by dopsd()
 };
 
 struct layer_mask_info{
@@ -180,7 +181,9 @@ struct layer_info{
 	char *nameno; // "layerNN"
 	psd_bytes_t additionalpos;
 	psd_bytes_t additionallen;
-	psd_bytes_t filepos; // only used in scavenge mode
+
+	psd_bytes_t filepos; // only used in scavenge layers mode
+	psd_bytes_t chpos; // only used in scavenge channels mode
 };
 
 struct extra_data{

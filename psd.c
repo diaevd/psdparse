@@ -305,6 +305,9 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 					skipblock(f, "image resources");
 
 				dolayermaskinfo(f, h);
+				
+				h->layerdatapos = ftello(f);
+				UNQUIET("## layer data begins @ " LL_L("%lld","%ld") "\n", h->layerdatapos);
 				result = 1;
 			}
 		}else

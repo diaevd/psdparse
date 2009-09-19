@@ -31,7 +31,7 @@ extern char indir[];
 char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
-	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3,
+	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0;
 #ifdef HAVE_NEWLOCALE
 	locale_t utf_locale = NULL;
@@ -67,7 +67,8 @@ void usage(char *prog, int status){
          --mode N        for scavenge, assume this mode (optional)\n\
          --mergedrows N  to scavenge merged image, row count must be known\n\
          --mergedcols N  to scavenge merged image, column count must be known\n\
-         --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n",
+         --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n\
+      --scavengerle  look for channel RLE counts\n",
             prog, DIRSEP, scavenge_depth, scavenge_chan);
 	exit(status);
 }
@@ -88,6 +89,7 @@ int main(int argc, char *argv[]){
 		{"xmlout",     no_argument, &xmlout, 1},
 		{"split",      no_argument, &split, 1},
 		{"scavenge",   no_argument, &scavenge, 1},
+		{"scavengerle",no_argument, &scavenge_rle, 1},
 		{"psb",        no_argument, &scavenge_psb, 1},
 		{"depth",      required_argument, NULL, 'D'},
 		{"mode",       required_argument, NULL, 'M'},
@@ -158,7 +160,7 @@ int main(int argc, char *argv[]){
 				}
 
 				for(j = 0; j < h.nlayers; ++j){
-					fseek(f, h.linfo[j].filepos, SEEK_SET);
+					fseeko(f, h.linfo[j].filepos, SEEK_SET);
 					readlayerinfo(f, &h, j);
 				}
 
@@ -184,7 +186,6 @@ int main(int argc, char *argv[]){
 				// creating PNG/raw files if requested
 
 				processlayers(f, &h);
-
 				skipblock(f, "global layer mask info");
 
 				// global 'additional info' (not really documented)
@@ -197,6 +198,23 @@ int main(int argc, char *argv[]){
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 				// process merged (composite) image data
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
+
+				if(scavenge_rle){
+					scavenge_psd(fileno(f), &h);
+					// process scavenged layer data
+					for(j = 0; j < h.nlayers; ++j)
+						if(h.linfo[j].chpos){
+							char s[0x100];
+							strcpy(s, numbered ? h.linfo[j].nameno : h.linfo[j].name);
+							strcat(s, ".scavenged");
+							fseeko(f, h.linfo[j].chpos, SEEK_SET);
+							doimage(f, &h.linfo[j], s,
+									h.linfo[j].channels,
+									h.linfo[j].right - h.linfo[j].left,
+									h.linfo[j].bottom - h.linfo[j].top,
+									&h);
+						}
+				}
 			}
 			if(listfile){
 				fputs("}\n", listfile);

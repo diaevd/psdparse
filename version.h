@@ -48,10 +48,11 @@
                      (this was used to recover some damaged header-less PSDs for lotusflower)
   15-May-2009: 2.6b2
   25-May-2009: 2.6b3 port scavenge to Win32
+  19-Sep-2009: 2.7b1 new scavenge option --scavengerle, to search for layer data patterns
 */
 
-#define VERSION_STR "2.6b3"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 2,0x60,beta,3
+#define VERSION_STR "2.7b1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 2,0x70,beta,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -60,7 +61,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 2,6,0x60,3
+#define VI_VERS_NUM 2,7,0x60,1
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 
