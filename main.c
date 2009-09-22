@@ -158,6 +158,9 @@ int main(int argc, char *argv[]){
 			if(map_flag && !(addr = map_file(fd, sb.st_size)))
 				fprintf(stderr, "mmap() failed: %d\n", errno);
 
+			h.version = h.nlayers = 0;
+			h.layerdatapos = 0;
+
 			if((scavenge || scavenge_psb) && addr)
 			{
 				h.version = 1 + scavenge_psb;
@@ -222,7 +225,7 @@ int main(int argc, char *argv[]){
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
 			}
 
-			if(scavenge_rle && addr){
+			if(scavenge_rle && h.nlayers && addr){
 				scan_channels(addr, sb.st_size, &h);
 
 				// process scavenged layer channel data
