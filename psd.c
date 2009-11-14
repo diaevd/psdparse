@@ -246,7 +246,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 		if(xml) fputs("\t</LAYER>\n\n", xml);
 	}
 
-	UNQUIET("## end of layer image data @ " LL_L("%lld","%ld") "\n", ftello(f));
+	UNQUIET("## end of layer image data @ %ld\n", ftello(f));
 }
 
 /**

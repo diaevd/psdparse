@@ -135,7 +135,8 @@ int is_resource(unsigned char *addr, size_t len, size_t offset)
 
 void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	size_t i, j = 0, ps_ptr_bytes = 2 << h->version;
+	size_t i, j = 0;
+	unsigned ps_ptr_bytes = 2 << h->version;
 
 	h->lmistart = h->lmilen = 0;
 
@@ -144,7 +145,7 @@ void scan_merged(unsigned char *addr, size_t len, struct psd_header *h)
 	{
 		j = is_resource(addr, len, i);
 		if(j && j < len-4){
-			VERBOSE("scavenge: possible resource id=%d @ %lu\n", peek2B(addr+i+4), i);
+			VERBOSE("scavenge: possible resource id=%d @ %lu\n", peek2B(addr+i+4), (unsigned long)i);
 			i = j; // found an apparently valid resource; skip over it
 
 			// is it followed by another resource?
@@ -185,7 +186,7 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 	struct layer_info *li = h->linfo;
 	size_t lastpos = h->layerdatapos, pos, p, count;
 
-	UNQUIET("scavengerle: searching for channel info starting @ %lu\n", lastpos);
+	UNQUIET("scavengerle: searching for channel info starting @ %lu\n", (unsigned long)lastpos);
 	for(i = 0; i < h->nlayers; ++i)
 	{
 		li[i].chpos = 0;
@@ -227,7 +228,7 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 				if(c == -1)
 				{
 					// found likely match for RLE counts location
-					UNQUIET("scavengerle: Likely start pos for layer %d: %7lu\n", i, pos);
+					UNQUIET("scavengerle: Likely start pos for layer %d: %7lu\n", i, (unsigned long)pos);
 					li[i].chpos = pos;
 					lastpos = p; // step past it
 

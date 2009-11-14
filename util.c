@@ -90,7 +90,7 @@ void fputcxml(wchar_t c, FILE *f){
 		if(c < 0x80 && isprint(c)) // ASCII printable
 			fputc(c, f);
 		else
-			fprintf(f, "&#x%04x;", c);
+			fprintf(f, "&#x%04x;", (unsigned)c);
 	}
 }
 

@@ -26,7 +26,7 @@ static HANDLE fmh = NULL;
 
 void *map_file(int fd, size_t len)
 {
-	fmh = CreateFileMapping(_get_osfhandle(fd), NULL, PAGE_READONLY, 0, 0, NULL);
+	fmh = CreateFileMapping((HANDLE)_get_osfhandle(fd), NULL, PAGE_READONLY, 0, 0, NULL);
 	return fmh ? MapViewOfFile(fmh, FILE_MAP_READ, 0, 0, 0) : NULL;
 }
 
