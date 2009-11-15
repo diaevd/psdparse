@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -74,7 +74,7 @@ static void icc_signature(psd_file_t f, int level, int len, struct dictentry *pa
 		{0, NULL, NULL, NULL, NULL}
 	};
 
-	findbykey(f, level, sigdict, getkey(f), len);
+	findbykey(f, level, sigdict, getkey(f), len, 1);
 }
 
 static void icc_datetime(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -109,10 +109,10 @@ static void icc_tag(psd_file_t f, int level, int len, struct dictentry *parent){
 	    {0, "crdi", "CrdInfo", "icSigCrdInfoType", NULL},
 		{0, NULL, NULL, NULL, NULL}
 	};
-	
+
 	char *key = getkey(f);
 	get4B(f); // skip reserved field
-	findbykey(f, level, typedict, key, len-8);
+	findbykey(f, level, typedict, key, len-8, 1);
 }
 
 void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -220,20 +220,20 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<cmmId>%s</cmmId>\n", indent, getkey(f));
 	fprintf(xml, "%s<version>%08lx</version>\n", indent, get4B(f));
 	fprintf(xml, "%s<deviceClass>\n", indent);
-	findbykey(f, level+1, classdict, getkey(f), 1);
+	findbykey(f, level+1, classdict, getkey(f), 1, 1);
 	fprintf(xml, "%s</deviceClass>\n", indent);
 	fprintf(xml, "%s<colorSpace>\n", indent);
-	findbykey(f, level+1, spacedict, getkey(f), 1);
+	findbykey(f, level+1, spacedict, getkey(f), 1, 1);
 	fprintf(xml, "%s</colorSpace>\n", indent);
 	fprintf(xml, "%s<pcs>\n", indent);
-	findbykey(f, level+1, spacedict, getkey(f), 1);
+	findbykey(f, level+1, spacedict, getkey(f), 1, 1);
 	fprintf(xml, "%s</pcs>\n", indent);
 	fprintf(xml, "%s<date>", indent);
 	icc_datetime(f, level, 0, parent);
 	fputs("</date>\n", xml);
 	fprintf(xml, "%s<magic>%s</magic>\n", indent, getkey(f));
 	fprintf(xml, "%s<platform>\n", indent);
-	findbykey(f, level+1, platdict, getkey(f), 1);
+	findbykey(f, level+1, platdict, getkey(f), 1, 1);
 	fprintf(xml, "%s<platform>\n", indent);
 	fprintf(xml, "%s<flags>%08lx</flags>\n", indent, get4B(f));
 	fprintf(xml, "%s<manufacturer>%s</manufacturer>\n", indent, getkey(f));
@@ -253,7 +253,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 		tagsize = get4B(f);
 		pos = ftello(f);
 		fseeko(f, iccpos + offset, SEEK_SET);
-		findbykey(f, level, tagdict, sig, tagsize);
+		findbykey(f, level, tagdict, sig, tagsize, 1);
 		fseeko(f, pos, SEEK_SET);
 	}
 }

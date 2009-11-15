@@ -48,7 +48,7 @@ static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
 	}
 }
 
-static void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent){
+void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputs("<![CDATA[", xml);
 	while(len--)
 		fputc(fgetc(f), xml);
@@ -230,7 +230,7 @@ static long doirb(psd_file_t f){
 		if(namelen) fprintf(xml, " NAME='%s'", name);
 		if(d->func){
 			fputs(">\n", xml);
-			entertag(f, 2, size, &resource, d); // HACK: abuse 'printxml' parameter
+			entertag(f, 2, size, &resource, d, 1); // HACK: abuse 'printxml' parameter
 			fputs("\t</RESOURCE>\n\n", xml);
 		}else{
 			fputs(" />\n", xml);

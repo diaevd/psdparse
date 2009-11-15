@@ -228,12 +228,14 @@ void openfiles(char *psdpath, struct psd_header *h);
 int dopsd(psd_file_t f, char *fname, struct psd_header *h);
 void processlayers(psd_file_t f, struct psd_header *h);
 
-void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d);
-struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml);
+void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d, int resetpos);
+struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml, int resetpos);
 void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml);
 void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm);
 
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
+
+void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent);
 
 void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent);
 double s15fixed16(psd_file_t f);

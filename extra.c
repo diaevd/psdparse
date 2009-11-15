@@ -32,7 +32,7 @@
 
 static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
-void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d){
+void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d, int resetpos){
 	psd_bytes_t savepos = ftello(f);
 	int oneline = d->tag[0] == '-';
 	char *tagname = d->tag + oneline;
@@ -53,12 +53,13 @@ void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, s
 		fputc(parent->tag[0] == '-' ? ' ' : '\n', xml);
 	}
 
-	fseeko(f, savepos, SEEK_SET);
+	if(resetpos)
+		fseeko(f, savepos, SEEK_SET);
 }
 
 // This uses a dumb linear search. But it's efficient enough in practice.
 
-struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, char *key, int printxml){
+struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, char *key, int printxml, int resetpos){
 	struct dictentry *d;
 
 	for(d = parent; d->key; ++d)
@@ -66,7 +67,7 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 			char *tagname = d->tag + (d->tag[0] == '-');
 			//fprintf(stderr, "matched tag %s\n", d->tag);
 			if(d->func)
-				entertag(f, level, printxml, parent, d);
+				entertag(f, level, printxml, parent, d, resetpos);
 			else{
 				// there is no function to parse this block.
 				// because tag is empty in this case, we only need to consider
@@ -120,6 +121,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 		// read font information
 		v = get2B(f);
 		fprintf(xml, "%s<FONTINFOVERSION>%d</FONTINFOVERSION>\n", indent, v);
+
 		if(v <= 6){
 			for(i = get2B(f); i--;){
 				mark = get2B(f);
@@ -191,11 +193,18 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 			fprintf(xml, "%s\t<ANTIALIAS>%d</ANTIALIAS>\n", indent, fgetc(f));
 
 			fprintf(xml, "%s</TEXT>\n", indent);
-		//}else if(v == 50){
-		//	ed_versdesc(f, level, printxml, parent); // text
-		//	ed_versdesc(f, level, printxml, parent); // warp
+		}else if(v == 50){
+			ed_versdesc(f, level, printxml, parent); // text
+
+			fprintf(xml, "%s<WARPVERSION>%d</WARPVERSION>\n", indent, get2B(f));
+			ed_versdesc(f, level, printxml, parent); // warp
+
+			fprintf(xml, "%s<LEFT>%g</LEFT>\n", indent, getdoubleB(f));
+			fprintf(xml, "%s<TOP>%g</TOP>\n", indent, getdoubleB(f));
+			fprintf(xml, "%s<RIGHT>%g</RIGHT>\n", indent, getdoubleB(f));
+			fprintf(xml, "%s<BOTTOM>%g</BOTTOM>\n", indent, getdoubleB(f));
 		}else
-			fprintf(xml, "%s<!-- don't know how to parse this version -->\n", indent);
+			fprintf(xml, "%s<!-- don't know how to parse version %d -->\n", indent, v);
 	}else
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
@@ -320,22 +329,21 @@ static void ed_referencepoint(psd_file_t f, int level, int printxml, struct dict
 }
 
 // CS doc
-static void ed_descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	if(printxml)
-		descriptor(f, level, printxml, parent); // TODO: pass flag to extract value data
-}
-
-// CS doc
 static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	long v = get4B(f);
 	if(printxml)
-		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), get4B(f));
-	ed_descriptor(f, level, printxml, parent);
+		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), v);
+
+	fprintf(xml, "%s<DESCRIPTOR>\n", tabs(level));
+	descriptor(f, level+1, printxml, parent);
+	fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
 }
 
 // CS doc
 static void ed_objecteffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	long v = get4B(f);
 	if(printxml)
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), v);
 	ed_versdesc(f, level, printxml, parent);
 }
 
@@ -351,7 +359,7 @@ static int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *
 		if(!printxml)
 			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
 					key[0],key[1],key[2],key[3], len);
-		if(dict && (d = findbykey(f, level, dict, key, printxml)) && !d->func && !printxml){
+		if(dict && (d = findbykey(f, level, dict, key, printxml, 1)) && !d->func && !printxml){
 			// there is no function to parse this block
 			UNQUIET("    (data: %s)\n", d->desc);
 			if(verbose){
@@ -417,7 +425,7 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 	if(printxml && !memcmp(bm->sig, "8BIM", 4)){
 		fprintf(xml, "%s<BLENDMODE OPACITY='%g' CLIPPING='%d'>\n",
 				indent, bm->opacity/2.55, bm->clipping);
-		findbykey(f, level+1, bmdict, bm->key, printxml);
+		findbykey(f, level+1, bmdict, bm->key, printxml, 1);
 		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
 		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
 		if((bm->flags & (8|16)) == (8|16))  // both bits set
@@ -425,7 +433,7 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 		fprintf(xml, "%s</BLENDMODE>\n", indent);
 	}
 	if(!printxml){
-		d = findbykey(f, level+1, bmdict, bm->key, printxml);
+		d = findbykey(f, level+1, bmdict, bm->key, printxml, 1);
 		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
     flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
 				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
@@ -445,7 +453,7 @@ static void blendmode(psd_file_t f, int level, int printxml, struct dictentry *p
 	fread(key, 1, 4, f);
 	if(printxml && !memcmp(sig, "8BIM", 4)){
 		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
-		findbykey(f, level+1, bmdict, key, printxml);
+		findbykey(f, level+1, bmdict, key, printxml, 1);
 		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
 	}
 }

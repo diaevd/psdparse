@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -30,16 +30,29 @@ static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry
 static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
+static void ascii_string(psd_file_t f, long count){
+	long i;
+
+	fputs(" <STRING>", xml);
+	for(i = count; i--;)
+		fputcxml(fgetc(f), xml);
+	fputs("</STRING>", xml);
+}
+
+static void desc_raw(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	ir_raw(f, level, get4B(f), parent);
+}
+
 static void stringorid(psd_file_t f, int level, char *tag){
 	long count = get4B(f);
 	fprintf(xml, "%s<%s>", tabs(level), tag);
-	if(count){if(count>1024) exit(1);
-		fprintf(xml, " <STRING>");
-		while(count--)
-			fputcxml(fgetc(f), xml);
-		fprintf(xml, "</STRING>");
-	}else
-		fprintf(xml, " <ID>%s</ID>", getkey(f));
+	if(count)
+		ascii_string(f, count);
+	else{
+		fputs(" <ID>", xml);
+		fputsxml(getkey(f), xml);
+		fputs("</ID>", xml);
+	}
 	fprintf(xml, " </%s>\n", tag);
 }
 
@@ -76,17 +89,14 @@ static void desc_reference(psd_file_t f, int level, int printxml, struct dictent
 		{0, NULL, NULL, NULL, NULL}
 	};
 	long count = get4B(f);
-	while(count--){
-		char key[4];
-		fread(key, 1, 4, f);
-		findbykey(f, level, refdict, key, printxml); // FIXME: if this returns NULL, we got problems
-	}
+	while(count-- && findbykey(f, level, refdict, getkey(f), printxml, 0))
+		;
 }
 
-static void item(psd_file_t f, int level){
-	static struct dictentry descdict[] = {
+struct dictentry *item(psd_file_t f, int level){
+	static struct dictentry itemdict[] = {
 		{0, "obj ", "REFERENCE", "Reference", desc_reference},
-		{0, "Objc", "DESCRIPTOR", "Descriptor", NULL}, // doc missing?!
+		{0, "Objc", "DESCRIPTOR", "Descriptor", descriptor}, // doc missing?!
 		{0, "list", "LIST", "List", desc_list}, // not documented?
 		{0, "VlLs", "LIST", "List", desc_list},
 		{0, "doub", "-DOUBLE", "Double", desc_double}, // '-' prefix means keep tag value on one line
@@ -95,16 +105,26 @@ static void item(psd_file_t f, int level){
 		{0, "enum", "ENUMERATED", "Enumerated", desc_enumerated}, // Enmr? (see v6 rel2)
 		{0, "long", "-INTEGER", "Integer", desc_integer},
 		{0, "bool", "-BOOLEAN", "Boolean", desc_boolean},
-		{0, "GlbO", "GLOBALOBJECT", "GlobalObject same as Descriptor", NULL},
-		{0, "type", "CLASS", "Class", NULL},  // doc missing?! - Clss? (see v6 rel2)
-		{0, "GlbC", "CLASS", "Class", NULL}, // doc missing?!
+		{0, "GlbO", "GLOBALOBJECT", "GlobalObject same as Descriptor", descriptor},
+		{0, "type", "CLASS", "Class", desc_class},  // doc missing?! - Clss? (see v6 rel2)
+		{0, "GlbC", "CLASS", "Class", desc_class}, // doc missing?!
 		{0, "alis", "-ALIAS", "Alias", desc_alias},
+		{0, "tdta", "ENGINEDATA", "Engine Data", desc_raw}, // undocumented
 		{0, NULL, NULL, NULL, NULL}
 	};
-	char type[4];
+	char *k;
+	struct dictentry *p;
 
-	fread(type, 1, 4, f);
-	findbykey(f, level, descdict, type, 1);
+	fprintf(xml, "%s<ITEM>\n", tabs(level));
+	stringorid(f, level+1, "KEY");
+	p = findbykey(f, level+1, itemdict, k = getkey(f), 1, 0);
+	fprintf(xml, "%s</ITEM>\n", tabs(level));
+	if(!p){
+		fprintf(stderr, "### item(): unknown key '%s'; file offset %#lx\n",
+				k, (unsigned long)ftell(f));
+		exit(1);
+	}
+	return p;
 }
 
 static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent){
@@ -118,14 +138,11 @@ static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *p
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count;
 
-	fprintf(xml, "%s<DESCRIPTOR>\n", tabs(level));
-	desc_class(f, level+1, printxml, parent);
+	desc_class(f, level, printxml, parent);
 	count = get4B(f);
 	fprintf(xml, "%s<!--count:%ld-->\n", tabs(level), count);
-	while(count--){
-		stringorid(f, level+1, "KEY");
+	while(count--)
 		item(f, level+1);
-	}
 	fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
 }
 
@@ -143,20 +160,16 @@ static void desc_unitfloat(psd_file_t f, int level, int printxml, struct dictent
 		{0, "#Pxl", "-PIXELS", "pixels: tagged unit value", desc_double},
 		{0, NULL, NULL, NULL, NULL}
 	};
-	char key[4];
-	
-	fread(key, 1, 4, f);
-	findbykey(f, level, ufdict, key, 1); // FIXME: check for NULL return
+
+	findbykey(f, level, ufdict, getkey(f), 1, 0); // FIXME: check for NULL return
 }
 
 static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	long count = get4B(f);if(count>1024) exit(1);
-	if(count){
-		fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
-		while(count--)
-			fputcxml(get2Bu(f), xml);
-		fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
-	}
+	long count = get4B(f);
+	fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
+	while(count--)
+		fputcxml(get2Bu(f), xml);
+	fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 }
 
 static void desc_enumerated(psd_file_t f, int level, int printxml, struct dictentry *parent){
@@ -165,15 +178,15 @@ static void desc_enumerated(psd_file_t f, int level, int printxml, struct dicten
 }
 
 static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	fprintf(xml, " <VALUE>%ld</VALUE> ", get4B(f));
+	fprintf(xml, " <INTEGER>%ld</INTEGER> ", get4B(f));
 }
 
 static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	fprintf(xml, " <VALUE>%d</VALUE> ", fgetc(f));
+	fprintf(xml, " <BOOLEAN>%d</BOOLEAN> ", fgetc(f));
 }
 
 static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	psd_bytes_t count = get4B(f);
-	fprintf(xml, LL_L(" <!-- %lld bytes alias data --> "," <!-- %ld bytes alias data --> "), count);
+	fprintf(xml, " <!-- %lu bytes alias data --> ", (unsigned long)count);
 	fseeko(f, count, SEEK_CUR); // skip over
 }
