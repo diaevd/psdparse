@@ -3,7 +3,7 @@
     Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by  
+    it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License  
+    You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
@@ -24,7 +24,7 @@ extern void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry 
 static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	double hresd, vresd;
 	extern long hres, vres; // fixed point values
-	
+
 	hresd = FIXEDPT(hres = get4B(f));
 	get2B(f);
 	get2B(f);
@@ -49,8 +49,10 @@ static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
 }
 
 static void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent){
+	fputs("<![CDATA[", xml);
 	while(len--)
 		fputc(fgetc(f), xml);
+	fputs("]]>\n", xml);
 }
 
 static void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -182,7 +184,7 @@ static struct dictentry rdesc[] = {
 	{1065, NULL, "LAYERCOMPS", "Layer comps", NULL /*ed_versdesc*/},
 	{1066, NULL, NULL, "Alternate duotone colors", NULL},
 	{1067, NULL, NULL, "Alternate spot colors", NULL},
-	
+
 	{2999, NULL, "-CLIPPINGPATH", "Name of clipping path", ir_pstring},
 	{10000,NULL, NULL, "Print flags info", NULL},
 	{-1, NULL, NULL, NULL, NULL}
@@ -218,7 +220,7 @@ static long doirb(psd_file_t f){
 
 	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
 			type[0],type[1],type[2],type[3], id, name, size);
-	if( (d = findbyid(id)) ) 
+	if( (d = findbyid(id)) )
 		UNQUIET(" [%s]", d->desc);
 	UNQUIET("\n");
 
