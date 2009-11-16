@@ -31,10 +31,8 @@ static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry
 static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 static void ascii_string(psd_file_t f, long count){
-	long i;
-
 	fputs(" <STRING>", xml);
-	for(i = count; i--;)
+	while(count--)
 		fputcxml(fgetc(f), xml);
 	fputs("</STRING>", xml);
 }
@@ -132,8 +130,6 @@ static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *p
 	while(count--)
 		item(f, level);
 }
-
-// FIXME: this does not work yet. Trial and error needed, docs aren't good enough.
 
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count;
