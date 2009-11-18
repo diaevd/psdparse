@@ -137,21 +137,25 @@ static int platform_is_LittleEndian(){
 }
 
 double getdoubleB(psd_file_t f){
-	unsigned char raw[8], rev[8];
+	union {
+		double d;
+		unsigned char c[8];
+	} u, urev;
 
-	if(fread(raw, 1, 8, f) == 8){
+	if(fread(u.c, 1, 8, f) == 8){
 		if(platform_is_LittleEndian()){
-			rev[0] = raw[7];
-			rev[1] = raw[6];
-			rev[2] = raw[5];
-			rev[3] = raw[4];
-			rev[4] = raw[3];
-			rev[5] = raw[2];
-			rev[6] = raw[1];
-			rev[7] = raw[0];
-			return *(double*)rev;
-		}else
-			return *(double*)raw;
+			urev.c[0] = u.c[7];
+			urev.c[1] = u.c[6];
+			urev.c[2] = u.c[5];
+			urev.c[3] = u.c[4];
+			urev.c[4] = u.c[3];
+			urev.c[5] = u.c[2];
+			urev.c[6] = u.c[1];
+			urev.c[7] = u.c[0];
+			return urev.d;
+		}
+		else
+			return u.d;
 	}
 	return 0;
 }
