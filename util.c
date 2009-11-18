@@ -82,15 +82,14 @@ void fputcxml(wchar_t c, FILE *f){
 	case '\'': fputs("&apos;", f); break;
 	case '\"': fputs("&quot;", f); break;
 	default:
-#ifdef HAVE_NEWLOCALE
-		if(utf_locale)
-			fputwc_l(c, f, utf_locale);
-		else
-#endif
+#ifdef __STDC_ISO_10646__
+		fputwc(c, f);
+#else
 		if(c < 0x80 && isprint(c)) // ASCII printable
 			fputc(c, f);
 		else
 			fprintf(f, "&#x%04x;", (unsigned)c);
+#endif
 	}
 }
 
@@ -216,11 +215,6 @@ void openfiles(char *psdpath, struct psd_header *h)
 	}else if(writexml){
 		setupfile(fname, pngdir, "psd", ".xml");
 		xml = fopen(fname, "w");
-	#ifdef HAVE_NEWLOCALE
-		// XML file is always encoded in UTF-8
-		utf_locale = newlocale(LC_CTYPE_MASK, "UTF-8", NULL);
-		if(utf_locale) fputwc_l(0xFEFF, xml, utf_locale); // Byte Order Mark
-	#endif
 	}
 	if(xml)
 		fputs("<?xml version=\"1.0\"?>\n", xml);

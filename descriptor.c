@@ -113,10 +113,9 @@ struct dictentry *item(psd_file_t f, int level){
 	char *k;
 	struct dictentry *p;
 
-	fprintf(xml, "%s<ITEM>\n", tabs(level));
-	stringorid(f, level+1, "KEY");
-	p = findbykey(f, level+1, itemdict, k = getkey(f), 1, 0);
-	fprintf(xml, "%s</ITEM>\n", tabs(level));
+	stringorid(f, level, "KEY");
+	p = findbykey(f, level, itemdict, k = getkey(f), 1, 0);
+
 	if(!p){
 		fprintf(stderr, "### item(): unknown key '%s'; file offset %#lx\n",
 				k, (unsigned long)ftell(f));
@@ -138,8 +137,7 @@ void descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent)
 	count = get4B(f);
 	fprintf(xml, "%s<!--count:%ld-->\n", tabs(level), count);
 	while(count--)
-		item(f, level+1);
-	fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
+		item(f, level);
 }
 
 static void desc_double(psd_file_t f, int level, int printxml, struct dictentry *parent){

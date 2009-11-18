@@ -38,8 +38,8 @@ char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
 	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
-	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0;
-#ifdef HAVE_NEWLOCALE
+	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0, bom = 0;
+#ifdef HAVE_LOCALE_H
 	locale_t utf_locale = NULL;
 #endif
 long hres, vres; // we don't use these, but they're set within doresources()
@@ -150,6 +150,10 @@ int main(int argc, char *argv[]){
 
 			base = strrchr(argv[i], DIRSEP);
 
+			h.version = h.nlayers = 0;
+			h.layerdatapos = 0;
+
+#if HAVE_SYS_MMAN_H
 			// need to memory map the file, for scavenging routines?
 			fd = fileno(f);
 			map_flag = (scavenge || scavenge_psb || scavenge_rle)
@@ -157,9 +161,6 @@ int main(int argc, char *argv[]){
 					   && (sb.st_mode & S_IFMT) == S_IFREG;
 			if(map_flag && !(addr = map_file(fd, sb.st_size)))
 				fprintf(stderr, "mmap() failed: %d\n", errno);
-
-			h.version = h.nlayers = 0;
-			h.layerdatapos = 0;
 
 			if((scavenge || scavenge_psb) && addr)
 			{
@@ -199,7 +200,10 @@ int main(int argc, char *argv[]){
 					doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
 				}
 			}
-			else if(dopsd(f, argv[i], &h))
+			else
+#endif
+
+			if(dopsd(f, argv[i], &h))
 			{
 				// FIXME: a lot of data structures malloc'd in dopsd()
 				// and dolayermaskinfo() are never free'd
@@ -225,6 +229,7 @@ int main(int argc, char *argv[]){
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
 			}
 
+#if HAVE_SYS_MMAN_H
 			if(scavenge_rle && h.nlayers && addr){
 				scan_channels(addr, sb.st_size, &h);
 
@@ -243,6 +248,7 @@ int main(int argc, char *argv[]){
 
 			if(map_flag)
 				unmap_file(addr, sb.st_size); // needed for Windows cleanup, even if mmap() failed
+#endif
 
 			if(listfile){
 				fputs("}\n", listfile);
@@ -254,7 +260,7 @@ int main(int argc, char *argv[]){
 			}
 			UNQUIET("  done.\n\n");
 
-#ifdef HAVE_NEWLOCALE
+#ifdef HAVE_LOCALE_H
 			if(utf_locale) freelocale(utf_locale);
 #endif
 			fclose(f);
