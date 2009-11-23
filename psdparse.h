@@ -35,6 +35,9 @@
 #ifdef HAVE_LOCALE_H
 	#include <locale.h>
 #endif
+#ifdef HAVE_ICONV_H
+	#include <iconv.h>
+#endif
 
 #ifdef PSBSUPPORT
 	#define _FILE_OFFSET_BITS 64
@@ -211,7 +214,7 @@ void fatal(char *s);
 void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
-void fputcxml(wchar_t c, FILE *f);
+void fputcxml(unsigned c, FILE *f);
 void fputsxml(char *str, FILE *f);
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);

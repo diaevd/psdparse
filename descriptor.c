@@ -38,7 +38,9 @@ static void ascii_string(psd_file_t f, long count){
 }
 
 static void desc_raw(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	ir_raw(f, level, get4B(f), parent);
+	long count = get4B(f);
+	while(count--)
+		fputcxml(fgetc(f), xml);
 }
 
 static void stringorid(psd_file_t f, int level, char *tag){

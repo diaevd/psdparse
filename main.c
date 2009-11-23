@@ -263,6 +263,10 @@ int main(int argc, char *argv[]){
 #ifdef HAVE_LOCALE_H
 			if(utf_locale) freelocale(utf_locale);
 #endif
+#ifdef HAVE_ICONV_H
+			extern iconv_t ic;
+			if(ic != (iconv_t)-1) iconv_close(ic);
+#endif
 			fclose(f);
 		}else
 			alwayswarn("# \"%s\": couldn't open\n", argv[i]);
