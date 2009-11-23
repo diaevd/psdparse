@@ -259,14 +259,9 @@ void openfiles(char *psdpath, struct psd_header *h)
 		xml = fopen(fname, "w");
 	}
 	if(xml){
-#ifdef HAVE_LOCALE_H
-		if(!setlocale(LC_CTYPE, ""))
-			  fprintf(stderr, "Can't set the specified locale! "
-					  "Check LANG, LC_CTYPE, LC_ALL.\n");
-#endif
 #ifdef HAVE_ICONV_H
-		// I'm guessing that Adobe's unicode is ucs-2 and not utf-16; need to check this
-		ic = iconv_open("UTF-8", "UCS-2BE");
+		// I'm guessing that Adobe's unicode is utf-16 and not ucs-2; need to check this
+		ic = iconv_open("UTF-8", "UTF-16BE");
 		if(ic == (iconv_t)-1)
 			alwayswarn("iconv_open(): failed, errno = %d\n", errno);
 #endif

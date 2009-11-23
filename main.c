@@ -39,9 +39,6 @@ int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
 	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0, bom = 0;
-#ifdef HAVE_LOCALE_H
-	locale_t utf_locale = NULL;
-#endif
 long hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
@@ -260,9 +257,6 @@ int main(int argc, char *argv[]){
 			}
 			UNQUIET("  done.\n\n");
 
-#ifdef HAVE_LOCALE_H
-			if(utf_locale) freelocale(utf_locale);
-#endif
 #ifdef HAVE_ICONV_H
 			extern iconv_t ic;
 			if(ic != (iconv_t)-1) iconv_close(ic);
