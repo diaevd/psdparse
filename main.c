@@ -31,6 +31,10 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#if defined(HAVE_SYS_MMAN_H) || defined(WIN32)
+	#define CAN_MMAP
+#endif
+
 extern int nwarns;
 extern char indir[];
 
@@ -50,7 +54,7 @@ long hres, vres; // we don't use these, but they're set within doresources()
 #endif
 
 void usage(char *prog, int status){
-	fprintf(stderr,"usage: %s [options] psdfile...\n\
+	fprintf(stderr, "usage: %s [options] psdfile...\n\
   -h, --help         show this help\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
@@ -63,16 +67,18 @@ void usage(char *prog, int status){
   -l, --list         write an 'asset list' of layer sizes and positions\n\
   -x, --xml          write XML describing document, layers, and any output files\n\
       --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
-  -s, --split        write each composite channel to individual (grey scale) PNG\n\
-      --scavenge     ignore file header, search entire file for image layers\n\
+  -s, --split        write each composite channel to individual (grey scale) PNG\n"
+#ifdef CAN_MMAP
+"      --scavenge     ignore file header, search entire file for image layers\n\
          --psb           for scavenge, assume PSB (default PSD)\n\
          --depth N       for scavenge, assume this bit depth (default %d)\n\
          --mode N        for scavenge, assume this mode (optional)\n\
          --mergedrows N  to scavenge merged image, row count must be known\n\
          --mergedcols N  to scavenge merged image, column count must be known\n\
          --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n\
-      --scavengerle  look for channel RLE counts\n",
-            prog, DIRSEP, scavenge_depth, scavenge_chan);
+      --scavengerle  look for channel RLE counts\n"
+#endif
+	        , prog, DIRSEP, scavenge_depth, scavenge_chan);
 	exit(status);
 }
 
@@ -91,6 +97,7 @@ int main(int argc, char *argv[]){
 		{"xml",        no_argument, &writexml, 1},
 		{"xmlout",     no_argument, &xmlout, 1},
 		{"split",      no_argument, &split, 1},
+#ifdef CAN_MMAP
 		{"scavenge",   no_argument, &scavenge, 1},
 		{"scavengerle",no_argument, &scavenge_rle, 1},
 		{"psb",        no_argument, &scavenge_psb, 1},
@@ -99,6 +106,7 @@ int main(int argc, char *argv[]){
 		{"mergedrows", required_argument, NULL, 'R'},
 		{"mergedcols", required_argument, NULL, 'C'},
 		{"mergedchan", required_argument, NULL, 'H'},
+#endif
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
@@ -150,7 +158,7 @@ int main(int argc, char *argv[]){
 			h.version = h.nlayers = 0;
 			h.layerdatapos = 0;
 
-#if HAVE_SYS_MMAN_H
+#ifdef CAN_MMAP
 			// need to memory map the file, for scavenging routines?
 			fd = fileno(f);
 			map_flag = (scavenge || scavenge_psb || scavenge_rle)
@@ -226,7 +234,7 @@ int main(int argc, char *argv[]){
 				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
 			}
 
-#if HAVE_SYS_MMAN_H
+#ifdef CAN_MMAP
 			if(scavenge_rle && h.nlayers && addr){
 				scan_channels(addr, sb.st_size, &h);
 

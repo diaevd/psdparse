@@ -19,6 +19,7 @@
 
 #include <stdarg.h>
 #include <ctype.h>
+#include <errno.h>
 
 #include "psdparse.h"
 
@@ -77,7 +78,7 @@ void *checkmalloc(long n){
 
 // escape XML special characters to entities
 // see: http://www.w3.org/TR/xml/#sec-predefined-ent
-#include <errno.h>
+
 void fputcxml(unsigned c, FILE *f){
 	// see: http://www.w3.org/TR/REC-xml/#charsets
 	// http://triptico.com/docs/unicode.html
@@ -119,11 +120,8 @@ void fputcxml(unsigned c, FILE *f){
 					else
 						alwayswarn("iconv() failed, errno=%u\n", errno);
 				}
-				else // iconv not available
-					fprintf(f, "&#x%04x;", (unsigned)c);
-#else
-				fprintf(f, "&#x%04x;", (unsigned)c);
 #endif
+				// there is really no fallback if iconv isn't available
 			}
 		}else
 			warn("char %#x not valid in XML; ignored", c);
