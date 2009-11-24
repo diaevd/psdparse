@@ -17,6 +17,8 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#ifdef HAVE_SYS_MMAN_H
+
 #include <sys/mman.h>
 
 #include "psdparse.h"
@@ -31,3 +33,5 @@ void unmap_file(void *addr, size_t len)
 {
 	if(addr) munmap(addr, len);
 }
+
+#endif

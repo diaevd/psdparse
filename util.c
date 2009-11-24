@@ -84,6 +84,7 @@ void fputcxml(unsigned c, FILE *f){
 	// http://triptico.com/docs/unicode.html
 	// http://www.unicode.org/unicode/faq/utf_bom.html
 	// http://asis.epfl.ch/GNU.MISC/recode-3.6/recode_5.html
+	// http://www.terena.org/activities/multiling/unicode/utf16.html
 	switch(c){
 	case '<':  fputs("&lt;", f); break;
 	case '>':  fputs("&gt;", f); break;
@@ -100,10 +101,11 @@ void fputcxml(unsigned c, FILE *f){
 			if(c < 0x7f) // ASCII printable
 				fputc(c, f);
 			else{
+				warn("Unicode: %#x", c);
 #ifdef HAVE_ICONV_H
 				size_t inb, outb;
-				char *inbuf, *outbuf;
-				char in[2], out[8];
+				const char *inbuf;
+				char *outbuf, in[2], out[8];
 
 				//iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 				// set up input as 2-byte BigEndian

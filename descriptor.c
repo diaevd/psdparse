@@ -37,10 +37,58 @@ static void ascii_string(psd_file_t f, long count){
 	fputs("</STRING>", xml);
 }
 
-static void desc_raw(psd_file_t f, int level, int printxml, struct dictentry *parent){
+/* PDF data. This has embedded literal strings in UTF-16, e.g.:
+
+00000820  74 6f 72 0a 09 09 3c 3c  0a 09 09 09 2f 54 65 78  |tor...<<..../Tex|
+00000830  74 20 28 fe ff ac f5 ac  1c 00 20 d3 ec d1 a0 c5  |t (....... .....|
+00000840  68 bc 94 00 20 d5 04 b8  5c 5c ad f8 b7 a8 c7 78  |h... ...\\.....x|
+00000850  00 20 b9 e5 c2 a4 d3 98  c7 74 d3 7c c7 58 00 20  |. .......t.|.X. |
+00000860  d3 ec d1 a0 c0 f5 00 20  d3 0c c7 7c 00 20 cd 9c  |....... ...|. ..|
+00000870  b8 25 c7 44 00 20 c7 04  d5 5c 5c 00 2c 00 20 00  |.%.D. ...\\.,. .|
+00000880  50 00 53 00 44 d3 0c c7  7c c7 58 00 20 b0 b4 bd  |P.S.D...|.X. ...|
+00000890  80 00 20 ad 6c c8 70 00  20 bd 84 c1 1d d3 0c c7  |.. .l.p. .......|
+000008a0  7c c7 85 b2 c8 b2 e4 00  2e 00 0d 00 0d 00 0d 29  ||..............)|
+
+From PDF Reference 1.7, 3.8.1 Text String Type
+
+The text string type is used for character strings that are encoded in either PDFDocEncoding
+or the UTF-16BE Unicode character encoding scheme. PDFDocEncoding
+can encode all of the ISO Latin 1 character set and is documented in Appendix D. ...
+
+For text strings encoded in Unicode, the first two bytes must be 254 followed by 255.
+These two bytes represent the Unicode byte order marker, U+FEFF,
+indicating that the string is encoded in the UTF-16BE (big-endian) encoding scheme ...
+
+Note: Applications that process PDF files containing Unicode text strings
+should be prepared to handle supplementary characters;
+that is, characters requiring more than two bytes to represent.
+*/
+
+// TODO: re-encode the embedded Unicode text strings as UTF-8;
+//       perhaps parse out keys from PDF and emit some corresponding XML structure.
+
+static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	while(count--)
-		fputcxml(fgetc(f), xml);
+	unsigned char *buf = malloc(count), *p;
+
+	fputs("<![CDATA[", xml);
+	if(buf){
+		size_t inb = fread(buf, 1, count, f);
+/*
+		paren = 0;
+		for(p = buf, n = inb; n--;){
+			c = *p++;
+			if(c == '('){
+				++paren;
+				if(p[0] == 0xfe && p[1] == 0xff)
+					;
+			}
+		}
+*/
+		fwrite(buf, 1, inb, xml);
+		free(buf);
+	}
+	fputs("]]>\n", xml);
 }
 
 static void stringorid(psd_file_t f, int level, char *tag){
@@ -109,7 +157,7 @@ struct dictentry *item(psd_file_t f, int level){
 		{0, "type", "CLASS", "Class", desc_class},  // doc missing?! - Clss? (see v6 rel2)
 		{0, "GlbC", "CLASS", "Class", desc_class}, // doc missing?!
 		{0, "alis", "-ALIAS", "Alias", desc_alias},
-		{0, "tdta", "ENGINEDATA", "Engine Data", desc_raw}, // undocumented
+		{0, "tdta", "ENGINEDATA", "Engine Data", desc_pdf}, // undocumented, apparently PDF syntax data
 		{0, NULL, NULL, NULL, NULL}
 	};
 	char *k;

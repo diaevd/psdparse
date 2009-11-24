@@ -52,7 +52,7 @@ Then:
 	$ cd psdparse
 
 1. build using the supplied Makefile:
-	$ make -f Makefile.osx
+	$ make -f Makefile.unix
 
 
 Cross-build Win32 EXE from OS X or Linux
@@ -60,7 +60,7 @@ Cross-build Win32 EXE from OS X or Linux
 	
 The supplied Makefile is also the easiest way to CROSS-build for Win32,
 if you have MinGW installed;
-	$ make -f Makefile.osx exe
+	$ make -f Makefile.unix exe
 
 See the Makefile for more information and prerequisites.
 

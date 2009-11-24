@@ -64,7 +64,7 @@ License
 -------
 
 This file is part of "psdparse"
-Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
