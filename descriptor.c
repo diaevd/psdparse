@@ -19,6 +19,8 @@
 
 #include "psdparse.h"
 
+#include <errno.h>
+
 #ifdef HAVE_ICONV_H
 	extern iconv_t ic;
 #endif
@@ -75,7 +77,7 @@ static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *pa
 
 				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
 					size_t inb, outb;
-					const char *inbuf;
+					char *inbuf;
 					char *outbuf, *utfbuf;
 
 					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
@@ -145,9 +147,11 @@ static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *pa
 			}
 		}
 
+		/* The raw PDF data is not valid UTF-8 and may break XML parse.
 		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
 		fwrite(buf, 1, inb, xml);
 		fputs("]]></RAW>\n", xml);
+		*/
 
 		free(buf);
 	}
