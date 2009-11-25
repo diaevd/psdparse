@@ -18,7 +18,7 @@
 bin_PROGRAMS = psdparse
 
 psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c write.c \
-                   resources.c icc.c extra.c constants.c util.c \
+                   resources.c icc.c extra.c constants.c util.c pdf.c \
                    descriptor.c channel.c psd.c scavenge.c mmap.c \
                    psdparse.h version.h
 AM_CFLAGS   = -W -Wall -O2

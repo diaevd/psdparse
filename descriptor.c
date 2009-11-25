@@ -19,6 +19,10 @@
 
 #include "psdparse.h"
 
+#ifdef HAVE_ICONV_H
+	extern iconv_t ic;
+#endif
+
 static void desc_class(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_reference(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent);
@@ -37,58 +41,116 @@ static void ascii_string(psd_file_t f, long count){
 	fputs("</STRING>", xml);
 }
 
-/* PDF data. This has embedded literal strings in UTF-16, e.g.:
-
-00000820  74 6f 72 0a 09 09 3c 3c  0a 09 09 09 2f 54 65 78  |tor...<<..../Tex|
-00000830  74 20 28 fe ff ac f5 ac  1c 00 20 d3 ec d1 a0 c5  |t (....... .....|
-00000840  68 bc 94 00 20 d5 04 b8  5c 5c ad f8 b7 a8 c7 78  |h... ...\\.....x|
-00000850  00 20 b9 e5 c2 a4 d3 98  c7 74 d3 7c c7 58 00 20  |. .......t.|.X. |
-00000860  d3 ec d1 a0 c0 f5 00 20  d3 0c c7 7c 00 20 cd 9c  |....... ...|. ..|
-00000870  b8 25 c7 44 00 20 c7 04  d5 5c 5c 00 2c 00 20 00  |.%.D. ...\\.,. .|
-00000880  50 00 53 00 44 d3 0c c7  7c c7 58 00 20 b0 b4 bd  |P.S.D...|.X. ...|
-00000890  80 00 20 ad 6c c8 70 00  20 bd 84 c1 1d d3 0c c7  |.. .l.p. .......|
-000008a0  7c c7 85 b2 c8 b2 e4 00  2e 00 0d 00 0d 00 0d 29  ||..............)|
-
-From PDF Reference 1.7, 3.8.1 Text String Type
-
-The text string type is used for character strings that are encoded in either PDFDocEncoding
-or the UTF-16BE Unicode character encoding scheme. PDFDocEncoding
-can encode all of the ISO Latin 1 character set and is documented in Appendix D. ...
-
-For text strings encoded in Unicode, the first two bytes must be 254 followed by 255.
-These two bytes represent the Unicode byte order marker, U+FEFF,
-indicating that the string is encoded in the UTF-16BE (big-endian) encoding scheme ...
-
-Note: Applications that process PDF files containing Unicode text strings
-should be prepared to handle supplementary characters;
-that is, characters requiring more than two bytes to represent.
-*/
-
 // TODO: re-encode the embedded Unicode text strings as UTF-8;
 //       perhaps parse out keys from PDF and emit some corresponding XML structure.
 
 static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	unsigned char *buf = malloc(count), *p;
+	unsigned char *buf = malloc(count), *p, *q, *strbuf, c;
 
-	fputs("<![CDATA[", xml);
 	if(buf){
-		size_t inb = fread(buf, 1, count, f);
-/*
-		paren = 0;
-		for(p = buf, n = inb; n--;){
+		size_t inb = fread(buf, 1, count, f), cnt, n;
+
+		for(p = buf, n = inb; n;){
 			c = *p++;
-			if(c == '('){
-				++paren;
-				if(p[0] == 0xfe && p[1] == 0xff)
-					;
+			--n;
+			switch(c){
+			case '(':
+				// check parsed string length
+				q = p;
+				cnt = pdf_string(&q, NULL, n);
+
+				// parse string into new buffer, and step past in source buffer
+				strbuf = malloc(cnt);
+				q = p;
+				pdf_string(&p, strbuf, n);
+				n -= p - q;
+
+				//fprintf(stderr, "pdf string: %lu (", cnt);
+				//fwrite(strbuf, 1, cnt, stderr);
+				//fputs(")\n", stderr);
+
+#ifdef HAVE_ICONV_H
+				fprintf(xml, "%s<STRING>", tabs(level));
+
+				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
+					size_t inb, outb;
+					const char *inbuf;
+					char *outbuf, *utfbuf;
+
+					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+
+					// skip over the meaningless BOM
+					inbuf = (char*)strbuf + 2;
+					inb = cnt - 2;
+					outb = 4*(cnt/2); // sloppy overestimate of buffer needed
+					if( (utfbuf = malloc(outb)) ){
+						outbuf = utfbuf;
+						if(ic != (iconv_t)-1){
+							if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
+								fwrite(utfbuf, 1, outbuf-utfbuf, xml);
+							else
+								alwayswarn("iconv() failed, errno=%u\n", errno);
+						}
+						free(utfbuf);
+					}
+				}else
+					fwrite(strbuf, 1, cnt, xml); // not UTF; should be PDFDocEncoded
+				fputs("</STRING>\n", xml);
+#endif
+				free(strbuf);
+				break;
+			case '<':
+				if(n && *p == '<'){
+					//fputs("dict: <<\n", stderr);
+					++p;
+					--n;
+				}
+				else{
+					// TODO: hex string
+					while(n && *p != '>')
+						++p;
+				}
+				break;
+			case '>':
+				if(n && *p == '>'){
+					//fputs("      >>\n", stderr);
+					++p;
+					--n;
+				}
+				break;
+			case '/':
+				// check parsed name length
+				q = p;
+				cnt = pdf_name(&q, NULL, n);
+
+				// parse name into new buffer, and step past in source buffer
+				strbuf = malloc(cnt);
+				q = p;
+				pdf_name(&p, strbuf, n);
+				n -= p - q;
+
+				//fprintf(stderr, "pdf name: %lu /", cnt);
+				//fwrite(strbuf, 1, cnt, stderr);
+				//fputs("\n", stderr);
+
+				// name should be treated as UTF-8
+				/*
+				fprintf(xml, "%s<NAME>", tabs(level));
+				fwrite(strbuf, 1, cnt, xml);
+				fputs("</NAME>\n", xml);
+				*/
+				free(strbuf);
+				break;
 			}
 		}
-*/
+
+		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
 		fwrite(buf, 1, inb, xml);
+		fputs("]]></RAW>\n", xml);
+
 		free(buf);
 	}
-	fputs("]]>\n", xml);
 }
 
 static void stringorid(psd_file_t f, int level, char *tag){

@@ -222,6 +222,7 @@ int64_t get8B(psd_file_t f);
 int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
 const char *tabs(int n);
+int hexdigit(unsigned char c);
 void openfiles(char *psdpath, struct psd_header *h);
 
 int dopsd(psd_file_t f, char *fname, struct psd_header *h);
@@ -271,6 +272,11 @@ int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_
 
 void *map_file(int fd, size_t len);
 void unmap_file(void *addr, size_t len);
+
+int is_pdf_white(char c);
+int is_pdf_delim(char c);
+size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n);
+size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n);
 
 #ifdef WIN32
 	#include <direct.h>

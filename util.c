@@ -101,7 +101,6 @@ void fputcxml(unsigned c, FILE *f){
 			if(c < 0x7f) // ASCII printable
 				fputc(c, f);
 			else{
-				warn("Unicode: %#x", c);
 #ifdef HAVE_ICONV_H
 				size_t inb, outb;
 				const char *inbuf;
@@ -231,6 +230,11 @@ unsigned get2Bu(psd_file_t f){
 const char *tabs(int n){
 	static const char forty[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 	return forty + (sizeof(forty) - 1 - n);
+}
+
+int hexdigit(unsigned char c){
+	c = toupper(c);
+	return c - (c >= 'A' ? 'A'+10 : '0');
 }
 
 char indir[PATH_MAX];
