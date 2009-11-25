@@ -19,6 +19,10 @@
 
 #include "psdparse.h"
 
+#ifdef HAVE_ICONV_H
+	extern iconv_t ic;
+#endif
+
 /* 'Extra data' handling. *Work in progress*
  *
  * There's guesswork and trial-and-error in here,
@@ -102,8 +106,7 @@ static void colorspace(psd_file_t f, int level){
 	fputs(" </COLOR>\n", xml);
 }
 
-void conv_unicodestyles(psd_file_t f, long count){
-	extern iconv_t ic;
+void conv_unicodestyles(psd_file_t f, long count, char *indent){
 	unsigned short *utf16 = malloc(2*count), *style = malloc(2*count);
 	int i;
 	
@@ -127,7 +130,7 @@ void conv_unicodestyles(psd_file_t f, long count){
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
 					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
-					fputs("<UNICODE><![CDATA[", xml);
+					fprintf(xml, "%s<UNICODE><![CDATA[", indent);
 					fwrite(utf8, 1, outbuf-utf8, xml);
 					fputs("]]></UNICODE>\n", xml);
 					
@@ -140,8 +143,9 @@ void conv_unicodestyles(psd_file_t f, long count){
 			free(utf8);
 		}
 #endif
+		fputs(indent, xml);
 		for(i = 0; i < count; ++i)
-			fprintf(xml, " <S>%d</S>", style[i]);
+			fprintf(xml, "<S>%d</S> ", style[i]);
 	}else
 		fatal("conv_unicodestyle(): can't get memory");
 
@@ -220,7 +224,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				orient = get2B(f);
 				align = get2B(f);
 				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
-				conv_unicodestyles(f, charcount);
+				conv_unicodestyles(f, charcount, indent);
 				fprintf(xml, "%s\t</LINE>\n", indent);
 			}
 			colorspace(f, level+1);
