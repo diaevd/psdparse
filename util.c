@@ -79,7 +79,7 @@ void *checkmalloc(long n){
 // escape XML special characters to entities
 // see: http://www.w3.org/TR/xml/#sec-predefined-ent
 
-void fputcxml(unsigned c, FILE *f){
+void fputcxml(char c, FILE *f){
 	// see: http://www.w3.org/TR/REC-xml/#charsets
 	// http://triptico.com/docs/unicode.html
 	// http://www.unicode.org/unicode/faq/utf_bom.html
@@ -97,35 +97,10 @@ void fputcxml(unsigned c, FILE *f){
 		fputc(c, f);
 		break;
 	default:
-		if(c >= 0x20){
-			if(c < 0x7f) // ASCII printable
-				fputc(c, f);
-			else{
-#ifdef HAVE_ICONV_H
-				size_t inb, outb;
-				const char *inbuf;
-				char *outbuf, in[2], out[8];
-
-				//iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-				// set up input as 2-byte BigEndian
-				in[0] = c >> 8;
-				in[1] = c;
-				inbuf = in;
-				inb = 2;
-				outbuf = out;
-				outb = sizeof(out);
-
-				if(ic != (iconv_t)-1){
-					if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
-						fwrite(out, 1, sizeof(out)-outb, f);
-					else
-						alwayswarn("iconv() failed, errno=%u\n", errno);
-				}
-#endif
-				// there is really no fallback if iconv isn't available
-			}
-		}else
-			warn("char %#x not valid in XML; ignored", c);
+		if(isprint(c))
+			fputc(c, f);
+		else
+			fprintf(f, "&#%02x;", c);
 	}
 }
 

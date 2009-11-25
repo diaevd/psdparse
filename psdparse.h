@@ -211,7 +211,7 @@ void fatal(char *s);
 void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
 void *checkmalloc(long n);
-void fputcxml(unsigned c, FILE *f);
+void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
@@ -233,6 +233,7 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, cha
 void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml);
 void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm);
 
+void conv_unicodestr(psd_file_t f, long count);
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
 
 void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent);

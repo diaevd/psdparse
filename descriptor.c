@@ -43,6 +43,38 @@ static void ascii_string(psd_file_t f, long count){
 	fputs("</STRING>", xml);
 }
 
+void conv_unicodestr(psd_file_t f, long count){
+	char *buf = malloc(2*count);
+	
+	if(buf){
+		size_t n = fread(buf, 2, count, f);
+#ifdef HAVE_ICONV_H
+		size_t inb, outb;
+		char *inbuf, *outbuf, *utfbuf;
+	
+		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+	
+		inbuf = buf;
+		inb = n;
+		outb = 4*count; // sloppy overestimate of buffer (FIXME)
+		if( (utfbuf = malloc(outb)) ){
+			outbuf = utfbuf;
+			if(ic != (iconv_t)-1){
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
+					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
+					fputs("<![CDATA[", xml);
+					fwrite(utfbuf, 1, outbuf-utfbuf, xml);
+					fputs("]]>", xml);
+				}else
+					alwayswarn("iconv() failed, errno=%u\n", errno);
+			}
+			free(utfbuf);
+		}
+#endif
+		free(buf);
+	}
+}
+
 // TODO: re-encode the embedded Unicode text strings as UTF-8;
 //       perhaps parse out keys from PDF and emit some corresponding XML structure.
 
@@ -77,15 +109,14 @@ static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *pa
 
 				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
 					size_t inb, outb;
-					char *inbuf;
-					char *outbuf, *utfbuf;
+					char *inbuf, *outbuf, *utfbuf;
 
 					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
-					// skip over the meaningless BOM
+					// skip the meaningless BOM
 					inbuf = (char*)strbuf + 2;
 					inb = cnt - 2;
-					outb = 4*(cnt/2); // sloppy overestimate of buffer needed
+					outb = 4*(cnt/2); // sloppy overestimate of buffer (FIXME)
 					if( (utfbuf = malloc(outb)) ){
 						outbuf = utfbuf;
 						if(ic != (iconv_t)-1){
@@ -277,8 +308,7 @@ static void desc_unitfloat(psd_file_t f, int level, int printxml, struct dictent
 static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
 	fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
-	while(count--)
-		fputcxml(get2Bu(f), xml);
+	conv_unicodestr(f, count);
 	fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 }
 

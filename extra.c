@@ -102,9 +102,56 @@ static void colorspace(psd_file_t f, int level){
 	fputs(" </COLOR>\n", xml);
 }
 
+void conv_unicodestyles(psd_file_t f, long count){
+	extern iconv_t ic;
+	unsigned short *utf16 = malloc(2*count), *style = malloc(2*count);
+	int i;
+	
+	if(utf16 && style){
+		for(i = 0; i < count; i++){
+			utf16[i] = get2Bu(f); // the UTF-16 char
+			style[i] = get2B(f);  // and its corresponding style code
+		}
+#ifdef HAVE_ICONV_H
+		size_t inb, outb;
+		const char *inbuf;
+		char *outbuf, *utf8;
+	
+		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+	
+		inbuf = (char*)utf16;
+		inb = 2*count;
+		outb = 6*count; // sloppy overestimate of buffer (FIXME)
+		if( (utf8 = malloc(outb)) ){
+			outbuf = utf8;
+			if(ic != (iconv_t)-1){
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
+					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
+					fputs("<UNICODE><![CDATA[", xml);
+					fwrite(utf8, 1, outbuf-utf8, xml);
+					fputs("]]></UNICODE>\n", xml);
+					
+					// copy to terminal FIXME: UTF-8 may not be useful anyway
+					if(verbose)
+						fwrite(utf8, 1, outbuf-utf8, stdout);
+				}else
+					alwayswarn("iconv() failed, errno=%u\n", errno);
+			}
+			free(utf8);
+		}
+#endif
+		for(i = 0; i < count; ++i)
+			fprintf(xml, " <S>%d</S>", style[i]);
+	}else
+		fatal("conv_unicodestyle(): can't get memory");
+
+	free(utf16);
+	free(style);
+}
+
 static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	int i, j, v = get2B(f), mark, type, script, facemark,
-		autokern, charcount, selstart, selend, linecount, orient, align, style;
+		autokern, charcount, selstart, selend, linecount, orient, align;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
 	static char *coeff[] = {"XX","XY","YX","YY","TX","TY"}; // from CS doc
 	const char *indent = tabs(level);
@@ -169,25 +216,12 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 			fprintf(xml, "%s<TEXT TYPE='%d' SCALING='%g' CHARCOUNT='%d' HPLACEMENT='%g' VPLACEMENT='%g' SELSTART='%d' SELEND='%d'>\n",
 					indent, type, scaling, charcount, hplace, vplace, selstart, selend);
 			for(i = linecount; i--;){
-				char *buf;
 				charcount = get4B(f);
-				buf = malloc(charcount+1);
 				orient = get2B(f);
 				align = get2B(f);
 				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
-				for(j = 0; j < charcount; ++j){
-					wchar_t wc = get2Bu(f);
-					buf[j] = wc; // FIXME: this is not the right way to get ASCII
-					style = get2B(f);
-					fprintf(xml, "%s\t\t<UNICODE STYLE='%d'>", indent, style);
-					fputcxml(wc, xml);
-					fputs("</UNICODE>\n", xml);
-				}
-				buf[j] = 0;
-				fprintf(xml, "%s\t\t<STRING>", indent);
-				fputsxml(buf, xml);
-				fprintf(xml, "</STRING>\n%s\t</LINE>\n", indent);
-				free(buf);
+				conv_unicodestyles(f, charcount);
+				fprintf(xml, "%s\t</LINE>\n", indent);
 			}
 			colorspace(f, level+1);
 			fprintf(xml, "%s\t<ANTIALIAS>%d</ANTIALIAS>\n", indent, fgetc(f));
@@ -214,14 +248,15 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 
 	if(len > 0 && len < 1024){ // sanity check
 		if(printxml)
-			while(len--)
-				fputcxml(get2Bu(f), xml);
+			conv_unicodestr(f, len);
+		/* FIXME: We don't have a way to spit the UTF-8 to terminal as well. Maybe a flag parameter?
 		else if(!quiet){
 			fputs("    (Unicode name = '", stdout);
 			while(len--)
 				putwchar(get2Bu(f)); // FIXME: not working
 			fputs("')\n", stdout);
 		}
+		*/
 	}
 }
 
@@ -283,19 +318,13 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 				// - it says "ASCII or Unicode," but doesn't say how each is distinguished;
 				// - one might think it has something to do with the mysterious four bytes
 				//   stuck to the beginning of the data.
-				char *buf = malloc(datalen/2+1);
+				// TODO: Check if this is the BOM indicator used to indicate encoding in PDF strings
 				fprintf(xml, ">\n%s\t<UNICODE>", indent);
-				for(j = 0; j < datalen/2; ++j){
-					wchar_t wc = get2Bu(f);
-					buf[j] = wc; // FIXME: this is not the right way to get ASCII
-					fputcxml(wc, xml);
-				}
-				buf[j] = 0;
-				fprintf(xml, "</UNICODE>\n%s\t<STRING>", indent);
-				fputsxml(buf, xml);
-				fprintf(xml, "</STRING>\n%s</TEXT>\n", indent);
+				conv_unicodestr(f, datalen/2);
+				if(datalen & 1)
+					fgetc(f); // FIXME, this should never be needed if it's a UTF-16 string
+				fprintf(xml, "</UNICODE>\n%s</TEXT>\n", indent);
 				len2 -= datalen; // we consumed this much from the file
-				free(buf);
 			}else if(!memcmp(key, "sndM", 4)){
 				// Perhaps the 'length' field is actually a sampling rate?
 				// Documentation says something different, natch.

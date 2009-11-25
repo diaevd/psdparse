@@ -56,6 +56,12 @@ int is_pdf_delim(char c){
 		|| c == '/' || c == '%';
 }
 
+// p      : pointer to first character following opening ( of string
+// outbuf : destination buffer for parsed string. pass NULL to count but not store
+// n      : count of characters available in input buffer
+// returns number of characters in parsed string
+// updates the source pointer to the first character after the string
+
 size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
 	int paren = 1;
 	size_t cnt = 0;
@@ -68,11 +74,11 @@ size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
 			break;
 		case ')':
 			if(!(--paren))
-				return cnt;
+				return cnt; // it was the closing paren
 			break;
 		case '\\':
 			if(!n)
-				return cnt;
+				return cnt; // ran out of data
 			--n;
 			switch(*(*p)++){
 			case 'n': c = 012; break; // LF
@@ -84,7 +90,7 @@ size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
 			case ')':
 			case '\\': c = (*p)[-1]; break;
 			default:
-				// octal code?
+				// octal escape?
 				if(n >= 2 && isdigit((*p)[-1]) && isdigit((*p)[0]) && isdigit((*p)[1])){
 					c = (((*p)[-1]-'0') << 6) | (((*p)[0]-'0') << 3) | ((*p)[1]-'0');
 					*p += 2;
@@ -100,6 +106,7 @@ size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
 	return cnt;
 }
 
+// parameters analogous to pdf_string()'s
 size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n){
 	size_t cnt = 0;
 	while(n){
