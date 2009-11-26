@@ -232,7 +232,6 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 					if(dict_tos == MAX_DICTS)
 						fatal("dict stack overflow");
 					is_array[dict_tos++] = c == '[';
-
 				}
 				/*else{
 					// TODO: hex string
@@ -270,7 +269,6 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 				break;
 
 			case '%': // skip comment
-				// TODO: Check that this is the correct end condition
 				while(n && *p != '\012' && *p != '\015'){
 					++p;
 					--n;

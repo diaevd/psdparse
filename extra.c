@@ -109,7 +109,7 @@ static void colorspace(psd_file_t f, int level){
 void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 	unsigned short *utf16 = malloc(2*count), *style = malloc(2*count);
 	int i;
-	
+
 	if(utf16 && style){
 		for(i = 0; i < count; i++){
 			utf16[i] = get2Bu(f); // the UTF-16 char
@@ -118,9 +118,9 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
 		char *inbuf, *outbuf, *utf8;
-	
+
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-	
+
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
 		if( (utf8 = malloc(outb)) ){
 			inbuf = (char*)utf16;
@@ -132,7 +132,7 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 					fprintf(xml, "%s<UNICODE><![CDATA[", indent);
 					fwrite(utf8, 1, outbuf-utf8, xml);
 					fputs("]]></UNICODE>\n", xml);
-					
+
 					// copy to terminal FIXME: UTF-8 may not be useful anyway
 					if(verbose)
 						fwrite(utf8, 1, outbuf-utf8, stdout);
@@ -142,9 +142,8 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 			free(utf8);
 		}
 #endif
-		fputs(indent, xml);
 		for(i = 0; i < count; ++i)
-			fprintf(xml, "<S>%d</S> ", style[i]);
+			fprintf(xml, "%s<S>%d</S>\n", indent, style[i]);
 	}else
 		fatal("conv_unicodestyle(): can't get memory");
 
@@ -223,7 +222,7 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 				orient = get2B(f);
 				align = get2B(f);
 				fprintf(xml, "%s\t<LINE ORIENTATION='%d' ALIGNMENT='%d'>\n", indent, orient, align);
-				conv_unicodestyles(f, charcount, indent);
+				conv_unicodestyles(f, charcount, indent-2);
 				fprintf(xml, "%s\t</LINE>\n", indent);
 			}
 			colorspace(f, level+1);

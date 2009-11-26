@@ -100,7 +100,7 @@ void fputcxml(char c, FILE *f){
 		if(isprint(c))
 			fputc(c, f);
 		else
-			fprintf(f, "&#%02x;", c);
+			fprintf(f, "&#%02x;", (unsigned char)c);
 	}
 }
 

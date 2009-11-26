@@ -224,7 +224,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 		}
 		if(xml){
 			fputs("\t<LAYER NAME='", xml);
-			fputsxml(li->name, xml);
+			fputsxml(li->name, xml); // FIXME: what encoding is this in? maybe PDF Latin?
 			fprintf(xml, "' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
 					li->top, li->left, li->bottom, li->right, pixw, pixh);
 		}
