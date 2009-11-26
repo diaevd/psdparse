@@ -19,12 +19,6 @@
 
 #include "psdparse.h"
 
-#include <errno.h>
-
-#ifdef HAVE_ICONV_H
-	extern iconv_t ic;
-#endif
-
 static void desc_class(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_reference(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent);
@@ -35,6 +29,8 @@ static void desc_enumerated(psd_file_t f, int level, int printxml, struct dicten
 static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent);
 static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent);
+
+extern void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 static void ascii_string(psd_file_t f, long count){
 	fputs(" <STRING>", xml);
@@ -50,140 +46,27 @@ void conv_unicodestr(psd_file_t f, long count){
 		size_t n = fread(buf, 2, count, f);
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
-		char *inbuf, *outbuf, *utfbuf;
+		char *inbuf, *outbuf, *utf8;
 	
-		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-	
-		inbuf = buf;
-		inb = n;
 		outb = 4*count; // sloppy overestimate of buffer (FIXME)
-		if( (utfbuf = malloc(outb)) ){
-			outbuf = utfbuf;
+		if( (utf8 = malloc(outb)) ){
+			iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+
+			inbuf = buf;
+			inb = n;
+			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
 					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
 					fputs("<![CDATA[", xml);
-					fwrite(utfbuf, 1, outbuf-utfbuf, xml);
+					fwrite(utf8, 1, outbuf-utf8, xml);
 					fputs("]]>", xml);
 				}else
 					alwayswarn("iconv() failed, errno=%u\n", errno);
 			}
-			free(utfbuf);
+			free(utf8);
 		}
 #endif
-		free(buf);
-	}
-}
-
-// TODO: re-encode the embedded Unicode text strings as UTF-8;
-//       perhaps parse out keys from PDF and emit some corresponding XML structure.
-
-static void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	long count = get4B(f);
-	unsigned char *buf = malloc(count), *p, *q, *strbuf, c;
-
-	if(buf){
-		size_t inb = fread(buf, 1, count, f), cnt, n;
-
-		for(p = buf, n = inb; n;){
-			c = *p++;
-			--n;
-			switch(c){
-			case '(':
-				// check parsed string length
-				q = p;
-				cnt = pdf_string(&q, NULL, n);
-
-				// parse string into new buffer, and step past in source buffer
-				strbuf = malloc(cnt);
-				q = p;
-				pdf_string(&p, strbuf, n);
-				n -= p - q;
-
-				//fprintf(stderr, "pdf string: %lu (", cnt);
-				//fwrite(strbuf, 1, cnt, stderr);
-				//fputs(")\n", stderr);
-
-#ifdef HAVE_ICONV_H
-				fprintf(xml, "%s<STRING>", tabs(level));
-
-				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
-					size_t inb, outb;
-					char *inbuf, *outbuf, *utfbuf;
-
-					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-
-					// skip the meaningless BOM
-					inbuf = (char*)strbuf + 2;
-					inb = cnt - 2;
-					outb = 4*(cnt/2); // sloppy overestimate of buffer (FIXME)
-					if( (utfbuf = malloc(outb)) ){
-						outbuf = utfbuf;
-						if(ic != (iconv_t)-1){
-							if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
-								fwrite(utfbuf, 1, outbuf-utfbuf, xml);
-							else
-								alwayswarn("iconv() failed, errno=%u\n", errno);
-						}
-						free(utfbuf);
-					}
-				}else
-					fwrite(strbuf, 1, cnt, xml); // not UTF; should be PDFDocEncoded
-				fputs("</STRING>\n", xml);
-#endif
-				free(strbuf);
-				break;
-			case '<':
-				if(n && *p == '<'){
-					//fputs("dict: <<\n", stderr);
-					++p;
-					--n;
-				}
-				else{
-					// TODO: hex string
-					while(n && *p != '>')
-						++p;
-				}
-				break;
-			case '>':
-				if(n && *p == '>'){
-					//fputs("      >>\n", stderr);
-					++p;
-					--n;
-				}
-				break;
-			case '/':
-				// check parsed name length
-				q = p;
-				cnt = pdf_name(&q, NULL, n);
-
-				// parse name into new buffer, and step past in source buffer
-				strbuf = malloc(cnt);
-				q = p;
-				pdf_name(&p, strbuf, n);
-				n -= p - q;
-
-				//fprintf(stderr, "pdf name: %lu /", cnt);
-				//fwrite(strbuf, 1, cnt, stderr);
-				//fputs("\n", stderr);
-
-				// name should be treated as UTF-8
-				/*
-				fprintf(xml, "%s<NAME>", tabs(level));
-				fwrite(strbuf, 1, cnt, xml);
-				fputs("</NAME>\n", xml);
-				*/
-				free(strbuf);
-				break;
-			}
-		}
-
-		/* The raw PDF data is not valid UTF-8 and may break XML parse.
-		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
-		fwrite(buf, 1, inb, xml);
-		fputs("]]></RAW>\n", xml);
-		*/
-
 		free(buf);
 	}
 }
@@ -254,7 +137,7 @@ struct dictentry *item(psd_file_t f, int level){
 		{0, "type", "CLASS", "Class", desc_class},  // doc missing?! - Clss? (see v6 rel2)
 		{0, "GlbC", "CLASS", "Class", desc_class}, // doc missing?!
 		{0, "alis", "-ALIAS", "Alias", desc_alias},
-		{0, "tdta", "ENGINEDATA", "Engine Data", desc_pdf}, // undocumented, apparently PDF syntax data
+		{0, "tdta", "DATA", "Engine Data", desc_pdf}, // undocumented, apparently PDF syntax data
 		{0, NULL, NULL, NULL, NULL}
 	};
 	char *k;

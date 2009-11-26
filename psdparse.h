@@ -30,10 +30,14 @@
 	#include <sys/types.h>
 	#include <unistd.h>
 	#include <wchar.h>
+	#include <ctype.h>
+	#include <errno.h>
 #endif
 
 #ifdef HAVE_ICONV_H
 	#include <iconv.h>
+
+	extern iconv_t ic;
 #endif
 
 #ifdef PSBSUPPORT

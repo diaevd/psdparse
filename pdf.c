@@ -19,6 +19,9 @@
 
 #include "psdparse.h"
 
+#define MAX_NAMES 2048
+#define MAX_DICTS 128 // dict/array nesting limit
+
 /* PDF data. This has embedded literal strings in UTF-16, e.g.:
 
 00000820  74 6f 72 0a 09 09 3c 3c  0a 09 09 09 2f 54 65 78  |tor...<<..../Tex|
@@ -47,7 +50,8 @@ that is, characters requiring more than two bytes to represent.
 */
 
 int is_pdf_white(char c){
-	return c == '\000' || c == '\011' || c == '\012' || c == '\014' || c == '\015' || c == '\040';
+	return c == '\000' || c == '\011' || c == '\012'
+		|| c == '\014' || c == '\015' || c == '\040';
 }
 
 int is_pdf_delim(char c){
@@ -123,4 +127,181 @@ size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n){
 		++cnt;
 	}
 	return cnt;
+}
+
+void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	long count = get4B(f);
+	unsigned char *buf = malloc(count), *p, *q, *strbuf, c,
+				  **name_stack = malloc(MAX_NAMES*sizeof(char*)),
+				  **dict_stack = malloc(MAX_DICTS*sizeof(char*));
+	int name_tos = 0, dict_tos = 0,
+		*is_array = malloc(MAX_DICTS*sizeof(int));
+	size_t cnt, n;
+
+	if(buf && name_stack && is_array && dict_stack){
+
+		/* The raw PDF data is not valid UTF-8 and may break XML parse.
+		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
+		fwrite(buf, 1, inb, xml);
+		fputs("]]></RAW>\n", xml); */
+
+		n = fread(buf, 1, count, f);
+		for(p = buf; n;){
+			c = *p++;
+			--n;
+			switch(c){
+			case '(':
+				// check parsed string length
+				q = p;
+				cnt = pdf_string(&q, NULL, n);
+
+				// parse string into new buffer, and step past in source buffer
+				strbuf = malloc(cnt+1);
+				q = p;
+				pdf_string(&p, strbuf, n);
+				n -= p - q;
+				strbuf[cnt] = 0;
+
+				//fprintf(stderr, "pdf string: %lu (", cnt);
+				//fwrite(strbuf, 1, cnt, stderr);
+				//fputs(")\n", stderr);
+
+#ifdef HAVE_ICONV_H
+				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
+					size_t inb, outb;
+					char *inbuf, *outbuf, *utf8;
+
+					outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
+					if( (utf8 = malloc(outb)) ){
+						iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+
+						// skip the meaningless BOM
+						inbuf = (char*)strbuf + 2;
+						inb = cnt - 2;
+						outbuf = utf8;
+						if(ic != (iconv_t)-1){
+							if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
+								fputs("<![CDATA[", xml);
+								fwrite(utf8, 1, outbuf-utf8, xml);
+								fputs("]]>", xml);
+							}else
+								alwayswarn("iconv() failed, errno=%u\n", errno);
+						}
+						free(utf8);
+					}
+				}else
+					fputsxml(strbuf, xml); // not UTF; should be PDFDocEncoded
+#endif
+				free(strbuf);
+
+				if(name_tos)
+					fprintf(xml, "</%s>\n", name_stack[--name_tos]);
+				break;
+			case '<':
+				if(n && *p == '<'){
+					++p;
+					--n;
+			case '[':
+					++level;
+					if(name_tos){
+						if(dict_tos == MAX_DICTS)
+							fatal("dict stack overflow");
+						is_array[dict_tos] = c == '[';
+						dict_stack[dict_tos++] = name_stack[name_tos-1];
+						fputc('\n', xml);
+						//fprintf(stderr, "dict_tos=%d\n", dict_tos);
+					}
+				}
+				/*else{
+					// TODO: hex string
+					while(n && *p != '>')
+						++p;
+				}*/
+				break;
+
+			case '>':
+				if(n && *p == '>'){
+					++p;
+					--n;
+			case ']':
+					--level;
+					if(dict_tos)
+						fprintf(xml, "%s</%s>\n", tabs(level), dict_stack[--dict_tos]);
+				}
+				break;
+
+			case '/':
+				// check parsed name length
+				q = p;
+				cnt = pdf_name(&q, NULL, n);
+
+				// parse name into new buffer, and step past in source buffer
+				strbuf = malloc(cnt+1);
+				q = p;
+				pdf_name(&p, strbuf, n);
+				strbuf[cnt] = 0;
+				n -= p - q;
+
+				//fprintf(stderr, "pdf name: %lu /", cnt);
+				//fwrite(strbuf, 1, cnt, stderr);
+				//fputs("\n", stderr);
+
+				// name should be treated as UTF-8
+				/*
+				fprintf(xml, "%s<NAME>", tabs(level));
+				fwrite(strbuf, 1, cnt, xml);
+				fputs("</NAME>\n", xml);
+				*/
+				if(name_tos == MAX_NAMES)
+					fatal("name stack overflow");
+				name_stack[name_tos++] = strbuf;
+
+				fprintf(xml, "%s<%s>", tabs(level), strbuf);
+
+				//fprintf(stderr, "name_tos=%d\n", name_tos);
+				break;
+
+			case '%': // skip comment
+				// TODO: Check that this is the correct end condition
+				while(n && *p != '\012' && *p != '\015'){
+					++p;
+					--n;
+				}
+				break;
+
+			case '\000': // whitespace
+			case '\011':
+			case '\012':
+			case '\014':
+			case '\015':
+			case '\040':
+				break;
+
+			default:
+				// probably numeric or boolean literal
+				// FIXME: hack
+				if(dict_tos && is_array[dict_tos-1])
+					fprintf(xml, "%s<e>", tabs(level)); // treat as array element
+
+				fputcxml(c, xml);
+				while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
+					fputcxml(*p++, xml);
+					--n;
+				}
+
+				if(dict_tos && is_array[dict_tos-1])
+					fputs("</e>\n", xml);
+				else if(name_tos)
+					fprintf(xml, "</%s>\n", name_stack[--name_tos]);
+				else
+					warn("pdf: element without preceding key");
+				break;
+			}
+		}
+
+		free(buf);
+		free(name_stack);
+		free(is_array);
+		free(dict_stack);
+	}
 }

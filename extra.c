@@ -106,7 +106,7 @@ static void colorspace(psd_file_t f, int level){
 	fputs(" </COLOR>\n", xml);
 }
 
-void conv_unicodestyles(psd_file_t f, long count, char *indent){
+void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 	unsigned short *utf16 = malloc(2*count), *style = malloc(2*count);
 	int i;
 	
