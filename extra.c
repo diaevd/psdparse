@@ -107,7 +107,8 @@ static void colorspace(psd_file_t f, int level){
 }
 
 void conv_unicodestyles(psd_file_t f, long count, const char *indent){
-	unsigned short *utf16 = malloc(2*count), *style = malloc(2*count);
+	unsigned short *utf16 = malloc(2*count);
+	short *style = malloc(2*count);
 	int i;
 
 	if(utf16 && style){
@@ -248,18 +249,16 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	unsigned long len = get4B(f); // character count, not byte count
 
-	if(len > 0 && len < 1024){ // sanity check
-		if(printxml)
-			conv_unicodestr(f, len);
-		/* FIXME: We don't have a way to spit the UTF-8 to terminal as well. Maybe a flag parameter?
-		else if(!quiet){
-			fputs("    (Unicode name = '", stdout);
-			while(len--)
-				putwchar(get2Bu(f)); // FIXME: not working
-			fputs("')\n", stdout);
-		}
-		*/
+	if(printxml)
+		conv_unicodestr(f, len);
+	/* FIXME: We don't have a way to spit the UTF-8 to terminal as well. Maybe a flag parameter?
+	else if(!quiet){
+		fputs("    (Unicode name = '", stdout);
+		while(len--)
+			putwchar(get2Bu(f)); // FIXME: not working
+		fputs("')\n", stdout);
 	}
+	*/
 }
 
 static void ed_long(psd_file_t f, int level, int printxml, struct dictentry *parent){

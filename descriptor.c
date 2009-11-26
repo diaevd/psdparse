@@ -53,7 +53,7 @@ void conv_unicodestr(psd_file_t f, long count){
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
 		if( (utf8 = malloc(outb)) ){
 			inbuf = buf;
-			inb = count;
+			inb = 2*count;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
