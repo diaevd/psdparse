@@ -48,12 +48,12 @@ void conv_unicodestr(psd_file_t f, long count){
 		size_t inb, outb;
 		char *inbuf, *outbuf, *utf8;
 	
-		outb = 4*count; // sloppy overestimate of buffer (FIXME)
-		if( (utf8 = malloc(outb)) ){
-			iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
+		outb = 6*count; // sloppy overestimate of buffer (FIXME)
+		if( (utf8 = malloc(outb)) ){
 			inbuf = buf;
-			inb = n;
+			inb = count;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
@@ -62,7 +62,7 @@ void conv_unicodestr(psd_file_t f, long count){
 					fwrite(utf8, 1, outbuf-utf8, xml);
 					fputs("]]>", xml);
 				}else
-					alwayswarn("iconv() failed, errno=%u\n", errno);
+					alwayswarn("conv_unicodestr(): iconv() failed, errno=%u (count=%d)\n", errno, count);
 			}
 			free(utf8);
 		}

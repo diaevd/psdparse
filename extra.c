@@ -117,15 +117,14 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 		}
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
-		const char *inbuf;
-		char *outbuf, *utf8;
+		char *inbuf, *outbuf, *utf8;
 	
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 	
-		inbuf = (char*)utf16;
-		inb = 2*count;
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
 		if( (utf8 = malloc(outb)) ){
+			inbuf = (char*)utf16;
+			inb = 2*count;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){

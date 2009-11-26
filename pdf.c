@@ -19,8 +19,8 @@
 
 #include "psdparse.h"
 
-#define MAX_NAMES 2048
-#define MAX_DICTS 128 // dict/array nesting limit
+#define MAX_NAMES 32
+#define MAX_DICTS 32 // dict/array nesting limit
 
 /* PDF data. This has embedded literal strings in UTF-16, e.g.:
 
@@ -129,23 +129,43 @@ size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n){
 	return cnt;
 }
 
+static char **name_stack;
+unsigned name_tos;
+
+void push_name(const char *indent, char *tag){
+	if(name_tos == MAX_NAMES)
+		fatal("name stack overflow");
+	name_stack[name_tos++] = tag;
+
+	fprintf(xml, "%s<%s>", indent, tag);
+}
+
+void pop_name(const char *indent){
+	if(name_tos){
+		fprintf(xml, "%s</%s>\n", indent, name_stack[--name_tos]);
+		free(name_stack[name_tos]);
+	}
+	else
+		warn("pop_name(): underflow");
+}
+
 void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	unsigned char *buf = malloc(count), *p, *q, *strbuf, c,
-				  **name_stack = malloc(MAX_NAMES*sizeof(char*)),
-				  **dict_stack = malloc(MAX_DICTS*sizeof(char*));
-	int name_tos = 0, dict_tos = 0,
-		*is_array = malloc(MAX_DICTS*sizeof(int));
+	unsigned char *buf = malloc(count), *p, *q, *strbuf, c;
 	size_t cnt, n;
+	unsigned is_array[MAX_DICTS], dict_tos = 0;
 
-	if(buf && name_stack && is_array && dict_stack){
+	name_stack = malloc(MAX_NAMES*sizeof(char*));
+	name_tos = 0;
+
+	if(buf && name_stack){
+		n = fread(buf, 1, count, f);
 
 		/* The raw PDF data is not valid UTF-8 and may break XML parse.
 		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
-		fwrite(buf, 1, inb, xml);
+		fwrite(buf, 1, count, xml);
 		fputs("]]></RAW>\n", xml); */
 
-		n = fread(buf, 1, count, f);
 		for(p = buf; n;){
 			c = *p++;
 			--n;
@@ -171,10 +191,10 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 					size_t inb, outb;
 					char *inbuf, *outbuf, *utf8;
 
+					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+
 					outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
 					if( (utf8 = malloc(outb)) ){
-						iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-
 						// skip the meaningless BOM
 						inbuf = (char*)strbuf + 2;
 						inb = cnt - 2;
@@ -185,32 +205,34 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 								fwrite(utf8, 1, outbuf-utf8, xml);
 								fputs("]]>", xml);
 							}else
-								alwayswarn("iconv() failed, errno=%u\n", errno);
+								alwayswarn("desc_pdf(): pdf string, iconv() failed, errno=%u\n", errno);
 						}
 						free(utf8);
 					}
 				}else
-					fputsxml(strbuf, xml); // not UTF; should be PDFDocEncoded
+					fputsxml((char*)strbuf, xml); // not UTF; should be PDFDocEncoded
 #endif
 				free(strbuf);
-
-				if(name_tos)
-					fprintf(xml, "</%s>\n", name_stack[--name_tos]);
+				pop_name("");
 				break;
+
 			case '<':
 				if(n && *p == '<'){
 					++p;
 					--n;
+					// if beginning a dictionary inside an array, there is
+					// no name to use.
+					if(dict_tos && is_array[dict_tos-1])
+						push_name(tabs(level), strdup("d"));
 			case '[':
-					++level;
-					if(name_tos){
-						if(dict_tos == MAX_DICTS)
-							fatal("dict stack overflow");
-						is_array[dict_tos] = c == '[';
-						dict_stack[dict_tos++] = name_stack[name_tos-1];
+					if(name_tos){ // only if a name has opened an element
+						++level;
 						fputc('\n', xml);
-						//fprintf(stderr, "dict_tos=%d\n", dict_tos);
 					}
+					if(dict_tos == MAX_DICTS)
+						fatal("dict stack overflow");
+					is_array[dict_tos++] = c == '[';
+
 				}
 				/*else{
 					// TODO: hex string
@@ -224,9 +246,11 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 					++p;
 					--n;
 			case ']':
-					--level;
+					pop_name(tabs(--level));
 					if(dict_tos)
-						fprintf(xml, "%s</%s>\n", tabs(level), dict_stack[--dict_tos]);
+						--dict_tos;
+					else
+						warn("dict stack underflow");
 				}
 				break;
 
@@ -242,23 +266,7 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 				strbuf[cnt] = 0;
 				n -= p - q;
 
-				//fprintf(stderr, "pdf name: %lu /", cnt);
-				//fwrite(strbuf, 1, cnt, stderr);
-				//fputs("\n", stderr);
-
-				// name should be treated as UTF-8
-				/*
-				fprintf(xml, "%s<NAME>", tabs(level));
-				fwrite(strbuf, 1, cnt, xml);
-				fputs("</NAME>\n", xml);
-				*/
-				if(name_tos == MAX_NAMES)
-					fatal("name stack overflow");
-				name_stack[name_tos++] = strbuf;
-
-				fprintf(xml, "%s<%s>", tabs(level), strbuf);
-
-				//fprintf(stderr, "name_tos=%d\n", name_tos);
+				push_name(tabs(level), (char*)strbuf);
 				break;
 
 			case '%': // skip comment
@@ -269,39 +277,35 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 				}
 				break;
 
-			case '\000': // whitespace
-			case '\011':
-			case '\012':
-			case '\014':
-			case '\015':
-			case '\040':
-				break;
-
 			default:
-				// probably numeric or boolean literal
-				// FIXME: hack
-				if(dict_tos && is_array[dict_tos-1])
-					fprintf(xml, "%s<e>", tabs(level)); // treat as array element
+				if(!is_pdf_white(c)){
+					// probably numeric or boolean literal
+					if(dict_tos && is_array[dict_tos-1])
+						fprintf(xml, "%s<e>", tabs(level)); // treat as array element
 
-				fputcxml(c, xml);
-				while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
-					fputcxml(*p++, xml);
-					--n;
+					// copy characters until whitespace or delimiter
+					fputcxml(c, xml);
+					while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
+						fputcxml(*p++, xml);
+						--n;
+					}
+
+					if(dict_tos && is_array[dict_tos-1])
+						fputs("</e>\n", xml);
+					else
+						pop_name("");
 				}
-
-				if(dict_tos && is_array[dict_tos-1])
-					fputs("</e>\n", xml);
-				else if(name_tos)
-					fprintf(xml, "</%s>\n", name_stack[--name_tos]);
-				else
-					warn("pdf: element without preceding key");
 				break;
 			}
 		}
 
+		// close any open elements (should not happen)
+		while(name_tos){
+			warn("unclosed element %s", name_stack[name_tos-1]);
+			pop_name("");
+		}
+
 		free(buf);
 		free(name_stack);
-		free(is_array);
-		free(dict_stack);
 	}
 }
