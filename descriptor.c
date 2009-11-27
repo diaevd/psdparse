@@ -205,11 +205,11 @@ static void desc_enumerated(psd_file_t f, int level, int printxml, struct dicten
 }
 
 static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	fprintf(xml, " <INTEGER>%ld</INTEGER> ", get4B(f));
+	fprintf(xml, "%ld", get4B(f));
 }
 
 static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	fprintf(xml, " <BOOLEAN>%d</BOOLEAN> ", fgetc(f));
+	fprintf(xml, "%d", fgetc(f));
 }
 
 static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent){
