@@ -66,10 +66,11 @@ int is_pdf_delim(char c){
 // returns number of characters in parsed string
 // updates the source pointer to the first character after the string
 
-size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
+size_t pdf_string(char **p, char *outbuf, size_t n){
 	int paren = 1;
-	size_t cnt = 0;
-	while(n){
+	size_t cnt;
+
+	for(cnt = 0; n;){
 		char c = *(*p)++;
 		--n;
 		switch(c){
@@ -111,9 +112,43 @@ size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n){
 }
 
 // parameters analogous to pdf_string()'s
-size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n){
-	size_t cnt = 0;
-	while(n){
+size_t pdf_hexstring(char **p, char *outbuf, size_t n){
+	size_t cnt, flag;
+	unsigned acc;
+
+	for(cnt = acc = flag = 0; n;){
+		char c = *(*p)++;
+		--n;
+		if(c == '>'){ // or should this be pdf_delim() ?
+			// check for partial byte
+			if(flag){
+				if(outbuf)
+					*outbuf++ = acc;
+				++cnt;
+			}
+			break;
+		}else if(!is_pdf_white(c)){ // N.B. DOES NOT CHECK for valid hex digits!
+			acc |= hexdigit(c);
+			if(flag){
+				// both nibbles loaded; emit character
+				if(outbuf)
+					*outbuf++ = acc;
+				++cnt;
+				flag = acc = 0;
+			}else{
+				acc <<= 4;
+				flag = 1; // high nibble loaded
+			}
+		}
+	}
+	return cnt;
+}
+
+// parameters analogous to pdf_string()'s
+size_t pdf_name(char **p, char *outbuf, size_t n){
+	size_t cnt;
+
+	for(cnt = 0; n;){
 		char c = *(*p)++;
 		--n;
 		if(c == '#' && n >= 2){
@@ -149,9 +184,53 @@ void pop_name(const char *indent){
 		warn("pop_name(): underflow");
 }
 
+// Write a string representation to XML. Either convert to UTF-8
+// from the UTF-16BE if flagged as such by a BOM prefix,
+// or just write the literal string bytes without transliteration.
+
+void stringxml(unsigned char *strbuf, size_t cnt){
+	if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
+#ifdef HAVE_ICONV_H
+		size_t inb, outb;
+		char *inbuf, *outbuf, *utf8;
+
+		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
+
+		outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
+		if( (utf8 = malloc(outb)) ){
+			// skip the meaningless BOM
+			inbuf = (char*)strbuf + 2;
+			inb = cnt - 2;
+			outbuf = utf8;
+			if(ic != (iconv_t)-1){
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
+					fputs("<![CDATA[", xml);
+					fwrite(utf8, 1, outbuf-utf8, xml);
+					fputs("]]>", xml);
+				}else
+					alwayswarn("stringxml(): iconv() failed, errno=%u\n", errno);
+			}
+			free(utf8);
+		}
+#endif
+	}else
+		fputsxml((char*)strbuf, xml); // not UTF; should be PDFDocEncoded
+}
+
+// Implements a "ghetto" PDF syntax parser - just the minimum needed
+// to translate Photoshop's embedded type tool data into XML.
+
+// PostScript implements a single heterogenous stack; we don't try
+// to emulate proper behaviour here but rather keep a 'stack' of names
+// only in order to generate correct closing tags,
+// and remember whether the 'current' object is a dictionary or array.
+
+// I've arbitrarily chosen to represent 'anonymous' dictionaries
+// <d></d> and array elements by <e></e>
+
 void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	unsigned char *buf = malloc(count), *p, *q, *strbuf, c;
+	char *buf = malloc(count), *p, *q, *strbuf, c;
 	size_t cnt, n;
 	unsigned is_array[MAX_DICTS], dict_tos = 0;
 
@@ -182,36 +261,8 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 				n -= p - q;
 				strbuf[cnt] = 0;
 
-				//fprintf(stderr, "pdf string: %lu (", cnt);
-				//fwrite(strbuf, 1, cnt, stderr);
-				//fputs(")\n", stderr);
+				stringxml((unsigned char*)strbuf, cnt);
 
-#ifdef HAVE_ICONV_H
-				if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
-					size_t inb, outb;
-					char *inbuf, *outbuf, *utf8;
-
-					iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
-
-					outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
-					if( (utf8 = malloc(outb)) ){
-						// skip the meaningless BOM
-						inbuf = (char*)strbuf + 2;
-						inb = cnt - 2;
-						outbuf = utf8;
-						if(ic != (iconv_t)-1){
-							if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
-								fputs("<![CDATA[", xml);
-								fwrite(utf8, 1, outbuf-utf8, xml);
-								fputs("]]>", xml);
-							}else
-								alwayswarn("desc_pdf(): pdf string, iconv() failed, errno=%u\n", errno);
-						}
-						free(utf8);
-					}
-				}else
-					fputsxml((char*)strbuf, xml); // not UTF; should be PDFDocEncoded
-#endif
 				free(strbuf);
 				pop_name("");
 				break;
@@ -233,11 +284,21 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 						fatal("dict stack overflow");
 					is_array[dict_tos++] = c == '[';
 				}
-				/*else{
-					// TODO: hex string
-					while(n && *p != '>')
-						++p;
-				}*/
+				else{ // hex string literal. THIS IS NOT TESTED.
+					q = p;
+					cnt = pdf_hexstring(&q, NULL, n);
+
+					strbuf = malloc(cnt+1);
+					q = p;
+					pdf_hexstring(&p, strbuf, n);
+					n -= p - q;
+					strbuf[cnt] = 0;
+	
+					stringxml((unsigned char*)strbuf, cnt);
+	
+					free(strbuf);
+					pop_name("");
+				}
 				break;
 
 			case '>':

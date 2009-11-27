@@ -280,8 +280,8 @@ void unmap_file(void *addr, size_t len);
 
 int is_pdf_white(char c);
 int is_pdf_delim(char c);
-size_t pdf_string(unsigned char **p, unsigned char *outbuf, size_t n);
-size_t pdf_name(unsigned char **p, unsigned char *outbuf, size_t n);
+size_t pdf_string(char **p, char *outbuf, size_t n);
+size_t pdf_name(char **p, char *outbuf, size_t n);
 
 #ifdef WIN32
 	#include <direct.h>
