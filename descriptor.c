@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-7 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -41,13 +41,13 @@ static void ascii_string(psd_file_t f, long count){
 
 void conv_unicodestr(psd_file_t f, long count){
 	char *buf = malloc(2*count);
-	
+
 	if(buf){
 		size_t n = fread(buf, 2, count, f);
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
 		char *inbuf, *outbuf, *utf8;
-	
+
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
@@ -143,7 +143,6 @@ struct dictentry *item(psd_file_t f, int level){
 	char *k;
 	struct dictentry *p;
 
-	stringorid(f, level, "KEY");
 	p = findbykey(f, level, itemdict, k = getkey(f), 1, 0);
 
 	if(!p){
@@ -152,6 +151,11 @@ struct dictentry *item(psd_file_t f, int level){
 		exit(1);
 	}
 	return p;
+}
+
+static struct dictentry *desc_item(psd_file_t f, int level){
+	stringorid(f, level, "KEY");
+	return item(f, level);
 }
 
 static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent){
@@ -167,7 +171,7 @@ void descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent)
 	count = get4B(f);
 	fprintf(xml, "%s<!--count:%ld-->\n", tabs(level), count);
 	while(count--)
-		item(f, level);
+		desc_item(f, level);
 }
 
 static void desc_double(psd_file_t f, int level, int printxml, struct dictentry *parent){
