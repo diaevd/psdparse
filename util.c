@@ -209,7 +209,7 @@ const char *tabs(int n){
 
 int hexdigit(unsigned char c){
 	c = toupper(c);
-	return c - (c >= 'A' ? 'A'+10 : '0');
+	return c - (c >= 'A' ? 'A'-10 : '0');
 }
 
 char indir[PATH_MAX];

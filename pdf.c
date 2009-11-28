@@ -149,14 +149,19 @@ size_t pdf_name(char **p, char *outbuf, size_t n){
 	size_t cnt;
 
 	for(cnt = 0; n;){
-		char c = *(*p)++;
-		--n;
-		if(c == '#' && n >= 2){
-			c = (hexdigit((*p)[0]) << 4) | hexdigit((*p)[1]);
-			*p += 2;
-			n -= 2;
-		}else if(is_pdf_white(c) || is_pdf_delim(c))
+		char c = *(*p);
+		if(is_pdf_white(c) || is_pdf_delim(c))
 			break;
+		else if(c == '#' && n >= 3){
+			// process #XX hex escape
+			c = (hexdigit((*p)[1]) << 4) | hexdigit((*p)[2]);
+			*p += 3;
+			n -= 3;
+		}else{
+			// consume character
+			++(*p);
+			--n;
+		}
 		if(outbuf)
 			*outbuf++ = c;
 		++cnt;
@@ -165,7 +170,7 @@ size_t pdf_name(char **p, char *outbuf, size_t n){
 }
 
 static char *name_stack[MAX_NAMES];
-unsigned name_tos;
+static unsigned name_tos, in_array;
 
 void push_name(const char *indent, char *tag){
 	if(name_tos == MAX_NAMES)
@@ -228,141 +233,163 @@ void stringxml(unsigned char *strbuf, size_t cnt){
 // I've arbitrarily chosen to represent 'anonymous' dictionaries
 // <d></d> and array elements by <e></e>
 
+static void pdf_data(char *buf, size_t n, int level);
+
 void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	char *buf = malloc(count), *p, *q, *strbuf, c;
-	size_t cnt, n;
-	unsigned is_array[MAX_DICTS], dict_tos = 0;
+	char *buf = malloc(count);
 
-	name_tos = 0;
-
-	if(buf && name_stack){
-		n = fread(buf, 1, count, f);
-
+	if(buf){
 		/* The raw PDF data is not valid UTF-8 and may break XML parse.
 		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
 		fwrite(buf, 1, count, xml);
 		fputs("]]></RAW>\n", xml); */
 
-		for(p = buf; n;){
-			c = *p++;
-			--n;
-			switch(c){
-			case '(':
-				// check parsed string length
-				q = p;
-				cnt = pdf_string(&q, NULL, n);
-
-				// parse string into new buffer, and step past in source buffer
-				strbuf = malloc(cnt+1);
-				q = p;
-				pdf_string(&p, strbuf, n);
-				n -= p - q;
-				strbuf[cnt] = 0;
-
-				stringxml((unsigned char*)strbuf, cnt);
-
-				free(strbuf);
-				pop_name("");
-				break;
-
-			case '<':
-				if(n && *p == '<'){
-					++p;
-					--n;
-					// if beginning a dictionary inside an array, there is
-					// no name to use.
-					if(dict_tos && is_array[dict_tos-1])
-						push_name(tabs(level), strdup("d"));
-			case '[':
-					if(name_tos){ // only if a name has opened an element
-						++level;
-						fputc('\n', xml);
-					}
-					if(dict_tos == MAX_DICTS)
-						fatal("dict stack overflow");
-					is_array[dict_tos++] = c == '[';
-				}
-				else{ // hex string literal. THIS IS NOT TESTED.
-					q = p;
-					cnt = pdf_hexstring(&q, NULL, n);
-
-					strbuf = malloc(cnt+1);
-					q = p;
-					pdf_hexstring(&p, strbuf, n);
-					n -= p - q;
-					strbuf[cnt] = 0;
-	
-					stringxml((unsigned char*)strbuf, cnt);
-	
-					free(strbuf);
-					pop_name("");
-				}
-				break;
-
-			case '>':
-				if(n && *p == '>'){
-					++p;
-					--n;
-			case ']':
-					pop_name(tabs(--level));
-					if(dict_tos)
-						--dict_tos;
-					else
-						warn("dict stack underflow");
-				}
-				break;
-
-			case '/':
-				// check parsed name length
-				q = p;
-				cnt = pdf_name(&q, NULL, n);
-
-				// parse name into new buffer, and step past in source buffer
-				strbuf = malloc(cnt+1);
-				q = p;
-				pdf_name(&p, strbuf, n);
-				strbuf[cnt] = 0;
-				n -= p - q;
-
-				push_name(tabs(level), (char*)strbuf);
-				break;
-
-			case '%': // skip comment
-				while(n && *p != '\012' && *p != '\015'){
-					++p;
-					--n;
-				}
-				break;
-
-			default:
-				if(!is_pdf_white(c)){
-					// probably numeric or boolean literal
-					if(dict_tos && is_array[dict_tos-1])
-						fprintf(xml, "%s<e>", tabs(level)); // treat as array element
-
-					// copy characters until whitespace or delimiter
-					fputcxml(c, xml);
-					while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
-						fputcxml(*p++, xml);
-						--n;
-					}
-
-					if(dict_tos && is_array[dict_tos-1])
-						fputs("</e>\n", xml);
-					else
-						pop_name("");
-				}
-				break;
-			}
-		}
-
-		// close any open elements (should not happen)
-		while(name_tos){
-			warn("unclosed element %s", name_stack[name_tos-1]);
-			pop_name("");
-		}
+		pdf_data(buf, fread(buf, 1, count, f), level);
 
 		free(buf);
+	}
+}
+
+static void pdf_data(char *buf, size_t n, int level){
+	char *p, *q, *strbuf, c;
+	size_t cnt;
+	unsigned is_array[MAX_DICTS], dict_tos = 0;
+
+	name_tos = in_array = 0;
+	for(p = buf; n;){
+		c = *p++;
+		--n;
+		switch(c){
+		case '(':
+			// check parsed string length
+			q = p;
+			cnt = pdf_string(&q, NULL, n);
+
+			// parse string into new buffer, and step past in source buffer
+			strbuf = malloc(cnt+1);
+			q = p;
+			pdf_string(&p, strbuf, n);
+			n -= p - q;
+			strbuf[cnt] = 0;
+
+			if(in_array)
+				fprintf(xml, "%s<e>", tabs(level));
+
+			stringxml((unsigned char*)strbuf, cnt);
+
+			if(in_array)
+				fprintf(xml, "%s</e>\n", tabs(level));
+			else
+				pop_name("");
+			free(strbuf);
+			break;
+
+		case '<':
+			if(n && *p == '<'){
+				++p;
+				--n;
+				// if beginning a dictionary inside an array, there is
+				// no name to use.
+				if(in_array)
+					push_name(tabs(level), strdup("d"));
+		case '[':
+				if(name_tos){ // only if a name has opened an element
+					++level;
+					fputc('\n', xml);
+				}
+				if(dict_tos == MAX_DICTS)
+					fatal("dict stack overflow");
+				is_array[dict_tos++] = in_array = c == '[';
+			}
+			else{ // hex string literal. THIS IS NOT TESTED.
+				q = p;
+				cnt = pdf_hexstring(&q, NULL, n);
+
+				strbuf = malloc(cnt+1);
+				q = p;
+				pdf_hexstring(&p, strbuf, n);
+				n -= p - q;
+				strbuf[cnt] = 0;
+
+				if(in_array)
+					fprintf(xml, "%s<e>", tabs(level));
+				stringxml((unsigned char*)strbuf, cnt);
+
+				if(in_array)
+					fprintf(xml, "%s</e>\n", tabs(level));
+				else
+					pop_name("");
+				free(strbuf);
+			}
+			break;
+
+		case '>':
+			if(n && *p == '>'){
+				++p;
+				--n;
+		case ']':
+				if(dict_tos)
+					--dict_tos;
+				else
+					warn("dict stack underflow");
+				in_array = dict_tos && is_array[dict_tos-1];
+				pop_name(tabs(--level));
+			}
+			break;
+
+		case '/':
+			// check parsed name length
+			q = p;
+			cnt = pdf_name(&q, NULL, n);
+
+			// parse name into new buffer, and step past in source buffer
+			strbuf = malloc(cnt+1);
+			q = p;
+			pdf_name(&p, strbuf, n);
+			strbuf[cnt] = 0;
+			n -= p - q;
+
+			// if a name occurs inside an array, emit a single empty element
+			if(in_array)
+				fprintf(xml, "%s<%s/>\n", tabs(level), strbuf);
+			else // otherwise it's a dictionary key; open an element
+				push_name(tabs(level), (char*)strbuf);
+			break;
+
+		case '%': // skip comment
+			while(n && *p != '\012' && *p != '\015'){
+				++p;
+				--n;
+			}
+			break;
+
+		default:
+			if(!is_pdf_white(c)){
+				// probably numeric or boolean literal
+				if(in_array)
+					fprintf(xml, "%s<e>", tabs(level)); // treat as array element
+
+				// copy characters until whitespace or delimiter
+				fputcxml(c, xml);
+				while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
+					fputcxml(*p++, xml);
+					--n;
+				}
+
+
+				if(in_array)
+					fprintf(xml, "%s</e>\n", tabs(level));
+				else
+					pop_name("");
+			}
+			break;
+		}
+	}
+
+	// close any open elements (should not happen)
+	while(name_tos){
+		warn("unclosed element %s", name_stack[name_tos-1]);
+		pop_name(tabs(--level));
 	}
 }
