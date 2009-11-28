@@ -164,7 +164,7 @@ size_t pdf_name(char **p, char *outbuf, size_t n){
 	return cnt;
 }
 
-static char **name_stack;
+static char *name_stack[MAX_NAMES];
 unsigned name_tos;
 
 void push_name(const char *indent, char *tag){
@@ -234,7 +234,6 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	size_t cnt, n;
 	unsigned is_array[MAX_DICTS], dict_tos = 0;
 
-	name_stack = malloc(MAX_NAMES*sizeof(char*));
 	name_tos = 0;
 
 	if(buf && name_stack){
@@ -365,6 +364,5 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 		}
 
 		free(buf);
-		free(name_stack);
 	}
 }
