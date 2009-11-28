@@ -22,33 +22,6 @@
 #define MAX_NAMES 32
 #define MAX_DICTS 32 // dict/array nesting limit
 
-/* PDF data. This has embedded literal strings in UTF-16, e.g.:
-
-00000820  74 6f 72 0a 09 09 3c 3c  0a 09 09 09 2f 54 65 78  |tor...<<..../Tex|
-00000830  74 20 28 fe ff ac f5 ac  1c 00 20 d3 ec d1 a0 c5  |t (....... .....|
-00000840  68 bc 94 00 20 d5 04 b8  5c 5c ad f8 b7 a8 c7 78  |h... ...\\.....x|
-00000850  00 20 b9 e5 c2 a4 d3 98  c7 74 d3 7c c7 58 00 20  |. .......t.|.X. |
-00000860  d3 ec d1 a0 c0 f5 00 20  d3 0c c7 7c 00 20 cd 9c  |....... ...|. ..|
-00000870  b8 25 c7 44 00 20 c7 04  d5 5c 5c 00 2c 00 20 00  |.%.D. ...\\.,. .|
-00000880  50 00 53 00 44 d3 0c c7  7c c7 58 00 20 b0 b4 bd  |P.S.D...|.X. ...|
-00000890  80 00 20 ad 6c c8 70 00  20 bd 84 c1 1d d3 0c c7  |.. .l.p. .......|
-000008a0  7c c7 85 b2 c8 b2 e4 00  2e 00 0d 00 0d 00 0d 29  ||..............)|
-
-From PDF Reference 1.7, 3.8.1 Text String Type
-
-The text string type is used for character strings that are encoded in either PDFDocEncoding
-or the UTF-16BE Unicode character encoding scheme. PDFDocEncoding
-can encode all of the ISO Latin 1 character set and is documented in Appendix D. ...
-
-For text strings encoded in Unicode, the first two bytes must be 254 followed by 255.
-These two bytes represent the Unicode byte order marker, U+FEFF,
-indicating that the string is encoded in the UTF-16BE (big-endian) encoding scheme ...
-
-Note: Applications that process PDF files containing Unicode text strings
-should be prepared to handle supplementary characters;
-that is, characters requiring more than two bytes to represent.
-*/
-
 int is_pdf_white(char c){
 	return c == '\000' || c == '\011' || c == '\012'
 		|| c == '\014' || c == '\015' || c == '\040';
@@ -189,11 +162,41 @@ void pop_name(const char *indent){
 		warn("pop_name(): underflow");
 }
 
+void begin_value(const char *indent){
+	if(in_array)
+		fprintf(xml, "%s<e>", indent);
+}
+
+void end_value(){
+	if(in_array)
+		fputs("</e>\n", xml);
+	else
+		pop_name("");
+}
+
 // Write a string representation to XML. Either convert to UTF-8
 // from the UTF-16BE if flagged as such by a BOM prefix,
 // or just write the literal string bytes without transliteration.
 
-void stringxml(unsigned char *strbuf, size_t cnt){
+/*
+From PDF Reference 1.7, 3.8.1 Text String Type
+
+The text string type is used for character strings that are encoded in either PDFDocEncoding
+or the UTF-16BE Unicode character encoding scheme. PDFDocEncoding
+can encode all of the ISO Latin 1 character set and is documented in Appendix D. ...
+
+For text strings encoded in Unicode, the first two bytes must be 254 followed by 255.
+These two bytes represent the Unicode byte order marker, U+FEFF,
+indicating that the string is encoded in the UTF-16BE (big-endian) encoding scheme ...
+
+Note: Applications that process PDF files containing Unicode text strings
+should be prepared to handle supplementary characters;
+that is, characters requiring more than two bytes to represent.
+*/
+
+void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
+	begin_value(indent);
+
 	if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
@@ -220,6 +223,8 @@ void stringxml(unsigned char *strbuf, size_t cnt){
 #endif
 	}else
 		fputsxml((char*)strbuf, xml); // not UTF; should be PDFDocEncoded
+
+	end_value();
 }
 
 // Implements a "ghetto" PDF syntax parser - just the minimum needed
@@ -255,15 +260,8 @@ static void pdf_data(char *buf, size_t n, int level){
 			n -= p - q;
 			strbuf[cnt] = 0;
 
-			if(in_array)
-				fprintf(xml, "%s<e>", tabs(level));
+			stringxml(tabs(level), (unsigned char*)strbuf, cnt);
 
-			stringxml((unsigned char*)strbuf, cnt);
-
-			if(in_array)
-				fputs("</e>\n", xml);
-			else
-				pop_name("");
 			free(strbuf);
 			break;
 
@@ -294,14 +292,8 @@ static void pdf_data(char *buf, size_t n, int level){
 				n -= p - q;
 				strbuf[cnt] = 0;
 
-				if(in_array)
-					fprintf(xml, "%s<e>", tabs(level));
-				stringxml((unsigned char*)strbuf, cnt);
+				stringxml(tabs(level), (unsigned char*)strbuf, cnt);
 
-				if(in_array)
-					fputs("</e>\n", xml);
-				else
-					pop_name("");
 				free(strbuf);
 			}
 			break;
@@ -349,8 +341,7 @@ static void pdf_data(char *buf, size_t n, int level){
 		default:
 			if(!is_pdf_white(c)){
 				// probably numeric or boolean literal
-				if(in_array)
-					fprintf(xml, "%s<e>", tabs(level)); // treat as array element
+				begin_value(tabs(level));
 
 				// copy characters until whitespace or delimiter
 				fputcxml(c, xml);
@@ -359,10 +350,7 @@ static void pdf_data(char *buf, size_t n, int level){
 					--n;
 				}
 
-				if(in_array)
-					fputs("</e>\n", xml);
-				else
-					pop_name("");
+				end_value();
 			}
 			break;
 		}
