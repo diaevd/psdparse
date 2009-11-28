@@ -233,24 +233,6 @@ void stringxml(unsigned char *strbuf, size_t cnt){
 // I've arbitrarily chosen to represent 'anonymous' dictionaries
 // <d></d> and array elements by <e></e>
 
-static void pdf_data(char *buf, size_t n, int level);
-
-void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	long count = get4B(f);
-	char *buf = malloc(count);
-
-	if(buf){
-		/* The raw PDF data is not valid UTF-8 and may break XML parse.
-		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
-		fwrite(buf, 1, count, xml);
-		fputs("]]></RAW>\n", xml); */
-
-		pdf_data(buf, fread(buf, 1, count, f), level);
-
-		free(buf);
-	}
-}
-
 static void pdf_data(char *buf, size_t n, int level){
 	char *p, *q, *strbuf, c;
 	size_t cnt;
@@ -302,7 +284,7 @@ static void pdf_data(char *buf, size_t n, int level){
 					fatal("dict stack overflow");
 				is_array[dict_tos++] = in_array = c == '[';
 			}
-			else{ // hex string literal. THIS IS NOT TESTED.
+			else{ // hex string literal
 				q = p;
 				cnt = pdf_hexstring(&q, NULL, n);
 
@@ -377,7 +359,6 @@ static void pdf_data(char *buf, size_t n, int level){
 					--n;
 				}
 
-
 				if(in_array)
 					fputs("</e>\n", xml);
 				else
@@ -391,5 +372,21 @@ static void pdf_data(char *buf, size_t n, int level){
 	while(name_tos){
 		warn("unclosed element %s", name_stack[name_tos-1]);
 		pop_name(tabs(--level));
+	}
+}
+
+void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
+	long count = get4B(f);
+	char *buf = malloc(count);
+
+	if(buf){
+		/* The raw PDF data is not valid UTF-8 and may break XML parse.
+		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
+		fwrite(buf, 1, count, xml);
+		fputs("]]></RAW>\n", xml); */
+
+		pdf_data(buf, fread(buf, 1, count, f), level);
+
+		free(buf);
 	}
 }
