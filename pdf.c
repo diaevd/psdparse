@@ -279,7 +279,7 @@ static void pdf_data(char *buf, size_t n, int level){
 			stringxml((unsigned char*)strbuf, cnt);
 
 			if(in_array)
-				fprintf(xml, "%s</e>\n", tabs(level));
+				fputs("</e>\n", xml);
 			else
 				pop_name("");
 			free(strbuf);
@@ -317,7 +317,7 @@ static void pdf_data(char *buf, size_t n, int level){
 				stringxml((unsigned char*)strbuf, cnt);
 
 				if(in_array)
-					fprintf(xml, "%s</e>\n", tabs(level));
+					fputs("</e>\n", xml);
 				else
 					pop_name("");
 				free(strbuf);
@@ -379,7 +379,7 @@ static void pdf_data(char *buf, size_t n, int level){
 
 
 				if(in_array)
-					fprintf(xml, "%s</e>\n", tabs(level));
+					fputs("</e>\n", xml);
 				else
 					pop_name("");
 			}
