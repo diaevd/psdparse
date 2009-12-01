@@ -65,6 +65,19 @@ typedef long psd_pixels_t;
 #include <string.h>
 #include <limits.h>
 
+#ifdef WIN32
+	#include <direct.h>
+	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
+#else
+	#if defined(macintosh) && !defined(_SYS_STAT_H_)
+		// don't clash with OS X header -- this prototype is meant for MPW build.
+		int mkdir(char *s, int mode);
+	#else
+		#include <sys/stat.h>
+	#endif
+	#define MKDIR mkdir
+#endif
+
 #ifdef PSDPARSE_PLUGIN
 	#include "world.h" // for DIRSEP
 	#include "file_compat.h"
@@ -205,7 +218,8 @@ struct dictentry{
 	void (*func)(psd_file_t f, int level, int printxml, struct dictentry *dict);
 };
 
-extern char *channelsuffixes[], *mode_names[], dirsep[], *pngdir;
+extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
+extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout;
 
@@ -239,6 +253,8 @@ void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_inf
 
 void conv_unicodestr(psd_file_t f, long count);
 void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
+
+void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent);
 
@@ -282,16 +298,3 @@ int is_pdf_white(char c);
 int is_pdf_delim(char c);
 size_t pdf_string(char **p, char *outbuf, size_t n);
 size_t pdf_name(char **p, char *outbuf, size_t n);
-
-#ifdef WIN32
-	#include <direct.h>
-	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
-#else
-	#if defined(macintosh) && !defined(_SYS_STAT_H_)
-		// don't clash with OS X header -- this prototype is meant for MPW build.
-		int mkdir(char *s,int mode);
-	#else
-		#include <sys/stat.h>
-	#endif
-	#define MKDIR mkdir
-#endif

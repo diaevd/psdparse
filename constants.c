@@ -19,14 +19,14 @@
 
 #include "psdparse.h"
 
-char *mode_names[] = {
+const char *mode_names[] = {
 	"Bitmap", "GrayScale", "IndexedColor", "RGBColor",
 	"CMYKColor", "HSLColor", "HSBColor", "Multichannel",
 	"Duotone", "LabColor", "Gray16", "RGB48",
 	"Lab48", "CMYK64", "DeepMultichannel", "Duotone16"
 };
 
-char *channelsuffixes[] = {
+const char *channelsuffixes[] = {
 	"", "", "", "RGB",
 	"CMYK", "HSL", "HSB", "",
 	"", "Lab", "", "RGB",

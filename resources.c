@@ -19,8 +19,6 @@
 
 #include "psdparse.h"
 
-extern void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
-
 static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	double hresd, vresd;
 	extern long hres, vres; // fixed point values
@@ -29,7 +27,7 @@ static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *pa
 	get2B(f);
 	get2B(f);
 	vresd = FIXEDPT(vres = get4B(f));
-	fprintf(xml, " <HRES>%g</HRES> <VRES>%g</VRES> ", hresd, vresd);
+	fprintf(xml, " <H>%g</H> <V>%g</V> ", hresd, vresd);
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hresd, vresd);
 }
 
@@ -101,13 +99,14 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 
 static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	long v = get4B(f), gv = get4B(f), gh = get4B(f);
-	long i, n = get4B(f);
+	long v = get4B(f), gv = get4B(f), gh = get4B(f), i, n = get4B(f);
+
 	fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
 	// Note that these quantities are "document coordinates".
 	// This is not documented, but appears to mean fixed point with 5 fraction bits,
 	// so we divide by 32 to obtain pixel position.
-	fprintf(xml, "%s<GRIDCYCLE> <V>%g</V> <H>%g</H> </GRIDCYCLE>\n", indent, gv/32., gh/32.);
+	fprintf(xml, "%s<GRIDCYCLE> <V>%g</V> <H>%g</H> </GRIDCYCLE>\n",
+			indent, gv/32., gh/32.);
 	fprintf(xml, "%s<GUIDES>\n", indent);
 	for(i = n; i--;){
 		long ord = get4B(f);
@@ -115,6 +114,50 @@ static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *pa
 		fprintf(xml, "%s\t<%cGUIDE>%g</%cGUIDE>\n", indent, c, ord/32., c);
 	}
 	fprintf(xml, "%s</GUIDES>\n", indent);
+}
+
+static void ir_layersgroup(psd_file_t f, int level, int len, struct dictentry *parent){
+	for(; len >= 2; len -= 2){
+		fprintf(xml, "%s<GROUPID>%d</GROUPID>\n", tabs(level), get2B(f));
+	}
+}
+
+static void ir_printflags(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	fprintf(xml, "%s<LABELS>%d</LABELS>\n", indent, fgetc(f));
+	fprintf(xml, "%s<CROPMARKS>%d</CROPMARKS>\n", indent, fgetc(f));
+	fprintf(xml, "%s<COLORBARS>%d</COLORBARS>\n", indent, fgetc(f));
+	fprintf(xml, "%s<REGMARKS>%d</REGMARKS>\n", indent, fgetc(f));
+	fprintf(xml, "%s<NEGATIVE>%d</NEGATIVE>\n", indent, fgetc(f));
+	fprintf(xml, "%s<FLIP>%d</FLIP>\n", indent, fgetc(f));
+	fprintf(xml, "%s<INTERPOLATE>%d</INTERPOLATE>\n", indent, fgetc(f));
+	fprintf(xml, "%s<CAPTION>%d</CAPTION>\n", indent, fgetc(f));
+	fprintf(xml, "%s<PRINTFLAGS>%d</PRINTFLAGS>\n", indent, fgetc(f));
+}
+
+static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
+	fprintf(xml, "%s<CENTERCROPMARKS>%d</CENTERCROPMARKS>\n", indent, fgetc(f));
+	fgetc(f);
+	fprintf(xml, "%s<BLEEDWIDTH>%d</BLEEDWIDTH>\n", indent, get4B(f));
+	fprintf(xml, "%s<BLEEDWIDTHSCALE>%d</BLEEDWIDTHSCALE>\n", indent, get2B(f));
+}
+
+static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	long v = get4B(f), n = get4B(f), x, y, space;
+
+	fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
+	while(n--){
+		fprintf(xml, "%s<SAMPLER>\n", indent);
+		y = get4B(f);
+		x = get4B(f);
+		space = get2B(f);
+		fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x/32., y/32.); // undocumented fixed point factor
+		fprintf(xml, "\t%s<COLORSPACE>%s</COLORSPACE>\n", indent, colour_spaces[space+1]);
+		fprintf(xml, "%s</SAMPLER>\n", indent);
+	}
 }
 
 // id, key, tag, desc, func
@@ -128,7 +171,7 @@ static struct dictentry rdesc[] = {
 	{1008, NULL, "-CAPTION", "Caption", ir_pstring},
 	{1009, NULL, NULL, "Border information", NULL},
 	{1010, NULL, NULL, "Background color", NULL},
-	{1011, NULL, NULL, "Print flags", NULL},
+	{1011, NULL, "PRINTFLAGS", "Print flags", ir_printflags},
 	{1012, NULL, NULL, "Grayscale/multichannel halftoning info", NULL},
 	{1013, NULL, NULL, "Color halftoning info", NULL},
 	{1014, NULL, NULL, "Duotone halftoning info", NULL},
@@ -141,7 +184,7 @@ static struct dictentry rdesc[] = {
 	{1022, NULL, NULL, "Quick Mask info", NULL},
 	{1024, NULL, "-TARGETLAYER", "Layer state info", ir_2byte},
 	{1025, NULL, NULL, "Working path", NULL},
-	{1026, NULL, NULL, "Layers group info", NULL},
+	{1026, NULL, "LAYERSGROUP", "Layers group info", ir_layersgroup},
 	{1028, NULL, NULL, "IPTC-NAA record (File Info)", NULL},
 	{1029, NULL, NULL, "Image mode for raw format files", NULL},
 	{1030, NULL, NULL, "JPEG quality", NULL},
@@ -153,7 +196,7 @@ static struct dictentry rdesc[] = {
 	// v5.0
 	{1036, NULL, NULL, "Thumbnail resource (5.0)", NULL},
 	{1037, NULL, "-GLOBALANGLE", "Global Angle", ir_4byte},
-	{1038, NULL, NULL, "Color samplers resource", NULL},
+	{1038, NULL, "COLORSAMPLERS", "Color samplers resource", ir_colorsamplers},
 	{1039, NULL, "ICC34", "ICC Profile", ir_icc34profile},
 	{1040, NULL, "-WATERMARK", "Watermark", ir_1byte},
 	{1041, NULL, "-ICCUNTAGGED", "ICC Untagged Profile", ir_1byte},
@@ -165,7 +208,7 @@ static struct dictentry rdesc[] = {
 	{1046, NULL, "-COLORTABLECOUNT", "Indexed Color Table Count", ir_2byte},
 	{1047, NULL, "-TRANSPARENTINDEX", "Transparent Index", ir_2byte},
 	{1049, NULL, "-GLOBALALTITUDE", "Global Altitude", ir_4byte},
-	{1050, NULL, NULL, "Slices", NULL},
+	{1050, NULL, "SLICES", "Slices", NULL},
 	{1051, NULL, "-WORKFLOWURL", "Workflow URL", ir_unicodestr},
 	{1052, NULL, NULL, "Jump To XPEP", NULL},
 	{1053, NULL, NULL, "Alpha Identifiers", NULL},
@@ -179,12 +222,12 @@ static struct dictentry rdesc[] = {
 	{1062, NULL, NULL, "Print scale", NULL},
 	// CS
 	{1064, NULL, "-PIXELASPECTRATIO", "Pixel aspect ratio", ir_pixelaspect},
-	{1065, NULL, "LAYERCOMPS", "Layer comps", NULL /*ed_versdesc*/},
+	{1065, NULL, "LAYERCOMPS", "Layer comps", ed_versdesc},
 	{1066, NULL, NULL, "Alternate duotone colors", NULL},
 	{1067, NULL, NULL, "Alternate spot colors", NULL},
 
 	{2999, NULL, "-CLIPPINGPATH", "Name of clipping path", ir_pstring},
-	{10000,NULL, NULL, "Print flags info", NULL},
+	{10000,NULL, "PRINTFLAGS10K", "Print flags info", ir_printflags10k},
 	{-1, NULL, NULL, NULL, NULL}
 };
 
@@ -194,7 +237,7 @@ static struct dictentry *findbyid(int id){
 
 	/* dumb linear lookup of description string from resource id */
 	/* assumes array ends with a NULL desc pointer */
-	if(id >= 2000 && id < 2999)
+	if(id >= 2000 && id <= 2999)
 		return &path; // special case
 	for(d = rdesc; d->desc; ++d)
 		if(d->id == id)
@@ -225,7 +268,8 @@ static long doirb(psd_file_t f){
 	if(xml && d && d->tag){
 		fprintf(xml, "\t<RESOURCE TYPE='%c%c%c%c' ID='%d'",
 				type[0],type[1],type[2],type[3], id);
-		if(namelen) fprintf(xml, " NAME='%s'", name);
+		if(namelen)
+			fprintf(xml, " NAME='%s'", name);
 		if(d->func){
 			fputs(">\n", xml);
 			entertag(f, 2, size, &resource, d, 1); // HACK: abuse 'printxml' parameter
@@ -244,5 +288,6 @@ void doimageresources(psd_file_t f){
 	VERBOSE("\nImage resources (%ld bytes):\n", len);
 	while(len > 0)
 		len -= doirb(f);
-	if(len != 0) warn("image resources overran expected size by %d bytes\n", -len);
+	if(len != 0)
+		warn("image resources overran expected size by %d bytes\n", -len);
 }

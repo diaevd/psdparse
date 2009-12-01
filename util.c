@@ -126,10 +126,16 @@ char *getpstr(psd_file_t f){
 
 // Pascal string, aligned to 2 byte
 char *getpstr2(psd_file_t f){
-	char *p = getpstr(f);
-	if(!(p[0] & 1))
-		fgetc(f); // skip padding
-	return p;
+	static char pstr[0x100];
+	int len = fgetc(f);
+	if(len != EOF){
+		fread(pstr, 1, len, f);
+		pstr[len] = 0;
+		if(!(len & 1))
+			fgetc(f); // skip padding
+	}else
+		pstr[0] = 0;
+	return pstr;
 }
 
 char *getkey(psd_file_t f){

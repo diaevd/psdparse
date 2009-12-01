@@ -23,6 +23,13 @@
 	extern iconv_t ic;
 #endif
 
+const char *colour_spaces[] = {"kDummySpace" /* = -1 */, "kRGBSpace",
+	"kHSBSpace", "kCMYKSpace", "kPantoneSpace", "kFocoltoneSpace",
+	"kTrumatchSpace", "kToyoSpace", "kLabSpace", "kGraySpace",
+	"kWideCMYKSpace", "kHKSSpace", "kDICSpace", "kTotalInkSpace",
+	"kMonitorRGBSpace", "kDuotoneSpace", "kOpacitySpace"
+};
+
 /* 'Extra data' handling. *Work in progress*
  *
  * There's guesswork and trial-and-error in here,
@@ -33,8 +40,6 @@
  */
 
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
-
-static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
 
 void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d, int resetpos){
 	psd_bytes_t savepos = ftello(f);
@@ -90,16 +95,11 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 
 static void colorspace(psd_file_t f, int level){
 	// this map is taken from Colour Samplers; I'm guessing it applies generally
-	static char *spaces[] = {"kDummySpace" /* = -1 */, "kRGBSpace",
-		"kHSBSpace", "kCMYKSpace", "kPantoneSpace", "kFocoltoneSpace",
-		"kTrumatchSpace", "kToyoSpace", "kLabSpace", "kGraySpace",
-		"kWideCMYKSpace", "kHKSSpace", "kDICSpace", "kTotalInkSpace",
-		"kMonitorRGBSpace", "kDuotoneSpace", "kOpacitySpace"};
 	int i, space = get2B(f);
 
 	fprintf(xml, "%s<COLOR SPACE='%d'", tabs(level), space);
-	if(space >= -1 && space < (int)(sizeof(spaces)/sizeof(*spaces))-1)
-		fprintf(xml, " NAME='%s'", spaces[space+1]);
+	if(space >= -1 && space < (int)(sizeof(colour_spaces)/sizeof(*colour_spaces))-1)
+		fprintf(xml, " NAME='%s'", colour_spaces[space+1]);
 	fputc('>', xml);
 	for(i = 0; i < 4; ++i)
 		fprintf(xml, " <C%d>%g</C%d>", i, FIXEDPT(get2Bu(f)), i);
@@ -236,10 +236,10 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 			fprintf(xml, "%s<WARPVERSION>%d</WARPVERSION>\n", indent, get2B(f));
 			ed_versdesc(f, level, printxml, parent); // warp
 
-			fprintf(xml, "%s<LEFT>%g</LEFT>\n", indent, getdoubleB(f));
-			fprintf(xml, "%s<TOP>%g</TOP>\n", indent, getdoubleB(f));
-			fprintf(xml, "%s<RIGHT>%g</RIGHT>\n", indent, getdoubleB(f));
-			fprintf(xml, "%s<BOTTOM>%g</BOTTOM>\n", indent, getdoubleB(f));
+			fprintf(xml, "%s<LEFT>%ld</LEFT>\n", indent, get4B(f));
+			fprintf(xml, "%s<TOP>%ld</TOP>\n", indent, get4B(f));
+			fprintf(xml, "%s<RIGHT>%ld</RIGHT>\n", indent, get4B(f));
+			fprintf(xml, "%s<BOTTOM>%ld</BOTTOM>\n", indent, get4B(f));
 		}else
 			fprintf(xml, "%s<!-- don't know how to parse version %d -->\n", indent, v);
 	}else
@@ -278,7 +278,7 @@ static void ed_key(psd_file_t f, int level, int printxml, struct dictentry *pare
 }
 
 static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	int i, j, major = get2B(f), minor = get2B(f), len, open, flags;
+	int i, j, major = get2B(f), minor = get2B(f), len, open, flags, optblocks;
 	char type[4], key[4];
 	const char *indent = tabs(level);
 	long datalen, len2, rects[8];
@@ -290,7 +290,7 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 			fread(type, 1, 4, f);
 			open = fgetc(f);
 			flags = fgetc(f);
-			get2B(f); // optblocks
+			optblocks = get2B(f);
 			// read two rectangles - icon and popup
 			for(j = 0; j < 8;)
 				rects[j++] = get4B(f);
@@ -313,22 +313,27 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 
 			len2 = get4B(f)-12; // remaining bytes in annotation
 			fread(key, 1, 4, f);
-			datalen = get4B(f); //printf(" key=%c%c%c%c datalen=%ld\n", key[0],key[1],key[2],key[3],datalen);
+			datalen = get4B(f);
+			//printf(" optblocks=%d key=%c%c%c%c len2=%ld datalen=%ld\n", optblocks, key[0],key[1],key[2],key[3],len2,datalen);
 			if(!memcmp(key, "txtC", 4)){
-				// Once again, the doc lets us down:
-				// - it says "ASCII or Unicode," but doesn't say how each is distinguished;
-				// - one might think it has something to do with the mysterious four bytes
-				//   stuck to the beginning of the data.
-				// TODO: Check if this is the BOM indicator used to indicate encoding in PDF strings
-				fprintf(xml, ">\n%s\t<UNICODE>", indent);
-				conv_unicodestr(f, datalen/2);
-				if(datalen & 1)
-					fgetc(f); // FIXME, this should never be needed if it's a UTF-16 string
-				fprintf(xml, "</UNICODE>\n%s</TEXT>\n", indent);
+				unsigned char bom[2];
+
+				fputc('>', xml);
+				// use the same BOM test as PDF strings
+				fread(bom, 1, 2, f);
 				len2 -= datalen; // we consumed this much from the file
+				datalen -= 2;
+				if(bom[0] == 0xfe && bom[1] == 0xff)
+					conv_unicodestr(f, datalen/2);
+				else{
+					fputcxml(bom[0], xml);
+					fputcxml(bom[1], xml);
+					while(datalen--)
+						fputcxml(fgetc(f), xml);
+				}
+				fputs("</TEXT>\n", xml);
 			}else if(!memcmp(key, "sndM", 4)){
-				// Perhaps the 'length' field is actually a sampling rate?
-				// Documentation says something different, natch.
+				// TODO: Check PDF doc for format of sound annotation
 				fprintf(xml, " RATE='%ld' BYTES='%ld' />\n", datalen, len2);
 			}else
 				fputs(" /> <!-- don't know -->\n", xml);
@@ -359,7 +364,7 @@ static void ed_referencepoint(psd_file_t f, int level, int printxml, struct dict
 }
 
 // CS doc
-static void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
+void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long v = get4B(f);
 	if(printxml)
 		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), v);
