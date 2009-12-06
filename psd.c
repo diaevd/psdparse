@@ -149,17 +149,41 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 		li->additionalpos = ftello(f);
 		li->additionallen = extrastart + extralen - li->additionalpos;
 		if(extra)
-			doadditional(f, 0, li->additionallen, 0);
+			doadditional(f, h, 0, li->additionallen);
 
 		// leave file positioned at end of layer's data
 		fseeko(f, extrastart + extralen, SEEK_SET);
 	}
 }
 
+void dolayerinfo(psd_file_t f, struct psd_header *h){
+	int i;
+
+	// layers structure
+	h->nlayers = get2B(f);
+	h->mergedalpha = h->nlayers < 0;
+	if(h->mergedalpha){
+		h->nlayers = - h->nlayers;
+		VERBOSE("  (first alpha is transparency for merged image)\n");
+	}
+	UNQUIET("\n%d layers:\n", h->nlayers);
+
+	//if( h->nlayers*(18+6*h->channels) > layerlen ){ // sanity check
+	//	alwayswarn("### unlikely number of layers, giving up.\n");
+	//	return;
+	//}
+
+	h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info));
+
+	// load linfo[] array with each layer's info
+
+	for(i = 0; i < h->nlayers; ++i)
+		readlayerinfo(f, h, i);
+}
+
 void dolayermaskinfo(psd_file_t f, struct psd_header *h)
 {
 	psd_bytes_t layerlen;
-	int i;
 
 	h->nlayers = 0;
 	h->lmilen = GETPSDBYTES(f);
@@ -168,26 +192,11 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h)
 		// process layer info section
 		layerlen = GETPSDBYTES(f);
 		if(layerlen){
-			// layers structure
-			h->nlayers = get2B(f);
-			h->mergedalpha = h->nlayers < 0;
-			if(h->mergedalpha){
-				h->nlayers = - h->nlayers;
-				VERBOSE("  (first alpha is transparency for merged image)\n");
-			}
-			UNQUIET("\n%d layers:\n", h->nlayers);
+			FILE *tmp = xml;
 
-			if( h->nlayers*(18+6*h->channels) > layerlen ){ // sanity check
-				alwayswarn("### unlikely number of layers, giving up.\n");
-				return;
-			}
-
-			h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info));
-
-			// load linfo[] array with each layer's info
-
-			for(i = 0; i < h->nlayers; ++i)
-				readlayerinfo(f, h, i);
+			xml = NULL; // hacky - suppress XML generation at this stage (we're not inside a LAYER element)
+			dolayerinfo(f, h);
+			xml = tmp;
 
       		// after processing all layers, file should now positioned at image data
 		}else VERBOSE("  (layer info section is empty)\n");
@@ -240,7 +249,10 @@ void processlayers(psd_file_t f, struct psd_header *h)
 			// This pass is purely for XML output.
 			savepos = ftello(f);
 			fseeko(f, li->additionalpos, SEEK_SET);
-			doadditional(f, 2, li->additionallen, 1);
+
+			// this time we want to generate XML
+			doadditional(f, h, 2, li->additionallen);
+
 			fseeko(f, savepos, SEEK_SET); // restore file position
 		}
 		if(xml) fputs("\t</LAYER>\n\n", xml);

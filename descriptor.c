@@ -19,18 +19,18 @@
 
 #include "psdparse.h"
 
-static void desc_class(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_reference(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_double(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_unitfloat(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_enumerated(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent);
-static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent);
+static void desc_class(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_reference(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_list(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_double(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_unitfloat(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_enumerated(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_integer(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_boolean(psd_file_t f, int level, int len, struct dictentry *parent);
+static void desc_alias(psd_file_t f, int level, int len, struct dictentry *parent);
 
-extern void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent);
+extern void desc_pdf(psd_file_t f, int level, int len, struct dictentry *parent);
 
 static void ascii_string(psd_file_t f, long count){
 	fputs(" <STRING>", xml);
@@ -84,27 +84,27 @@ static void stringorid(psd_file_t f, int level, char *tag){
 	fprintf(xml, " </%s>\n", tag);
 }
 
-static void ref_property(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	desc_class(f, level, printxml, parent);
+static void ref_property(psd_file_t f, int level, int len, struct dictentry *parent){
+	desc_class(f, level, len, parent);
 	stringorid(f, level, "KEY");
 }
 
-static void ref_enumref(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	desc_class(f, level, printxml, parent);
-	desc_enumerated(f, level, printxml, parent);
+static void ref_enumref(psd_file_t f, int level, int len, struct dictentry *parent){
+	desc_class(f, level, len, parent);
+	desc_enumerated(f, level, len, parent);
 }
 
-static void ref_offset(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	desc_class(f, level, printxml, parent);
-	desc_integer(f, level, printxml, parent);
+static void ref_offset(psd_file_t f, int level, int len, struct dictentry *parent){
+	desc_class(f, level, len, parent);
+	desc_integer(f, level, len, parent);
 }
 
-static void desc_class(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	desc_unicodestr(f, level, printxml, parent);
+static void desc_class(psd_file_t f, int level, int len, struct dictentry *parent){
+	desc_unicodestr(f, level, len, parent);
 	stringorid(f, level, "CLASS");
 }
 
-static void desc_reference(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_reference(psd_file_t f, int level, int len, struct dictentry *parent){
 	static struct dictentry refdict[] = {
 		// all functions must be present, for this to parse correctly
 		{0, "prop", "PROPERTY", "Property", ref_property},
@@ -117,7 +117,7 @@ static void desc_reference(psd_file_t f, int level, int printxml, struct dictent
 		{0, NULL, NULL, NULL, NULL}
 	};
 	long count = get4B(f);
-	while(count-- && findbykey(f, level, refdict, getkey(f), printxml, 0))
+	while(count-- && findbykey(f, level, refdict, getkey(f), len, 0))
 		;
 }
 
@@ -158,27 +158,27 @@ static struct dictentry *desc_item(psd_file_t f, int level){
 	return item(f, level);
 }
 
-static void desc_list(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_list(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	while(count--)
 		item(f, level);
 }
 
-void descriptor(psd_file_t f, int level, int printxml, struct dictentry *parent){
+void descriptor(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count;
 
-	desc_class(f, level, printxml, parent);
+	desc_class(f, level, len, parent);
 	count = get4B(f);
 	fprintf(xml, "%s<!--count:%ld-->\n", tabs(level), count);
 	while(count--)
 		desc_item(f, level);
 }
 
-static void desc_double(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_double(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%g", getdoubleB(f));
 };
 
-static void desc_unitfloat(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_unitfloat(psd_file_t f, int level, int len, struct dictentry *parent){
 	static struct dictentry ufdict[] = {
 		{0, "#Ang", "-ANGLE", "angle: base degrees", desc_double},
 		{0, "#Rsl", "-DENSITY", "density: base per inch", desc_double},
@@ -192,27 +192,27 @@ static void desc_unitfloat(psd_file_t f, int level, int printxml, struct dictent
 	findbykey(f, level, ufdict, getkey(f), 1, 0); // FIXME: check for NULL return
 }
 
-static void desc_unicodestr(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
 	conv_unicodestr(f, count);
 	fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 }
 
-static void desc_enumerated(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_enumerated(psd_file_t f, int level, int len, struct dictentry *parent){
 	stringorid(f, level, "TYPE");
 	stringorid(f, level, "ENUM");
 }
 
-static void desc_integer(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_integer(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%ld", get4B(f));
 }
 
-static void desc_boolean(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_boolean(psd_file_t f, int level, int len, struct dictentry *parent){
 	fprintf(xml, "%d", fgetc(f));
 }
 
-static void desc_alias(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void desc_alias(psd_file_t f, int level, int len, struct dictentry *parent){
 	psd_bytes_t count = get4B(f);
 	fprintf(xml, " <!-- %lu bytes alias data --> ", (unsigned long)count);
 	fseeko(f, count, SEEK_CUR); // skip over

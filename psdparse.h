@@ -17,6 +17,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+
 #ifdef powerc // MPW MrC
 	#include <MacTypes.h>
 
@@ -60,10 +65,10 @@
 
 typedef long psd_pixels_t;
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <limits.h>
+// libpsd types (used only by psd_zip.c)
+typedef int psd_status, psd_int, psd_bool;
+typedef uint8_t psd_uchar;
+typedef uint16_t psd_ushort;
 
 #ifdef WIN32
 	#include <direct.h>
@@ -113,7 +118,7 @@ typedef long psd_pixels_t;
 	#define PATH_MAX FILENAME_MAX
 #endif
 
-enum{RAWDATA,RLECOMP};
+enum{RAWDATA,RLECOMP,ZIPCOMP,ZIPPREDICT}; // ZIP types from CS doc
 
 /* Photoshop's mode constants */
 #define SCAVENGE_MODE -1
@@ -215,7 +220,7 @@ struct extra_data{
 struct dictentry{
 	int id;
 	char *key, *tag, *desc;
-	void (*func)(psd_file_t f, int level, int printxml, struct dictentry *dict);
+	void (*func)(psd_file_t f, int level, int len, struct dictentry *dict);
 };
 
 extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
@@ -245,16 +250,17 @@ void openfiles(char *psdpath, struct psd_header *h);
 
 int dopsd(psd_file_t f, char *fname, struct psd_header *h);
 void processlayers(psd_file_t f, struct psd_header *h);
+void dolayerinfo(psd_file_t f, struct psd_header *h);
 
-void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d, int resetpos);
-struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int printxml, int resetpos);
-void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml);
-void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm);
+void entertag(psd_file_t f, int level, int len, struct dictentry *parent, struct dictentry *d, int resetpos);
+struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int len, int resetpos);
+void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t length);
+void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm);
 
 void conv_unicodestr(psd_file_t f, long count);
-void descriptor(psd_file_t f, int level, int printxml, struct dictentry *dict);
+void descriptor(psd_file_t f, int level, int len, struct dictentry *dict);
 
-void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent);
+void ed_versdesc(psd_file_t f, int level, int len, struct dictentry *parent);
 
 void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent);
 
@@ -298,3 +304,9 @@ int is_pdf_white(char c);
 int is_pdf_delim(char c);
 size_t pdf_string(char **p, char *outbuf, size_t n);
 size_t pdf_name(char **p, char *outbuf, size_t n);
+
+psd_status psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
+	psd_uchar *dst_buf, psd_int dst_len);
+psd_status psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
+	psd_uchar *dst_buf, psd_int dst_len,
+	psd_int row_size, psd_int color_depth);

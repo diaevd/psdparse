@@ -41,12 +41,12 @@ const char *colour_spaces[] = {"kDummySpace" /* = -1 */, "kRGBSpace",
 
 #define BITSTR(f) ((f) ? "(1)" : "(0)")
 
-void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, struct dictentry *d, int resetpos){
+void entertag(psd_file_t f, int level, int len, struct dictentry *parent, struct dictentry *d, int resetpos){
 	psd_bytes_t savepos = ftello(f);
 	int oneline = d->tag[0] == '-';
 	char *tagname = d->tag + oneline;
 
-	if(printxml){
+	if(xml){
 		// check parent's one-line-ness, because what precedes our <TAG>
 		// belongs to our parent.
 		fprintf(xml, "%s<%s>", parent->tag[0] == '-' ? " " : tabs(level), tagname);
@@ -54,9 +54,9 @@ void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, s
 			fputc('\n', xml);
 	}
 
-	d->func(f, level+1, printxml, d); // parse contents of this datum
+	d->func(f, level+1, len, d); // parse contents of this datum
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s</%s>", oneline ? "" : tabs(level), tagname);
 		// if parent's not one-line, then we can safely newline after our tag.
 		fputc(parent->tag[0] == '-' ? ' ' : '\n', xml);
@@ -68,7 +68,7 @@ void entertag(psd_file_t f, int level, int printxml, struct dictentry *parent, s
 
 // This uses a dumb linear search. But it's efficient enough in practice.
 
-struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, char *key, int printxml, int resetpos){
+struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, char *key, int len, int resetpos){
 	struct dictentry *d;
 
 	for(d = parent; d->key; ++d)
@@ -76,12 +76,12 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 			char *tagname = d->tag + (d->tag[0] == '-');
 			//fprintf(stderr, "matched tag %s\n", d->tag);
 			if(d->func)
-				entertag(f, level, printxml, parent, d, resetpos);
+				entertag(f, level, len, parent, d, resetpos);
 			else{
 				// there is no function to parse this block.
 				// because tag is empty in this case, we only need to consider
 				// parent's one-line-ness.
-				if(printxml){
+				if(xml){
 					if(parent->tag[0] == '-')
 						fprintf(xml, " <%s /> <!-- not parsed --> ", tagname);
 					else
@@ -93,8 +93,76 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 	return NULL;
 }
 
+/* not 'static'; these are referenced by scavenge.c */
+struct dictentry bmdict[] = {
+	{0, "norm", "NORMAL", "normal", NULL},
+	{0, "dark", "DARKEN", "darken", NULL},
+	{0, "lite", "LIGHTEN", "lighten", NULL},
+	{0, "hue ", "HUE", "hue", NULL},
+	{0, "sat ", "SATURATION", "saturation", NULL},
+	{0, "colr", "COLOR", "color", NULL},
+	{0, "lum ", "LUMINOSITY", "luminosity", NULL},
+	{0, "mul ", "MULTIPLY", "multiply", NULL},
+	{0, "scrn", "SCREEN", "screen", NULL},
+	{0, "diss", "DISSOLVE", "dissolve", NULL},
+	{0, "over", "OVERLAY", "overlay", NULL},
+	{0, "hLit", "HARDLIGHT", "hard light", NULL},
+	{0, "sLit", "SOFTLIGHT", "soft light", NULL},
+	{0, "diff", "DIFFERENCE", "difference", NULL},
+	{0, "smud", "EXCLUSION", "exclusion", NULL},
+	{0, "div ", "COLORDODGE", "color dodge", NULL},
+	{0, "idiv", "COLORBURN", "color burn", NULL},
+	// CS
+	{0, "lbrn", "LINEARBURN", "linear burn", NULL},
+	{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
+	{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
+	{0, "lLit", "LINEARLIGHT", "linear light", NULL},
+	{0, "pLit", "PINLIGHT", "pin light", NULL},
+	{0, "hMix", "HARDMIX", "hard mix", NULL},
+	{0, NULL, NULL, NULL, NULL}
+};
+
+void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm){
+	struct dictentry *d;
+	const char *indent = tabs(level);
+
+	if(xml && !memcmp(bm->sig, "8BIM", 4)){
+		fprintf(xml, "%s<BLENDMODE OPACITY='%g' CLIPPING='%d'>\n",
+				indent, bm->opacity/2.55, bm->clipping);
+		findbykey(f, level+1, bmdict, bm->key, len, 1);
+		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
+		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
+		if((bm->flags & (8|16)) == (8|16))  // both bits set
+			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
+		fprintf(xml, "%s</BLENDMODE>\n", indent);
+	}
+	if(!xml){
+		d = findbykey(f, level+1, bmdict, bm->key, len, 1);
+		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
+    flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
+				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
+				bm->key[0],bm->key[1],bm->key[2],bm->key[3],
+				d ? d->desc : "???",
+				bm->opacity, (bm->opacity*100+127)/255,
+				bm->clipping, bm->clipping ? "non-base" : "base",
+				bm->flags, BITSTR(bm->flags&1), BITSTR(bm->flags&2), BITSTR(bm->flags&8), BITSTR(bm->flags&16) );
+	}
+}
+
+// CS doc
+static void blendmode(psd_file_t f, int level, int len, struct dictentry *parent){
+	char sig[4], key[4];
+
+	fread(sig, 1, 4, f);
+	fread(key, 1, 4, f);
+	if(xml && !memcmp(sig, "8BIM", 4)){
+		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
+		findbykey(f, level+1, bmdict, key, len, 1);
+		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
+	}
+}
+
 static void colorspace(psd_file_t f, int level){
-	// this map is taken from Colour Samplers; I'm guessing it applies generally
 	int i, space = get2B(f);
 
 	fprintf(xml, "%s<COLOR SPACE='%d'", tabs(level), space);
@@ -152,14 +220,14 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 	free(style);
 }
 
-static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_typetool(psd_file_t f, int level, int len, struct dictentry *parent){
 	int i, j, v = get2B(f), mark, type, script, facemark,
 		autokern, charcount, selstart, selend, linecount, orient, align;
 	double size, tracking, kerning, leading, baseshift, scaling, hplace, vplace;
 	static char *coeff[] = {"XX","XY","YX","YY","TX","TY"}; // from CS doc
 	const char *indent = tabs(level);
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, v);
 
 		// read transform (6 doubles)
@@ -231,10 +299,10 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 
 			fprintf(xml, "%s</TEXT>\n", indent);
 		}else if(v == 50){
-			ed_versdesc(f, level, printxml, parent); // text
+			ed_versdesc(f, level, len, parent); // text
 
 			fprintf(xml, "%s<WARPVERSION>%d</WARPVERSION>\n", indent, get2B(f));
-			ed_versdesc(f, level, printxml, parent); // warp
+			ed_versdesc(f, level, len, parent); // warp
 
 			fprintf(xml, "%s<LEFT>%ld</LEFT>\n", indent, get4B(f));
 			fprintf(xml, "%s<TOP>%ld</TOP>\n", indent, get4B(f));
@@ -246,11 +314,11 @@ static void ed_typetool(psd_file_t f, int level, int printxml, struct dictentry 
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
 
-static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	unsigned long len = get4B(f); // character count, not byte count
+static void ed_unicodename(psd_file_t f, int level, int len, struct dictentry *parent){
+	unsigned long length = get4B(f); // character count, not byte count
 
-	if(printxml)
-		conv_unicodestr(f, len);
+	if(xml)
+		conv_unicodestr(f, length);
 	/* FIXME: We don't have a way to spit the UTF-8 to terminal as well. Maybe a flag parameter?
 	else if(!quiet){
 		fputs("    (Unicode name = '", stdout);
@@ -261,32 +329,106 @@ static void ed_unicodename(psd_file_t f, int level, int printxml, struct dictent
 	*/
 }
 
-static void ed_long(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_long(psd_file_t f, int level, int len, struct dictentry *parent){
 	unsigned long id = get4B(f);
-	if(printxml)
+	if(xml)
 		fprintf(xml, "%lu", id);
 	else
 		UNQUIET("    (%s = %lu)\n", parent->desc, id);
 }
 
-static void ed_key(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_key(psd_file_t f, int level, int len, struct dictentry *parent){
 	char *key = getkey(f);
-	if(printxml)
+	if(xml)
 		fprintf(xml, "%s", key);
 	else
 		UNQUIET("    (%s = '%s')\n", parent->desc, key);
 }
 
-static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	int i, j, major = get2B(f), minor = get2B(f), len, open, flags, optblocks;
+static void ed_color(psd_file_t f, int level, int len, struct dictentry *parent){
+	int i;
+
+	if(xml){
+		fprintf(xml, "%s<COLOR>", tabs(level));
+		for(i = 0; i < 4; ++i)
+			fprintf(xml, " <C%d>%g</C%d>", i, FIXEDPT(get2Bu(f)), i);
+		fputs(" </COLOR>\n", xml);
+	}
+}
+
+static void ed_sectiondivider(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		fprintf(xml, "%s<TYPE>%ld</TYPE>\n", tabs(level), get4B(f));
+		if(len >= 12)
+			blendmode(f, level, len, parent);
+	}
+}
+
+static void ed_blendingrestrictions(psd_file_t f, int level, int len, struct dictentry *parent){
+	int i = len/4;
+	if(len)
+		while(i--)
+			fprintf(xml, "%s<CHANNEL>%ld</CHANNEL>\n", tabs(level), get4B(f));
+}
+
+static void ed_gradient(psd_file_t f, int level, int len, struct dictentry *parent){
+	int stops, expcount, length;
+	const char *indent = tabs(level);
+
+	if(xml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
+		fprintf(xml, "%s<REVERSED>%d</REVERSED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<DITHERED>%d</DITHERED>\n", indent, fgetc(f));
+		fprintf(xml, "%s<NAME>", indent);
+		conv_unicodestr(f, get4B(f));
+		fputs("</NAME>\n", xml);
+		for(stops = get2Bu(f); stops--;){
+			fprintf(xml, "%s<COLORSTOP>\n", indent);
+			fprintf(xml, "\t%s<LOCATION>%g</LOCATION>\n", indent, FIXEDPT(get4B(f)));
+			fprintf(xml, "\t%s<MIDPOINT>%g</MIDPOINT>\n", indent, FIXEDPT(get4B(f)));
+			fprintf(xml, "\t%s<MODE>%d</MODE>\n", indent, get2B(f));
+			ed_color(f, level+1, len, parent);
+			fprintf(xml, "%s</COLORSTOP>\n", indent);
+		}
+		for(stops = get2Bu(f); stops--;){
+			fprintf(xml, "%s<TRANSPARENCYSTOP>\n", indent);
+			fprintf(xml, "\t%s<LOCATION>%g</LOCATION>\n", indent, FIXEDPT(get4B(f)));
+			fprintf(xml, "\t%s<MIDPOINT>%g</MIDPOINT>\n", indent, FIXEDPT(get4B(f)));
+			fprintf(xml, "\t%s<OPACITY>%d</OPACITY>\n", indent, get2B(f));
+			fprintf(xml, "%s</TRANSPARENCYSTOP>\n", indent);
+		}
+		fprintf(xml, "%s<EXPANSIONCOUNT>%d</EXPANSIONCOUNT>\n", indent, expcount = fgetc(f));
+		if(expcount){
+			fprintf(xml, "%s<INTERPOLATION>%d</INTERPOLATION>\n", indent, fgetc(f));
+			length = get2B(f);
+			if(length >= 32){
+				fprintf(xml, "%s<MODE>%d</MODE>\n", indent, get2B(f));
+				fprintf(xml, "%s<RANDOMSEED>%lu</RANDOMSEED>\n", indent, get4B(f));
+				fprintf(xml, "%s<SHOWTRANSPARENCY>%d</SHOWTRANSPARENCY>\n", indent, get2B(f));
+				fprintf(xml, "%s<VECTORCOLOR>%d</VECTORCOLOR>\n", indent, get2B(f));
+				fprintf(xml, "%s<ROUGHNESS>%ld</ROUGHNESS>\n", indent, get4B(f));
+				fprintf(xml, "%s<COLORSPACE>%d</COLORSPACE>\n", indent, get2B(f));
+				fprintf(xml, "%s<MINIMUM>\n", indent);
+				ed_color(f, level+1, len, parent);
+				fprintf(xml, "%s</MINIMUM>\n", indent);
+				fprintf(xml, "%s<MAXIMUM>\n", indent);
+				ed_color(f, level+1, len, parent);
+				fprintf(xml, "%s</MAXIMUM>\n", indent);
+			}
+		}
+	}
+}
+
+static void ed_annotation(psd_file_t f, int level, int len, struct dictentry *parent){
+	int i, j, major = get2B(f), minor = get2B(f), length, open, flags, optblocks;
 	char type[4], key[4];
 	const char *indent = tabs(level);
 	long datalen, len2, rects[8];
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION MAJOR='%d' MINOR='%d' />\n", indent, major, minor);
 		for(i = get4B(f); i--;){
-			len = get4B(f);
+			length = get4B(f);
 			fread(type, 1, 4, f);
 			open = fgetc(f);
 			flags = fgetc(f);
@@ -344,76 +486,91 @@ static void ed_annotation(psd_file_t f, int level, int printxml, struct dictentr
 		UNQUIET("    (%s, version = %d.%d)\n", parent->desc, major, minor);
 }
 
-static void ed_byte(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_byte(psd_file_t f, int level, int len, struct dictentry *parent){
 	int k = fgetc(f);
-	if(printxml)
+	if(xml)
 		fprintf(xml, "%d", k);
 	else
 		UNQUIET("    (%s = %d)\n", parent->desc, k);
 }
 
-static void ed_referencepoint(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_referencepoint(psd_file_t f, int level, int len, struct dictentry *parent){
 	double x,y;
 
 	x = getdoubleB(f);
 	y = getdoubleB(f);
-	if(printxml)
+	if(xml)
 		fprintf(xml, " <X>%g</X> <Y>%g</Y> ", x, y);
 	else
 		UNQUIET("    (%s X=%g Y=%g)\n", parent->desc, x, y);
 }
 
 // CS doc
-void ed_versdesc(psd_file_t f, int level, int printxml, struct dictentry *parent){
+void ed_versdesc(psd_file_t f, int level, int len, struct dictentry *parent){
 	long v = get4B(f);
-	if(printxml)
+	if(xml){
 		fprintf(xml, "%s<DESCRIPTORVERSION>%ld</DESCRIPTORVERSION>\n", tabs(level), v);
-
-	fprintf(xml, "%s<DESCRIPTOR>\n", tabs(level));
-	descriptor(f, level+1, printxml, parent);
-	fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
+		fprintf(xml, "%s<DESCRIPTOR>\n", tabs(level));
+		descriptor(f, level+1, len, parent);
+		fprintf(xml, "%s</DESCRIPTOR>\n", tabs(level));
+	}
 }
 
 // CS doc
-static void ed_objecteffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	long v = get4B(f);
-	if(printxml)
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), v);
-	ed_versdesc(f, level, printxml, parent);
+static void ed_objecteffects(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		ed_versdesc(f, level, len, parent);
+	}
 }
 
-static int sigkeyblock(psd_file_t f, int level, int printxml, struct dictentry *dict){
+// CS doc
+static void ed_vectormask(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		int flags;
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		flags = fgetc(f);
+		if(flags & 2) fprintf(xml, "%s<INVERT/>\n", tabs(level));
+		if(flags & 4) fprintf(xml, "%s<NOTLINK/>\n", tabs(level));
+		if(flags & 8) fprintf(xml, "%s<DISABLE/>\n", tabs(level));
+		// TODO: path components follow
+	}
+}
+
+static int sigkeyblock(psd_file_t f, int level, int len, struct dictentry *dict){
 	char sig[4], key[4];
-	long len;
+	long length;
 	struct dictentry *d;
 
 	fread(sig, 1, 4, f);
 	fread(key, 1, 4, f);
-	len = get4B(f);
+	length = get4B(f);
 	if(!memcmp(sig, "8BIM", 4)){
-		if(!printxml)
+		if(!xml)
 			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
-					key[0],key[1],key[2],key[3], len);
-		if(dict && (d = findbykey(f, level, dict, key, printxml, 1)) && !d->func && !printxml){
+					key[0],key[1],key[2],key[3], length);
+		if(dict && (d = findbykey(f, level, dict, key, length, 1))
+		   && !d->func && !xml)
+		{
 			// there is no function to parse this block
 			UNQUIET("    (data: %s)\n", d->desc);
 			if(verbose){
 				printf("    ");
 				psd_bytes_t pos = ftello(f);
-				int n = len > 32 ? 32 : len;
+				int n = length > 32 ? 32 : length;
 				while(n--)
 					printf("%02x ", fgetc(f));
-				printf(len > 32 ? "...\n" : "\n");
+				printf(length > 32 ? "...\n" : "\n");
 				fseeko(f, pos, SEEK_SET);
 			}
 		}
-		fseeko(f, len, SEEK_CUR);
-		return len + 12; // return number of bytes consumed
+		fseeko(f, length, SEEK_CUR);
+		return length + 12; // return number of bytes consumed
 	}
 	return 0; // bad signature
 }
 
-static void dumpblock(psd_file_t f, int level, int printxml, struct dictentry *dict){
+static void dumpblock(psd_file_t f, int level, int len, struct dictentry *dict){
 	// FIXME: this can over-run the actual block; need to pass block length into the function
 	if(verbose){
 		printf("%s: ", dict->desc);
@@ -424,95 +581,26 @@ static void dumpblock(psd_file_t f, int level, int printxml, struct dictentry *d
 	}
 }
 
-/* not 'static'; these are referenced by scavenge.c */
-struct dictentry bmdict[] = {
-	{0, "norm", "NORMAL", "normal", NULL},
-	{0, "dark", "DARKEN", "darken", NULL},
-	{0, "lite", "LIGHTEN", "lighten", NULL},
-	{0, "hue ", "HUE", "hue", NULL},
-	{0, "sat ", "SATURATION", "saturation", NULL},
-	{0, "colr", "COLOR", "color", NULL},
-	{0, "lum ", "LUMINOSITY", "luminosity", NULL},
-	{0, "mul ", "MULTIPLY", "multiply", NULL},
-	{0, "scrn", "SCREEN", "screen", NULL},
-	{0, "diss", "DISSOLVE", "dissolve", NULL},
-	{0, "over", "OVERLAY", "overlay", NULL},
-	{0, "hLit", "HARDLIGHT", "hard light", NULL},
-	{0, "sLit", "SOFTLIGHT", "soft light", NULL},
-	{0, "diff", "DIFFERENCE", "difference", NULL},
-	{0, "smud", "EXCLUSION", "exclusion", NULL},
-	{0, "div ", "COLORDODGE", "color dodge", NULL},
-	{0, "idiv", "COLORBURN", "color burn", NULL},
-	// CS
-	{0, "lbrn", "LINEARBURN", "linear burn", NULL},
-	{0, "lddg", "LINEARDODGE", "linear dodge", NULL},
-	{0, "vLit", "VIVIDLIGHT", "vivid light", NULL},
-	{0, "lLit", "LINEARLIGHT", "linear light", NULL},
-	{0, "pLit", "PINLIGHT", "pin light", NULL},
-	{0, "hMix", "HARDMIX", "hard mix", NULL},
-	{0, NULL, NULL, NULL, NULL}
-};
-
-void layerblendmode(psd_file_t f, int level, int printxml, struct blend_mode_info *bm){
-	struct dictentry *d;
-	const char *indent = tabs(level);
-
-	if(printxml && !memcmp(bm->sig, "8BIM", 4)){
-		fprintf(xml, "%s<BLENDMODE OPACITY='%g' CLIPPING='%d'>\n",
-				indent, bm->opacity/2.55, bm->clipping);
-		findbykey(f, level+1, bmdict, bm->key, printxml, 1);
-		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
-		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
-		if((bm->flags & (8|16)) == (8|16))  // both bits set
-			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
-		fprintf(xml, "%s</BLENDMODE>\n", indent);
-	}
-	if(!printxml){
-		d = findbykey(f, level+1, bmdict, bm->key, printxml, 1);
-		VERBOSE("  blending mode: sig='%c%c%c%c' key='%c%c%c%c'(%s) opacity=%d(%d%%) clipping=%d(%s)\n\
-    flags=%#x(transp_prot%s visible%s bit4valid%s pixel_data_irrelevant%s)\n",
-				bm->sig[0],bm->sig[1],bm->sig[2],bm->sig[3],
-				bm->key[0],bm->key[1],bm->key[2],bm->key[3],
-				d ? d->desc : "???",
-				bm->opacity, (bm->opacity*100+127)/255,
-				bm->clipping, bm->clipping ? "non-base" : "base",
-				bm->flags, BITSTR(bm->flags&1), BITSTR(bm->flags&2), BITSTR(bm->flags&8), BITSTR(bm->flags&16) );
-	}
-}
-
 // CS doc
-static void blendmode(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	char sig[4], key[4];
-
-	fread(sig, 1, 4, f);
-	fread(key, 1, 4, f);
-	if(printxml && !memcmp(sig, "8BIM", 4)){
-		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
-		findbykey(f, level+1, bmdict, key, printxml, 1);
-		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
-	}
-}
-
-// CS doc
-static void fx_commonstate(psd_file_t f, int level, int printxml, struct dictentry *parent){
-	if(printxml){
+static void fx_commonstate(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
 		fprintf(xml, "%s<VISIBLE>%d</VISIBLE>\n", tabs(level), fgetc(f));
 	}
 }
 
 // CS doc
-static void fx_shadow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_shadow(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f))); // this is fixed point, but you wouldn't know it from the doc
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f))); // they're trying to make it more interesting for
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));         // implementors, I guess, by setting little puzzles
 		fprintf(xml, "%s<DISTANCE>%g</DISTANCE>\n", indent, FIXEDPT(get4B(f)));   // "pit yourself against our documentation!"
 		colorspace(f, level);
-		blendmode(f, level, printxml, parent);
+		blendmode(f, level, len, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<USEANGLE>%d</USEANGLE>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55); // doc implies this is a percentage; it's not, it's 0-255 as usual
@@ -521,15 +609,15 @@ static void fx_shadow(psd_file_t f, int level, int printxml, struct dictentry *p
 }
 
 // CS doc
-static void fx_outerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_outerglow(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
 		colorspace(f, level);
-		blendmode(f, level, printxml, parent);
+		blendmode(f, level, len, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		colorspace(f, level);
@@ -537,16 +625,16 @@ static void fx_outerglow(psd_file_t f, int level, int printxml, struct dictentry
 }
 
 // CS doc
-static void fx_innerglow(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_innerglow(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
 		colorspace(f, level);
-		blendmode(f, level, printxml, parent);
+		blendmode(f, level, len, parent);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		if(version==2)
@@ -556,17 +644,17 @@ static void fx_innerglow(psd_file_t f, int level, int printxml, struct dictentry
 }
 
 // CS doc
-static void fx_bevel(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_bevel(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<STRENGTH>%g</STRENGTH>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
-		blendmode(f, level, printxml, parent);
-		blendmode(f, level, printxml, parent);
+		blendmode(f, level, len, parent);
+		blendmode(f, level, len, parent);
 		colorspace(f, level);
 		colorspace(f, level);
 		fprintf(xml, "%s<STYLE>%d</STYLE>\n", indent, fgetc(f));
@@ -583,14 +671,14 @@ static void fx_bevel(psd_file_t f, int level, int printxml, struct dictentry *pa
 }
 
 // CS doc
-static void fx_solidfill(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void fx_solidfill(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long version;
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, version = get4B(f));
 		// blendmode is the usual 8 bytes; doc only mentions 4
-		blendmode(f, level, printxml, parent);
+		blendmode(f, level, len, parent);
 		colorspace(f, level);
 		fprintf(xml, "%s<OPACITY>%g</OPACITY>\n", indent, fgetc(f)/2.55);
 		fprintf(xml, "%s<ENABLED>%d</ENABLED>\n", indent, fgetc(f));
@@ -599,7 +687,7 @@ static void fx_solidfill(psd_file_t f, int level, int printxml, struct dictentry
 }
 
 // CS doc
-static void ed_layereffects(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_layereffects(psd_file_t f, int level, int len, struct dictentry *parent){
 	static struct dictentry fxdict[] = {
 		{0, "cmnS", "COMMONSTATE", "common state", fx_commonstate},
 		{0, "dsdw", "DROPSHADOW", "drop shadow", fx_shadow},
@@ -612,17 +700,17 @@ static void ed_layereffects(psd_file_t f, int level, int printxml, struct dicten
 	};
 	int count;
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get2B(f));
 		for(count = get2B(f); count--;)
-			if(!sigkeyblock(f, level, printxml, fxdict))
+			if(!sigkeyblock(f, level, len, fxdict))
 				break; // got bad signature
 	}
 }
 
-static void mdblock(psd_file_t f, int level, int printxml){
+static void mdblock(psd_file_t f, int level, int len){
 	char sig[4], key[4];
-	long len;
+	long length;
 	int copy;
 	const char *indent = tabs(level);
 
@@ -630,32 +718,43 @@ static void mdblock(psd_file_t f, int level, int printxml){
 	fread(key, 1, 4, f);
 	copy = fgetc(f);
 	fseeko(f, 3, SEEK_CUR); // padding
-	len = get4B(f);
-	if(printxml){
+	length = get4B(f);
+	if(xml){
 		fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,
 				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3]);
 		fprintf(xml, "\t%s<COPY>%d</COPY>\n", indent, copy);
-		fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, len); // the documentation tells us that it's undocumented
+		fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, length); // the documentation tells us that it's undocumented
 		fprintf(xml, "%s</METADATA>\n", indent);
 	}else
 		UNQUIET("    (Metadata: sig='%c%c%c%c' key='%c%c%c%c' %ld bytes)\n",
-				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3], len);
+				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3], length);
 }
 
 // v6 doc
-static void ed_metadata(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void ed_metadata(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count;
 
 	for(count = get4B(f); count--;)
-		mdblock(f, level, printxml);
+		mdblock(f, level, len);
+}
+
+struct psd_header *psd_header; // hacky
+
+// see libpsd
+static void ed_layer16(psd_file_t f, int level, int len, struct dictentry *parent){
+	struct psd_header h2; // a kind of 'nested' set of layers; don't alter main PSD header
+
+	h2 = *psd_header; // initialise from main file header
+	dolayerinfo(f, &h2);
+	//processlayers(f, &h2);
 }
 
 // v6 doc
-static void adj_levels(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void adj_levels(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	int i, j, v[5], version = get2B(f);
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
 		for(i = 0; i < 29; ++i){
 			for(j = 0; j < 5; ++j)
@@ -673,7 +772,7 @@ static void adj_levels(psd_file_t f, int level, int printxml, struct dictentry *
 }
 
 // v6 doc
-static void adj_curves(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void adj_curves(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	int i, j, version, count;
 
@@ -681,7 +780,7 @@ static void adj_curves(psd_file_t f, int level, int printxml, struct dictentry *
 	version = get2B(f);
 	get2B(f); // mystery data
 	count = get2B(f);
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
 		for(i = 0; i < count; ++i){
 			int points = get2B(f);
@@ -696,14 +795,17 @@ static void adj_curves(psd_file_t f, int level, int printxml, struct dictentry *
 	}
 }
 
-const char *hsl[] = {"HUE", "SATURATION", "LIGHTNESS"};
 // v6 doc
-static void adj_huesat4(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void adj_huesat4(psd_file_t f, int level, int len, struct dictentry *parent){
+	static const char *hsl[] = {"HUE", "SATURATION", "LIGHTNESS"};
 	const char *indent = tabs(level);
-	int i, j, version = get2B(f), mode = fgetc(f);
+	int i, j, version, mode;
+
+	version = get2B(f);
+	mode = fgetc(f);
 	fgetc(f);
 
-	if(printxml){
+	if(xml){
 		int h = get2B(f), s = get2B(f), l = get2B(f);
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
 		fprintf(xml, "%s<%s/>\n", indent, mode ? "COLORISE" : "HUEADJUST");
@@ -718,12 +820,15 @@ static void adj_huesat4(psd_file_t f, int level, int printxml, struct dictentry 
 }
 
 // v6 doc
-static void adj_huesat5(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void adj_huesat5(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	int i, j, version = get2B(f), mode = fgetc(f);
+	int i, j, version, mode;
+
+	version = get2B(f);
+	mode = fgetc(f);
 	fgetc(f);
 
-	if(printxml){
+	if(xml){
 		int h = get2B(f), s = get2B(f), l = get2B(f);
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
 		fprintf(xml, "%s<%s/>\n", indent, mode ? "COLORISE" : "HUEADJUST");
@@ -740,14 +845,14 @@ static void adj_huesat5(psd_file_t f, int level, int printxml, struct dictentry 
 }
 
 // v6 doc
-static void adj_selcol(psd_file_t f, int level, int printxml, struct dictentry *parent){
+static void adj_selcol(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	int i, version = get2B(f);
 	static char *colours[] = {"RESERVED", "REDS", "YELLOWS", "GREENS", "CYANS",
 							  "BLUES", "MAGENTAS", "WHITES", "NEUTRALS", "BLACKS"};
 	fgetc(f);
 
-	if(printxml){
+	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version);
 		for(i = 0; i < 10; ++i){
 			fprintf(xml, "%s<%s>", indent, colours[i]);
@@ -760,12 +865,23 @@ static void adj_selcol(psd_file_t f, int level, int printxml, struct dictentry *
 	}
 }
 
-void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml){
+static void adj_brightnesscontrast(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+
+	if(xml){
+		fprintf(xml, "%s<BRIGHTNESS>%d</BRIGHTNESS>\n", indent, get2B(f));
+		fprintf(xml, "%s<CONTRAST>%d</CONTRAST>\n", indent, get2B(f));
+		fprintf(xml, "%s<MEAN>%d</MEAN>\n", indent, get2B(f));
+		fprintf(xml, "%s<LABCOLORONLY>%d</LABCOLORONLY>\n", indent, fgetc(f));
+	}
+}
+
+void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t length){
 	static struct dictentry extradict[] = {
 		// v4.0
 		{0, "levl", "LEVELS", "Levels", adj_levels},
 		{0, "curv", "CURVES", "Curves", adj_curves},
-		{0, "brit", "BRIGHTNESSCONTRAST", "Brightness/contrast", NULL},
+		{0, "brit", "BRIGHTNESSCONTRAST", "Brightness/contrast", adj_brightnesscontrast},
 		{0, "blnc", "COLORBALANCE", "Color balance", NULL},
 		{0, "hue ", "HUESATURATION4", "Old Hue/saturation, Photoshop 4.0", adj_huesat4},
 		{0, "hue2", "HUESATURATION5", "New Hue/saturation, Photoshop 5.0", adj_huesat5},
@@ -787,20 +903,20 @@ void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml){
 		{0, "infx", "-BLENDINTERIOR", "Blend interior", ed_byte},
 		{0, "knko", "-KNOCKOUT", "Knockout", ed_byte},
 		{0, "lspf", "-PROTECTED", "Protected", ed_long},
-		{0, "lclr", "SHEETCOLOR", "Sheet color", NULL},
+		{0, "lclr", "SHEETCOLOR", "Sheet color", ed_color},
 		{0, "fxrp", "-REFERENCEPOINT", "Reference point", ed_referencepoint},
-		{0, "grdm", "GRADIENT", "Gradient", NULL},
-		{0, "lsct", "-SECTION", "Section divider", ed_long}, // CS doc
+		{0, "grdm", "GRADIENT", "Gradient", ed_gradient},
+		{0, "lsct", "SECTIONDIVIDER", "Section divider", ed_sectiondivider}, // CS doc
 		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", ed_versdesc}, // CS doc
 		{0, "PtFl", "PATTERNFILL", "Pattern fill", ed_versdesc}, // CS doc
 		{0, "GdFl", "GRADIENTFILL", "Gradient fill", ed_versdesc}, // CS doc
-		{0, "vmsk", "VECTORMASK", "Vector mask", NULL}, // CS doc
+		{0, "vmsk", "VECTORMASK", "Vector mask", ed_vectormask}, // CS doc
 		{0, "TySh", "TYPETOOL6", "Type tool (6.0)", ed_typetool}, // CS doc
 		{0, "ffxi", "-FOREIGNEFFECTID", "Foreign effect ID", ed_long}, // CS doc (this is probably a key too, who knows)
 		{0, "lnsr", "-LAYERNAMESOURCE", "Layer name source", ed_key}, // CS doc (who knew this was a signature? docs fail again - and what do the values mean?)
 		{0, "shpa", "PATTERNDATA", "Pattern data", NULL}, // CS doc
 		{0, "shmd", "METADATASETTING", "Metadata setting", ed_metadata}, // CS doc
-		{0, "brst", "BLENDINGRESTRICTIONS", "Channel blending restrictions", NULL}, // CS doc
+		{0, "brst", "BLENDINGRESTRICTIONS", "Channel blending restrictions", ed_blendingrestrictions}, // CS doc
 		// v7.0
 		{0, "lyvr", "-LAYERVERSION", "Layer version", ed_long}, // CS doc
 		{0, "tsly", "-TRANSPARENCYSHAPES", "Transparency shapes layer", ed_byte}, // CS doc
@@ -809,11 +925,16 @@ void doadditional(psd_file_t f, int level, psd_bytes_t length, int printxml){
 		// CS
 		{0, "mixr", "CHANNELMIXER", "Channel mixer", NULL}, // CS doc
 		{0, "phfl", "PHOTOFILTER", "Photo Filter", NULL}, // CS doc
+		// from libpsd
+		{0, "Lr16", "LAYER16", "Layer 16", ed_layer16},
+
 		{0, NULL, NULL, NULL, NULL}
 	};
 
+	psd_header = h;
+
 	while(length >= 12){
-		psd_bytes_t block = sigkeyblock(f, level, printxml, extradict);
+		psd_bytes_t block = sigkeyblock(f, level, length, extradict);
 		if(!block){
 			warn("bad signature in layer's extra data, skipping the rest");
 			break;

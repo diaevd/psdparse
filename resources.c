@@ -247,16 +247,14 @@ static struct dictentry *findbyid(int id){
 
 static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
-	char type[4], name[0x100];
+	char type[4], *name;
 	int id, namelen;
 	long size;
 	struct dictentry *d;
 
 	fread(type, 1, 4, f);
 	id = get2B(f);
-	namelen = fgetc(f);
-	fread(name, 1, PAD2(1+namelen)-1, f);
-	name[namelen] = 0;
+	name = getpstr2(f);
 	size = get4B(f);
 
 	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
@@ -272,7 +270,7 @@ static long doirb(psd_file_t f){
 			fprintf(xml, " NAME='%s'", name);
 		if(d->func){
 			fputs(">\n", xml);
-			entertag(f, 2, size, &resource, d, 1); // HACK: abuse 'printxml' parameter
+			entertag(f, 2, size, &resource, d, 1);
 			fputs("\t</RESOURCE>\n\n", xml);
 		}else{
 			fputs(" />\n", xml);

@@ -49,13 +49,14 @@ void readunpackrow(psd_file_t psd,        // input file handle
 	if(fseeko(psd, rowpos[ch][row], SEEK_SET) == -1){
 		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), rowpos[ch][row]);
 	}else{
-		if(chcomp[ch] == RAWDATA){
+		switch(chcomp[ch]){
+		case RAWDATA:
 			/* uncompressed */
 			n = fread(inrow, 1, rb, psd);
 			if(n < rb)
 				warn("can't read row data (raw) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
-		}
-		else if(chcomp[ch] == RLECOMP){
+			break;
+		case RLECOMP:
 			/* RLE data */
 			n = rowpos[ch][row+1] - rowpos[ch][row]; // get RLE byte count
 			if(n > 2*rb){
@@ -66,6 +67,19 @@ void readunpackrow(psd_file_t psd,        // input file handle
 			if(rlebytes < n)
 				warn("can't read row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
 			n = unpackbits(inrow, outrow, rb, rlebytes);
+			break;
+			/*
+		case ZIPCOMP:
+			if(!psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
+											 psd_uchar *dst_buf, psd_int dst_len))
+				warn("no ZIP library to unpack ZIP row data");
+			break;
+		case ZIPPREDICT:
+			if(!psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
+										  psd_uchar *dst_buf, psd_int dst_len,
+										  psd_int row_size, psd_int color_depth))
+				warn("no ZIP library to unpack ZIP row data");
+			break;*/
 		}
 		// if we don't recognise the compression type, skip the row
 		// FIXME: or would it be better to use the last valid type seen?

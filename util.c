@@ -26,7 +26,7 @@
 #define WARNLIMIT 10
 
 #ifdef HAVE_ICONV_H
-	iconv_t ic;
+	iconv_t ic = (iconv_t)-1;
 #endif
 
 void fatal(char *s){
