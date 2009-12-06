@@ -140,7 +140,7 @@ static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry 
 	fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
 	fprintf(xml, "%s<CENTERCROPMARKS>%d</CENTERCROPMARKS>\n", indent, fgetc(f));
 	fgetc(f);
-	fprintf(xml, "%s<BLEEDWIDTH>%d</BLEEDWIDTH>\n", indent, get4B(f));
+	fprintf(xml, "%s<BLEEDWIDTH>%ld</BLEEDWIDTH>\n", indent, get4B(f));
 	fprintf(xml, "%s<BLEEDWIDTHSCALE>%d</BLEEDWIDTHSCALE>\n", indent, get2B(f));
 }
 
@@ -247,14 +247,16 @@ static struct dictentry *findbyid(int id){
 
 static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
-	char type[4], *name;
+	char type[4], name[0x100];
 	int id, namelen;
 	long size;
 	struct dictentry *d;
 
 	fread(type, 1, 4, f);
 	id = get2B(f);
-	name = getpstr2(f);
+	namelen = fgetc(f);
+	fread(name, 1, PAD2(1+namelen)-1, f);
+	name[namelen] = 0;
 	size = get4B(f);
 
 	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
