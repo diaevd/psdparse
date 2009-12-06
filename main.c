@@ -225,8 +225,15 @@ int main(int argc, char *argv[]){
 				// global 'additional info' (not really documented)
 				// this is found immediately after the 'image data' section
 				k = h.lmistart + h.lmilen - ftello(f);
-				if(extra)
-					doadditional(f, &h, 1, k); // write description to XML
+				if(extra){
+					if(xml)
+						fputs("\t<GLOBALINFO>\n", xml);
+
+					doadditional(f, &h, 2, k); // write description to XML
+
+					if(xml)
+						fputs("\t</GLOBALINFO>\n", xml);
+				}
 
 				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);

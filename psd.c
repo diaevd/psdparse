@@ -181,8 +181,7 @@ void dolayerinfo(psd_file_t f, struct psd_header *h){
 		readlayerinfo(f, h, i);
 }
 
-void dolayermaskinfo(psd_file_t f, struct psd_header *h)
-{
+void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	psd_bytes_t layerlen;
 
 	h->nlayers = 0;
@@ -192,12 +191,7 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h)
 		// process layer info section
 		layerlen = GETPSDBYTES(f);
 		if(layerlen){
-			FILE *tmp = xml;
-
-			xml = NULL; // hacky - suppress XML generation at this stage (we're not inside a LAYER element)
 			dolayerinfo(f, h);
-			xml = tmp;
-
       		// after processing all layers, file should now positioned at image data
 		}else VERBOSE("  (layer info section is empty)\n");
 
@@ -284,7 +278,7 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 	h->depth = get2Bu(f);
 	h->mode = get2Bu(f);
 
-	if(!feof(f) && !memcmp(h->sig, "8BPS", 4)){
+	if(!feof(f) && KEYMATCH(h->sig, "8BPS")){
 		if(h->version == 1
 #ifdef PSBSUPPORT
 		   || h->version == 2

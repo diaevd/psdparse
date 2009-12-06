@@ -26,19 +26,21 @@ static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
 					   int startchan, int channels, long rows, long cols,
 					   struct psd_header *h, int color_type)
 {
-	psd_bytes_t savepos = ftello(psd);
-	FILE *outfile;
+	if(writepng){
+		psd_bytes_t savepos = ftello(psd);
+		FILE *outfile;
 
-	if(h->depth == 32){
-		if((outfile = rawsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
-			rawwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
-	}else{
-		if((outfile = pngsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
-			pngwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+		if(h->depth == 32){
+			if((outfile = rawsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
+				rawwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+		}else{
+			if((outfile = pngsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
+				pngwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+		}
+
+		fseeko(psd, savepos, SEEK_SET);
+		VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 	}
-
-	fseeko(psd, savepos, SEEK_SET);
-	VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 }
 
 static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
@@ -67,10 +69,14 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 		}else if(ch == -1){
 			if(xml) fputs("\t\t<TRANSPARENCY>\n", xml);
 			strcat(pngname, li ? ".trans" : ".alpha");
-		}else if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
-			sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][ch]);
-		else // give up and use a number
-			sprintf(pngname+strlen(pngname), ".%d", ch);
+		}else{
+			if(xml)
+				fprintf(xml, "\t\t<CHANNEL ID='%d'>\n", ch);
+			if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
+				sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][ch]);
+			else // give up and use a number
+				sprintf(pngname+strlen(pngname), ".%d", ch);
+		}
 
 		if(chcomp[i] == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n", pngname);
@@ -81,6 +87,8 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 			if(xml) fputs("\t\t</LAYERMASK>\n", xml);
 		}else if(ch == -1){
 			if(xml) fputs("\t\t</TRANSPARENCY>\n", xml);
+		}else{
+			if(xml) fputs("\t\t</CHANNEL>\n", xml);
 		}
 	}
 }
@@ -160,21 +168,21 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		if(xml)
 			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld'>\n",
 					channels, rows, cols);
-		if(writepng){
-			nwarns = 0;
-			startchan = 0;
-			if(pngchan && !split){
-				writeimage(f, pngdir, name, chcomp, NULL, rowpos, 0,
-						   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
-				startchan += pngchan;
-			}
-			if(startchan < channels){
-				if(!pngchan)
-					UNQUIET("# writing %s image as split channels...\n", mode_names[h->mode]);
-				writechannels(f, pngdir, name, chcomp, NULL, rowpos,
-							  startchan, channels-startchan, rows, cols, h);
-			}
+
+		nwarns = 0;
+		startchan = 0;
+		if(pngchan && !split){
+			writeimage(f, pngdir, name, chcomp, NULL, rowpos, 0,
+					   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
+			startchan += pngchan;
 		}
+		if(startchan < channels){
+			if(!pngchan)
+				UNQUIET("# writing %s image as split channels...\n", mode_names[h->mode]);
+			writechannels(f, pngdir, name, chcomp, NULL, rowpos,
+						  startchan, channels-startchan, rows, cols, h);
+		}
+
 		if(xml) fputs("\t</COMPOSITE>\n", xml);
 	}else{
 		// Process layer:
@@ -185,22 +193,21 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 			VERBOSE("  channel %d:\n", ch);
 			chcomp[ch] = dochannel(f, li, ch, 1/*count*/, rows, cols, h->depth, rowpos+ch, h);
 		}
-		if(writepng){
-			nwarns = 0;
-			if(pngchan && !split){
-				writeimage(f, pngdir, name, chcomp, li, rowpos, 0,
-						   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
 
-				// spit out any 'extra' channels (e.g. layer transparency)
-				for(ch = 0; ch < channels; ++ch)
-					if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
-						writechannels(f, pngdir, name, chcomp, li, rowpos,
-									  ch, 1, rows, cols, h);
-			}else{
-				UNQUIET("# writing layer as split channels...\n");
-				writechannels(f, pngdir, name, chcomp, li, rowpos,
-							  0, channels, rows, cols, h);
-			}
+		nwarns = 0;
+		if(pngchan && !split){
+			writeimage(f, pngdir, name, chcomp, li, rowpos, 0,
+					   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
+
+			// spit out any 'extra' channels (e.g. layer transparency)
+			for(ch = 0; ch < channels; ++ch)
+				if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
+					writechannels(f, pngdir, name, chcomp, li, rowpos,
+								  ch, 1, rows, cols, h);
+		}else{
+			UNQUIET("# writing layer as split channels...\n");
+			writechannels(f, pngdir, name, chcomp, li, rowpos,
+						  0, channels, rows, cols, h);
 		}
 	}
 

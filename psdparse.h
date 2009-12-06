@@ -147,6 +147,8 @@ enum{RAWDATA,RLECOMP,ZIPCOMP,ZIPPREDICT}; // ZIP types from CS doc
 
 #define FIXEDPT(x) ((x)/65536.)
 
+#define KEYMATCH(p, str) (!memcmp(p, str, strlen(str)))
+
 struct psd_header{
 	char sig[4];
 	short version;

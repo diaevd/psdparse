@@ -64,7 +64,7 @@ unsigned scan(unsigned char *addr, size_t len, struct psd_header *h)
 
 	for(i = 0; i < len;)
 	{
-		if(!memcmp("8BIM", (char*)p+i, 4)){
+		if(KEYMATCH((char*)p+i, "8BIM")){
 			i += 4;
 
 			// found possible layer signature
@@ -117,7 +117,7 @@ int is_resource(unsigned char *addr, size_t len, size_t offset)
 	int namelen;
 	long size;
 
-	if(!memcmp("8BIM", addr + offset, 4)){
+	if(KEYMATCH(addr + offset, "8BIM")){
 		offset += 4; // type
 		offset += 2; // id
 		namelen = addr[offset];

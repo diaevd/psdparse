@@ -56,11 +56,11 @@
   25-Nov-2009: 2.9b3 parse some structure out of embedded PDF
   26-Nov-2009: 3.0b1 enable descriptor based structures including object effects, and fill layers
   30-Nov-2009: 3.1b1 add some resource types. Various debugging and refactoring.
-  05-Dec-2009: 3.1b2 various refactoring. fix segfault introduced in r284 (reported by Tobias Jakobs)
+  05-Dec-2009: 3.1b2,3 various refactoring. fix segfault introduced in r284 (reported by Tobias Jakobs)
 */
 
-#define VERSION_STR "3.1b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x10,beta,2
+#define VERSION_STR "3.1b3"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x10,beta,3
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -69,7 +69,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,1,0x60,2
+#define VI_VERS_NUM 3,1,0x60,3
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

@@ -49,7 +49,7 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 		setupfile(rawname, dir, name, ".raw");
 		if( (f = fopen(rawname, "wb")) ){
 			if(xml){
-				fputs("\t\t<RAW NAME='", xml);
+				fputs("\t\t\t<RAW NAME='", xml);
 				fputsxml(name, xml);
 				fputs("' DIR='", xml);
 				fputsxml(dir, xml);

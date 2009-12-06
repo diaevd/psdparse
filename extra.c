@@ -72,7 +72,7 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *parent, c
 	struct dictentry *d;
 
 	for(d = parent; d->key; ++d)
-		if(!memcmp(key, d->key, 4)){
+		if(KEYMATCH(key, d->key)){
 			char *tagname = d->tag + (d->tag[0] == '-');
 			//fprintf(stderr, "matched tag %s\n", d->tag);
 			if(d->func)
@@ -126,7 +126,7 @@ void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm
 	struct dictentry *d;
 	const char *indent = tabs(level);
 
-	if(xml && !memcmp(bm->sig, "8BIM", 4)){
+	if(xml && KEYMATCH(bm->sig, "8BIM")){
 		fprintf(xml, "%s<BLENDMODE OPACITY='%g' CLIPPING='%d'>\n",
 				indent, bm->opacity/2.55, bm->clipping);
 		findbykey(f, level+1, bmdict, bm->key, len, 1);
@@ -155,7 +155,7 @@ static void blendmode(psd_file_t f, int level, int len, struct dictentry *parent
 
 	fread(sig, 1, 4, f);
 	fread(key, 1, 4, f);
-	if(xml && !memcmp(sig, "8BIM", 4)){
+	if(xml && KEYMATCH(sig, "8BIM")){
 		fprintf(xml, "%s<BLENDMODE>\n", tabs(level));
 		findbykey(f, level+1, bmdict, key, len, 1);
 		fprintf(xml, "%s</BLENDMODE>\n", tabs(level));
@@ -357,8 +357,13 @@ static void ed_color(psd_file_t f, int level, int len, struct dictentry *parent)
 }
 
 static void ed_sectiondivider(psd_file_t f, int level, int len, struct dictentry *parent){
+	static const char *type[] = {"OTHER", "OPENFOLDER", "CLOSEDFOLDER", "BOUNDING"};
 	if(xml){
-		fprintf(xml, "%s<TYPE>%ld</TYPE>\n", tabs(level), get4B(f));
+		int t = get4B(f);
+		if(t >= 0 && t <= 3)
+			fprintf(xml, "%s<%s/>\n", tabs(level), type[t]);
+		else
+			fprintf(xml, "%s<TYPE>%d</TYPE>\n", tabs(level), t);
 		if(len >= 12)
 			blendmode(f, level, len, parent);
 	}
@@ -438,9 +443,9 @@ static void ed_annotation(psd_file_t f, int level, int len, struct dictentry *pa
 				rects[j++] = get4B(f);
 			colorspace(f, level);
 
-			if(!memcmp(type, "txtA", 4))
+			if(KEYMATCH(type, "txtA"))
 				fprintf(xml, "%s<TEXT", indent);
-			else if(!memcmp(type, "sndA", 4))
+			else if(KEYMATCH(type, "sndA"))
 				fprintf(xml, "%s<SOUND", indent);
 			else
 				fprintf(xml, "%s<UNKNOWN", indent);
@@ -457,7 +462,7 @@ static void ed_annotation(psd_file_t f, int level, int len, struct dictentry *pa
 			fread(key, 1, 4, f);
 			datalen = get4B(f);
 			//printf(" optblocks=%d key=%c%c%c%c len2=%ld datalen=%ld\n", optblocks, key[0],key[1],key[2],key[3],len2,datalen);
-			if(!memcmp(key, "txtC", 4)){
+			if(KEYMATCH(key, "txtC")){
 				unsigned char bom[2];
 
 				fputc('>', xml);
@@ -474,7 +479,7 @@ static void ed_annotation(psd_file_t f, int level, int len, struct dictentry *pa
 						fputcxml(fgetc(f), xml);
 				}
 				fputs("</TEXT>\n", xml);
-			}else if(!memcmp(key, "sndM", 4)){
+			}else if(KEYMATCH(key, "sndM")){
 				// TODO: Check PDF doc for format of sound annotation
 				fprintf(xml, " RATE='%ld' BYTES='%ld' />\n", datalen, len2);
 			}else
@@ -537,15 +542,18 @@ static void ed_vectormask(psd_file_t f, int level, int len, struct dictentry *pa
 	}
 }
 
-static int sigkeyblock(psd_file_t f, int level, int len, struct dictentry *dict){
+static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, struct dictentry *dict){
 	char sig[4], key[4];
 	long length;
 	struct dictentry *d;
 
 	fread(sig, 1, 4, f);
 	fread(key, 1, 4, f);
-	length = get4B(f);
-	if(!memcmp(sig, "8BIM", 4)){
+	length = KEYMATCH(key, "LMsk") || KEYMATCH(key, "Lr16")
+		  || KEYMATCH(key, "Layr") || KEYMATCH(key, "Mt16")
+		  || KEYMATCH(key, "Mtrn") || KEYMATCH(key, "Alph")
+			  ? GETPSDBYTES(f) : get4B(f);
+	if(KEYMATCH(sig, "8BIM")){
 		if(!xml)
 			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
 					key[0],key[1],key[2],key[3], length);
@@ -703,7 +711,7 @@ static void ed_layereffects(psd_file_t f, int level, int len, struct dictentry *
 	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get2B(f));
 		for(count = get2B(f); count--;)
-			if(!sigkeyblock(f, level, len, fxdict))
+			if(!sigkeyblock(f, NULL/*FIXME*/, level, len, fxdict))
 				break; // got bad signature
 	}
 }
@@ -743,10 +751,16 @@ struct psd_header *psd_header; // hacky
 // see libpsd
 static void ed_layer16(psd_file_t f, int level, int len, struct dictentry *parent){
 	struct psd_header h2; // a kind of 'nested' set of layers; don't alter main PSD header
+	FILE *tmp;
 
 	h2 = *psd_header; // initialise from main file header
+
+	tmp = xml;
+	xml = NULL; // hacky, suppress XML
 	dolayerinfo(f, &h2);
-	//processlayers(f, &h2);
+	xml = tmp;
+
+	//processlayers(f, &h2); // FIXME: need ZIP compression types.
 }
 
 // v6 doc
@@ -934,7 +948,7 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 	psd_header = h;
 
 	while(length >= 12){
-		psd_bytes_t block = sigkeyblock(f, level, length, extradict);
+		psd_bytes_t block = sigkeyblock(f, h, level, length, extradict);
 		if(!block){
 			warn("bad signature in layer's extra data, skipping the rest");
 			break;
