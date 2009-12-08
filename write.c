@@ -102,6 +102,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 
 	pngchan = color_type = 0;
 	switch(h->mode){
+	default: // multichannel, cmyk, lab etc
+		split = 1;
 	case ModeBitmap:
 	case ModeGrayScale:
 	case ModeGray16:
@@ -163,7 +165,6 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 	}else{
 		struct channel_info *merged_chans = checkmalloc(channels*sizeof(struct channel_info));
-		VERBOSE("\n  merged channels:\n");
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
@@ -178,6 +179,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// (For multichannel (and maybe other?) modes, we should just write all
 		// channels per step 2)
 
+		VERBOSE("\n  merged channels:\n");
 		dochannel(f, NULL, merged_chans, channels, h);
 
 		if(xml)
@@ -192,7 +194,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 					   h->rows, h->cols, h, color_type);
 			ch += pngchan;
 		}
-		if(ch < channels){
+		if(writepng && ch < channels){
 			if(split){
 				UNQUIET("# writing %s image as split channels...\n", mode_names[h->mode]);
 			}else{
@@ -203,5 +205,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 
 		if(xml) fputs("\t</COMPOSITE>\n", xml);
+
+		free(merged_chans);
 	}
 }

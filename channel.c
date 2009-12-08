@@ -52,18 +52,11 @@ void readunpackrow(psd_file_t psd,        // input file handle
 		if(seekres != -1)
 			n = fread(inrow, 1, chan->rowbytes, psd);
 		break;
-	case RLECOMP: /* RLE data */
+	case RLECOMP:
 		pos = chan->rowpos[row];
 		seekres = fseeko(psd, pos, SEEK_SET);
 		if(seekres != -1){
-			n = chan->rowpos[row+1] - chan->rowpos[row]; // get RLE byte count
-			if(n > 2*chan->rowbytes){
-				n = 2*chan->rowbytes; // sanity check
-				warn("bad RLE byte count %5ld @ channel %2d, row %5ld", n, chan->id, row);
-			}
-			rlebytes = fread(rlebuf, 1, n, psd);
-			if(rlebytes < n)
-				warn("RLE row data short @ " LL_L("%lld","%ld"), pos);
+			rlebytes = fread(rlebuf, 1, chan->rowpos[row+1] - pos, psd);
 			n = unpackbits(inrow, rlebuf, chan->rowbytes, rlebytes);
 		}
 		break;
@@ -77,7 +70,8 @@ void readunpackrow(psd_file_t psd,        // input file handle
 
 	if(seekres == -1)
 		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), pos);
-	else if(n < chan->rowbytes){
+
+	if(n < chan->rowbytes){
 		warn("row data short (wanted %d, got %d bytes)", chan->rowbytes, n);
 		// zero out unwritten part of row
 		memset(inrow + n, 0, chan->rowbytes - n);
@@ -91,16 +85,16 @@ void dochannel(psd_file_t f,
 			   struct psd_header *h)
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
-	int comp, ch, dumpit, samplebytes = h->depth > 8 ? h->depth/8 : 0;
+	int comp, ch;
 	psd_bytes_t pos, rb;
-	unsigned char *rowbuf;
-	psd_pixels_t count, last, *rlebuf;
-	long n, j;
+	unsigned char *zipdata;
+	psd_pixels_t count, last, j;
 
-	chan->filepos = ftello(f) + 2;
+	chan->filepos = pos = ftello(f) + 2;
 
 	if(li){
-		VERBOSE(">>> channel id = %d @ " LL_L("%7lld\n","%7ld\n"), chan->id, ftello(f));
+		VERBOSE(">>> channel id = %d @ " LL_L("%7lld, %lld","%7ld, %ld") " bytes\n",
+				chan->id, ftello(f), chan->length);
 
 		// If this is a layer mask, the pixel size is a special case
 		if(chan->id == -2){
@@ -127,19 +121,21 @@ void dochannel(psd_file_t f,
 	comp = get2Bu(f);
 
 	if(comp > ZIPPREDICT){
-		alwayswarn("## bad compression type %d\n", comp);
-		if(li){ // make a guess based on channel byte count
-			comp = chan->length == chan->rows*rb ? RAWDATA : RLECOMP;
-			alwayswarn("## guessing: %s\n", comptype[comp]);
-		}else{
-			comp = -1;
-		}
-	}else
-		VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
+		alwayswarn("## bad compression type %d, skipping channel\n", comp);
+		// give up on this channel
+		return;
+	}
+
+	VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
 	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
 			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*chan->rows*rb, rb);
 
-	// copy this info to all channels
+	// Prepare compressed data for later access:
+
+	// skip rle counts, leave pos pointing to first compressed image row
+	if(comp == RLECOMP)
+		pos += (channels*chan->rows) << h->version;
+
 	for(ch = 0; ch < channels; ++ch){
 		if(!li)
 			chan[ch].id = ch;
@@ -147,33 +143,24 @@ void dochannel(psd_file_t f,
 		chan[ch].comptype = comp;
 		chan[ch].rows = chan->rows;
 		chan[ch].cols = chan->cols;
-	}
+		chan[ch].filepos = pos;
 
-	if(!chan->rows || comp == -1){
-		//VERBOSE("## skipping channel\n");
-		return;
-	}
+		if(!chan->rows)
+			continue;
 
-	// Prepare compressed data for later access:
+		// For RLE, we read the row count array and compute file positions.
+		// For ZIP, read and decompress whole channel.
+		switch(comp){
+		case RAWDATA:
+			pos += chan->rowbytes*chan->rows;
+			if(li && chan->length != 2 + chan->rowbytes*chan->rows)
+				alwayswarn("# uncompressed channel data is %d rows x %d = %ld bytes, but length = %ld\n",
+						   chan->rows, chan->rowbytes, chan->rowbytes*chan->rows, chan->length - 2);
+			break;
 
-	// For RLE, we read the row count array and compute file positions.
-	// For ZIP, read and decompress whole channel.
-	switch(comp){
-	case RAWDATA:
-		// skip channel's image data
-		pos = chan->filepos + chan->rowbytes*chan->rows;
-		fseeko(f, pos, SEEK_SET);
-		break;
-	case RLECOMP:
-		/* image data starts after RLE counts */
-		pos = chan->filepos + ((channels*chan->rows) << h->version);
+		case RLECOMP:
+			/* accumulate RLE counts, to make array of row start positions */
 
-		// assume that all channels have same row count and rowbytes
-		// - this is safe, only merged data will have channels > 1
-		rlebuf = checkmalloc(channels*chan->rows*sizeof(psd_pixels_t));
-
-		/* accumulate RLE counts, to make array of row start positions */
-		for(ch = 0; ch < channels; ++ch){
 			chan[ch].rowpos = checkmalloc((chan[ch].rows+1)*sizeof(psd_bytes_t));
 			last = chan[ch].rowbytes;
 			for(j = 0; j < chan[ch].rows && !feof(f); ++j){
@@ -189,80 +176,42 @@ void dochannel(psd_file_t f,
 			if(j < chan[ch].rows)
 				fatal("# couldn't read RLE counts");
 			chan[ch].rowpos[j] = pos; /* = end of last row */
-		}
-		// skip channel's compressed image data
-		fseeko(f, pos, SEEK_SET);
-		break;
-	case ZIPNOPREDICT:
-	case ZIPPREDICT:
-		if(li){
-			unsigned char *zipdata = checkmalloc(chan->length);
-			count = fread(zipdata, 1, chan->length, f);
-			if(count < chan->length)
-				warn("ZIP data short: wanted %d bytes, got %d", chan->length, count);
-			chan->unzipdata = checkmalloc(chan->rows*chan->rowbytes);
-			if(comp == ZIPNOPREDICT)
-				psd_unzip_without_prediction(zipdata, count, chan->unzipdata, chan->rows*chan->rowbytes);
-			else
-				psd_unzip_with_prediction(zipdata, count, chan->unzipdata, chan->rows*chan->rowbytes, chan->cols, h->depth);
-			free(zipdata);
-		}else
-			warn("ZIP data outside a layer");
-		break;
-	}
-#if 0
-	for(ch = 0; ch < channels; ++ch){
-		rowbuf = checkmalloc(chan[ch].rowbytes*2); /* slop for worst case RLE overhead (usually (rb/127+1) ) */
-		VERBOSE("\n    channel %d (@ " LL_L("%7lld):\n","%7ld):\n"),
-				ch, (psd_bytes_t)ftello(f));
 
-		for(j = 0; j < chan[ch].rows; ++j){
-			if(chan[ch].rows > 3*CONTEXTROWS){
-				if(j == chan[ch].rows-CONTEXTROWS)
-					VERBOSE("    ...%ld rows not shown...\n", chan[ch].rows-2*CONTEXTROWS);
-				dumpit = j < CONTEXTROWS || j >= chan[ch].rows-CONTEXTROWS;
+			if(li && pos != chan->filepos - 2 + chan->length)
+				alwayswarn("# RLE channel data is %ld bytes, but length = %ld\n",
+						   pos - chan->filepos, chan->length - 2);
+			break;
+
+		case ZIPNOPREDICT:
+		case ZIPPREDICT:
+			if(li){
+				pos += chan->length - 2;
+
+				zipdata = checkmalloc(chan->length);
+				count = fread(zipdata, 1, chan->length - 2, f);
+				if(count < chan->length - 2)
+					alwayswarn("ZIP data short: wanted %d bytes, got %d", chan->length, count);
+
+				chan->unzipdata = checkmalloc(chan->rows*chan->rowbytes);
+				if(comp == ZIPNOPREDICT)
+					psd_unzip_without_prediction(zipdata, count, chan->unzipdata,
+												 chan->rows*chan->rowbytes);
+				else
+					psd_unzip_with_prediction(zipdata, count, chan->unzipdata,
+											  chan->rows*chan->rowbytes, chan->cols, h->depth);
+
+				free(zipdata);
 			}else
-				dumpit = 1;
+				alwayswarn("## can't process ZIP outside layer");
+			break;
+		default:
+			VERBOSE("## bad compression type - skipping channel\n");
+			if(li)
+				fseeko(f, chan->length - 2, SEEK_CUR);
+			break;
+		}
+	}
 
-			switch(comp){
-			case RLECOMP:
-				n = chan[ch].rowpos[j+1] - chan[ch].rowpos[j];
-				//VERBOSE("rle count[%5d] = %5d\n",j,n);
-				if(n < 0 || n > 2*chan[ch].rowbytes){
-					warn("bad RLE count %5ld @ row %5ld",n,j);
-					n = 2*chan[ch].rowbytes;
-				}
-				if(fseeko(f, chan[ch].rowpos[j], SEEK_SET) == -1)
-					warn("can't seek to RLE data @ %d", chan[ch].rowpos[j]);
-				else if((psd_pixels_t)fread(rowbuf, 1, n, f) == n){
-					if(dumpit){
-						VERBOSE("   %5ld: <%5ld> ", j, n);
-						dumprow(rowbuf, n, samplebytes);
-					}
-				}else
-					warn("couldn't read RLE row!");
-				break;
-			case RAWDATA:
-				pos = chan[ch].filepos + j*chan[ch].rowbytes;
-				if(fseeko(f, pos, SEEK_SET) == -1)
-					warn("can't seek to raw data @ %d", pos);
-				else if((psd_pixels_t)fread(rowbuf, 1, chan[ch].rowbytes, f) == chan[ch].rowbytes){
-					if(dumpit){
-						VERBOSE("   %5ld: ", j);
-						dumprow(rowbuf, chan[ch].rowbytes, samplebytes);
-					}
-				}else
-					warn("couldn't read raw row!");
-				break;
-			case ZIPNOPREDICT:
-			case ZIPPREDICT:
-				VERBOSE("   %5ld: (unzip) ",j);
-				dumprow(chan[ch].unzipdata + j*chan[ch].rowbytes, chan[ch].rowbytes, samplebytes);
-				break;
-			}
-		} // for rows
-
-		free(rowbuf);
-	} // for channels
-#endif
+	// the file pointer must be left at the end of the channel's data
+	fseeko(f, pos, SEEK_SET);
 }

@@ -555,7 +555,7 @@ static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, s
 			  ? GETPSDBYTES(f) : get4B(f);
 	if(KEYMATCH(sig, "8BIM")){
 		if(!xml)
-			VERBOSE("    data block: key='%c%c%c%c' length=%5ld\n",
+			VERBOSE("    data block: key='%c%c%c%c' length=%7ld\n",
 					key[0],key[1],key[2],key[3], length);
 		if(dict && (d = findbykey(f, level, dict, key, length, 1))
 		   && !d->func && !xml)
@@ -750,17 +750,14 @@ struct psd_header *psd_header; // hacky
 
 // see libpsd
 static void ed_layer16(psd_file_t f, int level, int len, struct dictentry *parent){
-	struct psd_header h2; // a kind of 'nested' set of layers; don't alter main PSD header
-	FILE *tmp;
+	//struct psd_header h2 = *psd_header; // a kind of 'nested' set of layers; don't alter main PSD header
 
-	h2 = *psd_header; // initialise from main file header
+	// overwrite main PSD header, mainly because of the 'merged alpha' flag
 
-	tmp = xml;
-	xml = NULL; // hacky, suppress XML
-	dolayerinfo(f, &h2);
-	xml = tmp;
-
-	//processlayers(f, &h2); // FIXME: need ZIP compression types.
+	// I *think* they mean us to respect the one in Lr16 because in my test data,
+	// the main layer count is zero, so cannot convey this information.
+	dolayerinfo(f, psd_header);
+	processlayers(f, psd_header);
 }
 
 // v6 doc
