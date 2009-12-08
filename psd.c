@@ -68,8 +68,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 	}
 	else
 	{
-		li->chlengths = checkmalloc(li->channels*sizeof(psd_bytes_t));
-		li->chid = checkmalloc(li->channels*sizeof(int));
+		li->chan = checkmalloc(li->channels*sizeof(struct channel_info));
 		li->chindex = checkmalloc((li->channels+2)*sizeof(int));
 		li->chindex += 2; // so we can index array from [-2] (hackish)
 
@@ -79,8 +78,8 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 		// fetch info on each of the layer's channels
 
 		for(j = 0; j < li->channels; ++j){
-			chid = li->chid[j] = get2B(f);
-			chlen = li->chlengths[j] = GETPSDBYTES(f);
+			chid = li->chan[j].id = get2B(f);
+			chlen = li->chan[j].length = GETPSDBYTES(f);
 
 			if(chid >= -2 && chid < li->channels)
 				li->chindex[chid] = j;
@@ -126,6 +125,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 			fseeko(f, li->mask.size-18, SEEK_CUR); // skip remainder
 			li->mask.rows = li->mask.bottom - li->mask.top;
 			li->mask.cols = li->mask.right - li->mask.left;
+			VERBOSE("  (has layer mask)\n", li->mask.size);
 		}else
 			VERBOSE("  (no layer mask)\n");
 
@@ -194,7 +194,6 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 			dolayerinfo(f, h);
       		// after processing all layers, file should now positioned at image data
 		}else VERBOSE("  (layer info section is empty)\n");
-
 	}else VERBOSE("  (layer & mask info section is empty)\n");
 }
 
@@ -213,29 +212,28 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 	for(i = 0; i < h->nlayers; ++i){
 		struct layer_info *li = &h->linfo[i];
-		long pixw = li->right - li->left, pixh = li->bottom - li->top;
+		psd_pixels_t cols = li->right - li->left, rows = li->bottom - li->top;
 
 		VERBOSE("\n  layer %d (\"%s\"):\n", i, li->name);
 
-		if(listfile && pixw && pixh){
+		if(listfile && cols && rows){
 			if(numbered)
 				fprintf(listfile, "\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
-						li->nameno, li->left, li->top, pixw, pixh, li->name);
+						li->nameno, li->left, li->top, cols, rows, li->name);
 			else
 				fprintf(listfile, "\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
-						li->name, li->left, li->top, pixw, pixh);
+						li->name, li->left, li->top, cols, rows);
 		}
 		if(xml){
 			fputs("\t<LAYER NAME='", xml);
 			fputsxml(li->name, xml); // FIXME: what encoding is this in? maybe PDF Latin?
 			fprintf(xml, "' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
-					li->top, li->left, li->bottom, li->right, pixw, pixh);
+					li->top, li->left, li->bottom, li->right, cols, rows);
 		}
 
-		if(xml) layerblendmode(f, 2, 1, &li->blend);
+		layerblendmode(f, 2, 1, &li->blend);
 
-		doimage(f, li, numbered ? li->nameno : li->name,
-				li->channels, pixh, pixw, h);
+		doimage(f, li, numbered ? li->nameno : li->name, h);
 
 		if(extra && xml){
 			// Process 'additional data' (non-image layer data,

@@ -21,9 +21,10 @@
 
 #include "png.h"
 
-static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
-					   struct layer_info *li, psd_bytes_t **rowpos,
-					   int startchan, int channels, long rows, long cols,
+static void writeimage(psd_file_t psd, char *dir, char *name,
+					   struct layer_info *li,
+					   struct channel_info *chan,
+					   int channels, long rows, long cols,
 					   struct psd_header *h, int color_type)
 {
 	if(writepng){
@@ -32,10 +33,10 @@ static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
 
 		if(h->depth == 32){
 			if((outfile = rawsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
-				rawwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+				rawwriteimage(outfile, psd, li, chan, channels, h);
 		}else{
 			if((outfile = pngsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
-				pngwriteimage(outfile, psd, chcomp, li, rowpos, startchan, channels, rows, cols, h);
+				pngwriteimage(outfile, psd, li, chan, channels, h);
 		}
 
 		fseeko(psd, savepos, SEEK_SET);
@@ -43,18 +44,19 @@ static void writeimage(psd_file_t psd, char *dir, char *name, int chcomp[],
 	}
 }
 
-static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
-						  struct layer_info *li, psd_bytes_t **rowpos, int startchan,
-						  int channels, long rows, long cols, struct psd_header *h)
+static void writechannels(psd_file_t f, char *dir, char *name,
+						  struct layer_info *li,
+						  struct channel_info *chan,
+						  int channels, struct psd_header *h)
 {
 	char pngname[FILENAME_MAX];
-	int i, ch;
+	int ch;
 
-	for(i = 0; i < channels; ++i){
+	for(ch = 0; ch < channels; ++ch){
 		// build PNG file name
 		strcpy(pngname, name);
-		ch = li ? li->chid[startchan + i] : startchan + i;
-		if(ch == -2){
+
+		if(chan[ch].id == -2){
 			if(xml){
 				fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
 						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols, li->mask.default_colour);
@@ -63,29 +65,27 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 				if(li->mask.flags & 4) fputs("\t\t\t<INVERT />\n", xml);
 			}
 			strcat(pngname, ".lmask");
-			// layer mask channel is a special case, gets its own dimensions
-			rows = li->mask.rows;
-			cols = li->mask.cols;
-		}else if(ch == -1){
+		}else if(chan[ch].id == -1){
 			if(xml) fputs("\t\t<TRANSPARENCY>\n", xml);
 			strcat(pngname, li ? ".trans" : ".alpha");
 		}else{
 			if(xml)
-				fprintf(xml, "\t\t<CHANNEL ID='%d'>\n", ch);
-			if(ch < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
-				sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][ch]);
+				fprintf(xml, "\t\t<CHANNEL ID='%d'>\n", chan[ch].id);
+			if(chan[ch].id < (int)strlen(channelsuffixes[h->mode])) // can identify channel by letter
+				sprintf(pngname+strlen(pngname), ".%c", channelsuffixes[h->mode][chan[ch].id]);
 			else // give up and use a number
-				sprintf(pngname+strlen(pngname), ".%d", ch);
+				sprintf(pngname+strlen(pngname), ".%d", chan[ch].id);
 		}
 
-		if(chcomp[i] == -1)
+		if(chan[ch].comptype == -1)
 			alwayswarn("## not writing \"%s\", bad channel compression type\n", pngname);
 		else
-			writeimage(f, dir, pngname, chcomp, li, rowpos, startchan+i, 1, rows, cols, h, PNG_COLOR_TYPE_GRAY);
+			writeimage(f, dir, pngname, li, chan + ch, 1,
+					   chan[ch].rows, chan[ch].cols, h, PNG_COLOR_TYPE_GRAY);
 
-		if(ch == -2){
+		if(chan[ch].id == -2){
 			if(xml) fputs("\t\t</LAYERMASK>\n", xml);
-		}else if(ch == -1){
+		}else if(chan[ch].id == -1){
 			if(xml) fputs("\t\t</TRANSPARENCY>\n", xml);
 		}else{
 			if(xml) fputs("\t\t</CHANNEL>\n", xml);
@@ -93,24 +93,12 @@ static void writechannels(psd_file_t f, char *dir, char *name, int chcomp[],
 	}
 }
 
-void doimage(psd_file_t f, struct layer_info *li, char *name,
-			 int channels, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header *h)
 {
-	int ch, comp, startchan, pngchan, color_type, *chcomp;
-	psd_bytes_t **rowpos;
-	
 	// map channel count to a suitable PNG mode (when scavenging and actual mode is not known)
 	static int png_mode[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
 								PNG_COLOR_TYPE_RGB,  PNG_COLOR_TYPE_RGB_ALPHA};
-
-	chcomp = checkmalloc(channels*sizeof(int));
-	rowpos = checkmalloc(channels*sizeof(psd_bytes_t*));
-
-	for(ch = 0; ch < channels; ++ch){
-		// is it a layer mask? if so, use special case row count
-		psd_pixels_t chrows = li && li->chid[ch] == -2 ? li->mask.rows : rows;
-		rowpos[ch] = checkmalloc((chrows+1)*sizeof(psd_bytes_t));
-	}
+	int ch, pngchan, color_type, channels = li ? li->channels : h->channels;
 
 	pngchan = color_type = 0;
 	switch(h->mode){
@@ -143,9 +131,38 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 	case SCAVENGE_MODE:
 		pngchan = channels;
 		color_type = png_mode[pngchan];
+		break;
 	}
 
-	if(!li){
+	if(li){
+		// Process layer
+
+		for(ch = 0; ch < channels; ++ch){
+			VERBOSE("  channel %d:\n", ch);
+			dochannel(f, li, li->chan + ch, 1/*count*/, h);
+		}
+
+		if(writepng){
+			nwarns = 0;
+			if(pngchan && !split){
+				writeimage(f, pngdir, name, li, li->chan,
+						   h->depth == 32 ? channels : pngchan,
+						   li->bottom - li->top, li->right - li->left,
+						   h, color_type);
+
+				if(h->depth < 32){
+					// spit out any 'extra' channels (e.g. layer transparency)
+					for(ch = 0; ch < channels; ++ch)
+						if(li->chan[ch].id < -1 || li->chan[ch].id >= pngchan)
+							writechannels(f, pngdir, name, li, li->chan + ch, 1, h);
+				}
+			}else{
+				UNQUIET("# writing layer as split channels...\n");
+				writechannels(f, pngdir, name, li, li->chan, channels, h);
+			}
+		}
+	}else{
+		struct channel_info *merged_chans = checkmalloc(channels*sizeof(struct channel_info));
 		VERBOSE("\n  merged channels:\n");
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
@@ -161,58 +178,30 @@ void doimage(psd_file_t f, struct layer_info *li, char *name,
 		// (For multichannel (and maybe other?) modes, we should just write all
 		// channels per step 2)
 
-		comp = dochannel(f, NULL, 0/*no index*/, channels, rows, cols, h->depth, rowpos, h);
-		for(ch = 0; ch < channels; ++ch)
-			chcomp[ch] = comp; /* merged channels share same compression type */
+		dochannel(f, NULL, merged_chans, channels, h);
 
 		if(xml)
 			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld'>\n",
-					channels, rows, cols);
+					channels, h->rows, h->cols);
 
 		nwarns = 0;
-		startchan = 0;
+		ch = 0;
 		if(pngchan && !split){
-			writeimage(f, pngdir, name, chcomp, NULL, rowpos, 0,
-					   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
-			startchan += pngchan;
+			writeimage(f, pngdir, name, NULL, merged_chans,
+					   h->depth == 32 ? channels : pngchan,
+					   h->rows, h->cols, h, color_type);
+			ch += pngchan;
 		}
-		if(startchan < channels){
-			if(!pngchan)
+		if(ch < channels){
+			if(split){
 				UNQUIET("# writing %s image as split channels...\n", mode_names[h->mode]);
-			writechannels(f, pngdir, name, chcomp, NULL, rowpos,
-						  startchan, channels-startchan, rows, cols, h);
+			}else{
+				UNQUIET("# writing %d extra channels...\n", channels - ch);
+			}
+
+			writechannels(f, pngdir, name, NULL, merged_chans + ch, channels - ch, h);
 		}
 
 		if(xml) fputs("\t</COMPOSITE>\n", xml);
-	}else{
-		// Process layer:
-		// for each channel, store its row pointers sequentially
-		// in the rowpos[] array, and its compression type in chcomp[] array
-		// (pngwriteimage() will take care of interleaving this data for libpng)
-		for(ch = 0; ch < channels; ++ch){
-			VERBOSE("  channel %d:\n", ch);
-			chcomp[ch] = dochannel(f, li, ch, 1/*count*/, rows, cols, h->depth, rowpos+ch, h);
-		}
-
-		nwarns = 0;
-		if(pngchan && !split){
-			writeimage(f, pngdir, name, chcomp, li, rowpos, 0,
-					   h->depth == 32 ? channels : pngchan, rows, cols, h, color_type);
-
-			// spit out any 'extra' channels (e.g. layer transparency)
-			for(ch = 0; ch < channels; ++ch)
-				if(li->chid[ch] < -1 || li->chid[ch] > pngchan)
-					writechannels(f, pngdir, name, chcomp, li, rowpos,
-								  ch, 1, rows, cols, h);
-		}else{
-			UNQUIET("# writing layer as split channels...\n");
-			writechannels(f, pngdir, name, chcomp, li, rowpos,
-						  0, channels, rows, cols, h);
-		}
 	}
-
-	for(ch = 0; ch < channels; ++ch)
-		free(rowpos[ch]);
-	free(rowpos);
-	free(chcomp);
 }

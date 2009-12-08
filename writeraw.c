@@ -65,23 +65,28 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 	return f;
 }
 
-void rawwriteimage(FILE *raw, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+void rawwriteimage(
+		FILE *raw,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h)
 {
-	psd_pixels_t j, rb = (h->depth*cols+7)/8;
-	unsigned char *inrow, *rledata;
+	psd_pixels_t j;
+	unsigned char *inrow, *rlebuf;
 	int i;
 
-	rledata = checkmalloc(2*rb);
-	inrow = checkmalloc(rb);
+	rlebuf = checkmalloc(chan->rowbytes*2);
+	inrow  = checkmalloc(chan->rowbytes);
 
 	// write channels in a series of planes, not interleaved
-	for(i = startchan; i < startchan+chancount; ++i){
+	for(i = 0; i < chancount; ++i){
 		UNQUIET("## rawwriteimage: channel %d\n", i);
-		for(j = 0; j < rows; ++j){
+		for(j = 0; j < chan[i].rows; ++j){
 			/* get row data */
-			readunpackrow(psd, chcomp, rowpos, i, j, rb, inrow, rledata);
-			if((psd_pixels_t)fwrite(inrow, 1, rb, raw) != rb){
+			readunpackrow(psd, chan, j, inrow, rlebuf);
+			if((psd_pixels_t)fwrite(inrow, 1, chan[i].rowbytes, raw) != chan->rowbytes){
 				alwayswarn("# error writing raw data, aborting\n");
 				goto err;
 			}
@@ -90,7 +95,7 @@ void rawwriteimage(FILE *raw, psd_file_t psd, int chcomp[], struct layer_info *l
 
 err:
 	fclose(raw);
-	free(rledata);
+	free(rlebuf);
 	free(inrow);
 }
 

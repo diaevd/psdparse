@@ -118,7 +118,7 @@ typedef uint16_t psd_ushort;
 	#define PATH_MAX FILENAME_MAX
 #endif
 
-enum{RAWDATA,RLECOMP,ZIPCOMP,ZIPPREDICT}; // ZIP types from CS doc
+enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 
 /* Photoshop's mode constants */
 #define SCAVENGE_MODE -1
@@ -190,6 +190,17 @@ struct blend_mode_info{
 	//unsigned char filler;
 };
 
+struct channel_info{
+	int id;                 // channel id
+	int comptype;           // channel's compression type
+	psd_pixels_t rows, cols, rowbytes;  // computed by dochannel()
+	// FIXME: need depth??
+	psd_bytes_t length;     // channel byte count in file
+	psd_bytes_t filepos;    // file offset of channel data (AFTER compression type)
+	psd_bytes_t *rowpos;    // row data file positions (RLE ONLY)
+	unsigned char *unzipdata; // uncompressed data (ZIP ONLY)
+};
+
 struct layer_info{
 	long top;
 	long left;
@@ -198,8 +209,7 @@ struct layer_info{
 	short channels;
 
 	// runtime data (not in file)
-	psd_bytes_t *chlengths; // array of channel lengths
-	int *chid;       // channel ids
+	struct channel_info *chan;
 	int *chindex;    // lookup channel number by id (inverse of chid[])
 	struct blend_mode_info blend;
 	struct layer_mask_info mask;
@@ -210,13 +220,6 @@ struct layer_info{
 
 	psd_bytes_t filepos; // only used in scavenge layers mode
 	psd_bytes_t chpos; // only used in scavenge channels mode
-};
-
-struct extra_data{
-	char sig[4];
-	char key[4];
-	psd_bytes_t length;
-	//char data[];
 };
 
 struct dictentry{
@@ -271,14 +274,17 @@ double s15fixed16(psd_file_t f);
 
 void skipblock(psd_file_t f,char *desc);
 void dumprow(unsigned char *b,long n,int group);
-void readunpackrow(psd_file_t psd, int chcomp[], psd_bytes_t **rowpos,
-				   int i/*channel*/, psd_pixels_t j/*row*/, psd_bytes_t rb,
-				   unsigned char *inrow/*dest buffer*/,
-				   unsigned char *rledata/*temp buffer, 2 x rb in size*/);
-int dochannel(psd_file_t f,struct layer_info *li,int idx,int channels,
-			  psd_pixels_t rows,psd_pixels_t cols,int depth,psd_bytes_t **rowpos,struct psd_header *h);
-void doimage(psd_file_t f,struct layer_info *li,char *name,int channels,
-			 psd_pixels_t rows,psd_pixels_t cols,struct psd_header *h);
+void readunpackrow(psd_file_t psd,        // input file handle
+				   struct channel_info *chan, // channel info
+				   psd_pixels_t row,      // row index
+				   unsigned char *inrow,  // dest buffer for the uncompressed row (rb bytes)
+				   unsigned char *outrow); // temporary buffer for compressed data
+void dochannel(psd_file_t f,
+		  struct layer_info *li,
+		  struct channel_info *chan, // array of channel info
+		  int channels, // how many channels are to be processed (>1 only for merged data)
+		  struct psd_header *h);
+void doimage(psd_file_t f,struct layer_info *li,char *name,struct psd_header *h);
 void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 void doimageresources(psd_file_t f);
@@ -289,13 +295,23 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h);
 void setupfile(char *dstname,char *dir,char *name,char *suffix);
 FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void pngwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
+void pngwriteimage(
+		FILE *png,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h);
 
 FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height,
 					int channels, int color_type, struct layer_info *li, struct psd_header *h);
-void rawwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h);
+void rawwriteimage(
+		FILE *png,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h);
 
 int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_pixels_t inlen);
 

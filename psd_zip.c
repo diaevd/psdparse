@@ -73,14 +73,12 @@ psd_status psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
 	psd_status status;
 	int len;
 	psd_uchar * buf;
-	psd_ushort * wbuf;
 
 	status = psd_unzip_without_prediction(src_buf, src_len, dst_buf, dst_len);
 	if(!status)
 		return status;
 	
 	buf = dst_buf;
-	wbuf = (psd_ushort *)dst_buf;
 	do {
 		len = row_size;
 		if (color_depth == 16)

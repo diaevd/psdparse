@@ -54,7 +54,6 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 	f = NULL;
 	
 	if(width && height){
-		
 		setupfile(pngname, dir, name, ".png");
 
 		if(channels < 1 || channels > 4){
@@ -136,48 +135,51 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 
 		}else alwayswarn("### can't open \"%s\" for writing\n", pngname);
 
-	}else alwayswarn("### skipping layer \"%s\" (%ldx%ld)\n", li->name, width, height);
+	}else VERBOSE("### won't write empty PNG, skipping\n");
 
 	return f;
 }
 
-void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int chancount, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+void pngwriteimage(
+		FILE *png,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h)
 {
-	psd_pixels_t i, j, rb = (h->depth*cols+7)/8;
+	psd_pixels_t i, j;
 	uint16_t *q;
 	unsigned char *rowbuf, *inrows[4], *rledata, *p;
 	int ch, map[4];
 	
 	if(xml)
-		fprintf(xml, " CHINDEX='%d' />\n", startchan);
+		fprintf(xml, " CHINDEX='%d' />\n", chan->id);
 
-	rowbuf = checkmalloc(rb*chancount);
-	rledata = checkmalloc(2*rb);
+	// buffer used to construct a row interleaving all channels (if required)
+	rowbuf  = checkmalloc(chan->rowbytes*chancount);
 
+	// a buffer for RLE decompression (if required), we pass this to readunpackrow()
+	rledata = checkmalloc(chan->rowbytes*2);
+
+	// row buffers per channel, for reading non-interleaved rows
 	for(ch = 0; ch < chancount; ++ch){
-		inrows[ch] = checkmalloc(rb);
+		inrows[ch] = checkmalloc(chan->rowbytes);
 		// build mapping so that png channel 0 --> channel with id 0, etc
 		// and png alpha --> channel with id -1
 		map[ch] = li && chancount > 1 ? li->chindex[ch] : ch;
 	}
 	
 	// find the alpha channel, if needed
-	// FIXME: does this work for the merged image alpha??
-	if(chancount == 2 && li){ // grey+alpha
+	if(li && (chancount == 2 || chancount == 4)){
 		if(li->chindex[-1] == -1)
-			alwayswarn("### writing Grey+Alpha PNG, but no alpha found?\n");
+			alwayswarn("### did not locate alpha channel??\n");
 		else
-			map[1] = li->chindex[-1];
-	}else if(chancount == 4 && li){ // RGB+alpha
-		if(li->chindex[-1] == -1)
-			alwayswarn("### writing RGB+Alpha PNG, but no alpha found?\n");
-		else
-			map[3] = li->chindex[-1];
+			map[chancount-1] = li->chindex[-1];
 	}
 	
 	//for( ch = 0 ; ch < chancount ; ++ch )
-	//	alwayswarn("# channel map[%d] -> %d\n",ch,map[ch]);
+	//	alwayswarn("# channel map[%d] -> %d\n", ch, map[ch]);
 
 	if( setjmp(png_jmpbuf(png_ptr)) )
 	{ /* If we get here, libpng had a problem writing the file */
@@ -185,28 +187,23 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 		goto err;
 	}
 
-	for(j = 0; j < rows; ++j){
-		for(i = 0; i < chancount; ++i){
-			// startchan must be zero for multichannel,
-			// and for single channel, map[0] always == 0
-			ch = startchan + map[i];
+	for(j = 0; j < chan->rows; ++j){
+		for(ch = 0; ch < chancount; ++ch){
 			/* get row data */
-			//printf("rowpos[%d][%4d] = %7d\n",ch,j,rowpos[ch][j]);
-
-			if(map[i] < 0 || map[i] > (li ? li->channels : h->channels)){
-				warn("bad map[%d]=%d, skipping a channel", i, map[i]);
-				memset(inrows[i], 0, rb); // zero out the row
+			if(map[ch] < 0 || map[ch] >= chancount){
+				warn("bad map[%d]=%d, skipping a channel", ch, map[ch]);
+				memset(inrows[ch], 0, chan->rowbytes); // zero out the row
 			}else
-				readunpackrow(psd, chcomp, rowpos, ch, j, rb, inrows[i], rledata);
+				readunpackrow(psd, chan + map[ch], j, inrows[ch], rledata);
 		}
 
 		if(chancount > 1){ /* interleave channels */
 			if(h->depth == 8)
-				for(i = 0, p = rowbuf; i < rb; ++i)
+				for(i = 0, p = rowbuf; i < chan->rowbytes; ++i)
 					for(ch = 0; ch < chancount; ++ch)
 						*p++ = inrows[ch][i];
 			else
-				for(i = 0, q = (uint16_t*)rowbuf; i < rb/2; ++i)
+				for(i = 0, q = (uint16_t*)rowbuf; i < chan->rowbytes/2; ++i)
 					for(ch = 0; ch < chancount; ++ch)
 						*q++ = ((uint16_t*)inrows[ch])[i];
 
@@ -219,6 +216,7 @@ void pngwriteimage(FILE *png, psd_file_t psd, int chcomp[], struct layer_info *l
 
 err:
 	fclose(png);
+
 	free(rowbuf);
 	free(rledata);
 	for(ch = 0; ch < chancount; ++ch)
@@ -226,4 +224,3 @@ err:
 
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 }
-

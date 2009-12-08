@@ -36,203 +36,233 @@ void dumprow(unsigned char *b, long n, int group){
 }
 
 void readunpackrow(psd_file_t psd,        // input file handle
-				   int chcomp[],          // vector of compression types used for each channel
-				   psd_bytes_t **rowpos,  // file offsets to rows, indexed by [channel] and [row]
-				   int ch,                // channel to access
+				   struct channel_info *chan, // channel info
 				   psd_pixels_t row,      // row index
-				   psd_bytes_t rb,        // bytes per uncompressed row
 				   unsigned char *inrow,  // dest buffer for the uncompressed row (rb bytes)
-				   unsigned char *outrow) // temporary buffer for compressed data, 2 x rb in size
+				   unsigned char *rlebuf) // temporary buffer for compressed data, 2 x rb in size
 {
 	psd_pixels_t n = 0, rlebytes;
+	psd_bytes_t pos;
+	int seekres = 0;
 
-	if(fseeko(psd, rowpos[ch][row], SEEK_SET) == -1){
-		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), rowpos[ch][row]);
-	}else{
-		switch(chcomp[ch]){
-		case RAWDATA:
-			/* uncompressed */
-			n = fread(inrow, 1, rb, psd);
-			if(n < rb)
-				warn("can't read row data (raw) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
-			break;
-		case RLECOMP:
-			/* RLE data */
-			n = rowpos[ch][row+1] - rowpos[ch][row]; // get RLE byte count
-			if(n > 2*rb){
-				n = 2*rb; // sanity check
-				warn("bad RLE byte count %5ld @ channel %2d, row %5ld", n, ch, row);
+	switch(chan->comptype){
+	case RAWDATA: /* uncompressed */
+		pos = chan->filepos + chan->rowbytes*row;
+		seekres = fseeko(psd, pos, SEEK_SET);
+		if(seekres != -1)
+			n = fread(inrow, 1, chan->rowbytes, psd);
+		break;
+	case RLECOMP: /* RLE data */
+		pos = chan->rowpos[row];
+		seekres = fseeko(psd, pos, SEEK_SET);
+		if(seekres != -1){
+			n = chan->rowpos[row+1] - chan->rowpos[row]; // get RLE byte count
+			if(n > 2*chan->rowbytes){
+				n = 2*chan->rowbytes; // sanity check
+				warn("bad RLE byte count %5ld @ channel %2d, row %5ld", n, chan->id, row);
 			}
-			rlebytes = fread(outrow, 1, n, psd);
+			rlebytes = fread(rlebuf, 1, n, psd);
 			if(rlebytes < n)
-				warn("can't read row data (RLE) @ " LL_L("%lld","%ld"), rowpos[ch][row]);
-			n = unpackbits(inrow, outrow, rb, rlebytes);
-			break;
-			/*
-		case ZIPCOMP:
-			if(!psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
-											 psd_uchar *dst_buf, psd_int dst_len))
-				warn("no ZIP library to unpack ZIP row data");
-			break;
-		case ZIPPREDICT:
-			if(!psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
-										  psd_uchar *dst_buf, psd_int dst_len,
-										  psd_int row_size, psd_int color_depth))
-				warn("no ZIP library to unpack ZIP row data");
-			break;*/
+				warn("RLE row data short @ " LL_L("%lld","%ld"), pos);
+			n = unpackbits(inrow, rlebuf, chan->rowbytes, rlebytes);
 		}
-		// if we don't recognise the compression type, skip the row
-		// FIXME: or would it be better to use the last valid type seen?
+		break;
+	case ZIPNOPREDICT:
+	case ZIPPREDICT:
+		memcpy(inrow, chan->unzipdata + chan->rowbytes*row, chan->rowbytes);
+		return;
 	}
+	// if we don't recognise the compression type, skip the row
+	// FIXME: or would it be better to use the last valid type seen?
 
-	if(n < rb)
-		memset(inrow+n, 0, rb-n); // zero out whatever part of row wasn't written
+	if(seekres == -1)
+		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), pos);
+	else if(n < chan->rowbytes){
+		warn("row data short (wanted %d, got %d bytes)", chan->rowbytes, n);
+		// zero out unwritten part of row
+		memset(inrow + n, 0, chan->rowbytes - n);
+	}
 }
 
-// if rowpos is NULL, we're just skipping through this channel,
-// not collecting row start positions.
-
-int dochannel(psd_file_t f, struct layer_info *li, int idx, int channels,
-			  psd_pixels_t rows, psd_pixels_t cols, int depth,
-			  psd_bytes_t **rowpos, struct psd_header *h)
+void dochannel(psd_file_t f,
+			   struct layer_info *li,
+			   struct channel_info *chan, // array of channel info
+			   int channels, // how many channels are to be processed (>1 only for merged data)
+			   struct psd_header *h)
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
-	int comp, ch, dumpit, samplebytes = depth > 8 ? depth/8 : 0;
-	psd_bytes_t pos, chpos = ftello(f);
-	psd_bytes_t rb, chlen = 0;
+	int comp, ch, dumpit, samplebytes = h->depth > 8 ? h->depth/8 : 0;
+	psd_bytes_t pos, rb;
 	unsigned char *rowbuf;
-	psd_pixels_t k, count, last, *rlebuf = NULL;
+	psd_pixels_t count, last, *rlebuf;
 	long n, j;
 
+	chan->filepos = ftello(f) + 2;
+
 	if(li){
-		chlen = li->chlengths[idx];
-		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld bytes=%7lld\n","%7ld bytes=%7ld\n"),
-				idx, channels, chpos, chlen);
+		VERBOSE(">>> channel id = %d @ " LL_L("%7lld\n","%7ld\n"), chan->id, ftello(f));
 
-		if(chlen < 2){
-			alwayswarn("## channel too short (", LL_L("%lld","%ld") " bytes)\n", chlen);
-			if(chlen > 0)
-				fseeko(f, chlen, SEEK_CUR); // skip it anyway, but not backwards
-			return -1;
-		}
-
-		if(li->chid[idx] == -2){
-			rows = li->mask.rows;
-			cols = li->mask.cols;
+		// If this is a layer mask, the pixel size is a special case
+		if(chan->id == -2){
+			chan->rows = li->mask.rows;
+			chan->cols = li->mask.cols;
 			VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",
-					li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,rows,cols);
+					li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,chan->rows,chan->cols);
+		}else{
+			// channel has dimensions of the layer
+			chan->rows = li->bottom - li->top;
+			chan->cols = li->right - li->left;
 		}
-	}else
-		VERBOSE(">>> dochannel %d/%d filepos=" LL_L("%7lld\n","%7ld\n"),
-				idx, channels, chpos);
+	}else{
+		// merged image, has dimensions of PSD
+		VERBOSE(">>> merged image data @ " LL_L("%7lld\n","%7ld\n"), ftello(f));
+		chan->rows = h->rows;
+		chan->cols = h->cols;
+	}
 
-	rb = ((long)cols*depth + 7)/8;
+	// Compute image row bytes
+	rb = ((long)chan->cols*h->depth + 7)/8;
 
+	// Read compression type
 	comp = get2Bu(f);
-	chlen -= 2;
-	if(comp > RLECOMP){
+
+	if(comp > ZIPPREDICT){
 		alwayswarn("## bad compression type %d\n", comp);
 		if(li){ // make a guess based on channel byte count
-			comp = chlen == rows*rb ? RAWDATA : RLECOMP;
+			comp = chan->length == chan->rows*rb ? RAWDATA : RLECOMP;
 			alwayswarn("## guessing: %s\n", comptype[comp]);
 		}else{
-			alwayswarn("## skipping channel\n");
-			return -1;
+			comp = -1;
 		}
 	}else
 		VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
 	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
-			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*rows*rb, rb);
+			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*chan->rows*rb, rb);
 
-	rowbuf = checkmalloc(rb*2); /* slop for worst case RLE overhead (usually (rb/127+1) ) */
-	pos = chpos+2;
-
-	if(comp == RLECOMP){
-		long rlecounts = (channels*rows) << h->version;
-		if(li && chlen < rlecounts)
-			alwayswarn("## channel too short for RLE row counts (need %ld bytes, have "
-					   LL_L("%lld","%ld") " bytes)\n", rlecounts, chlen);
-
-		pos += rlecounts; /* image data starts after RLE counts */
-		rlebuf = checkmalloc(channels*rows*sizeof(psd_pixels_t));
-		/* accumulate RLE counts, to make array of row start positions */
-		for(ch = k = 0; ch < channels; ++ch){
-			last = rb;
-			for(j = 0; j < rows && !feof(f); ++j, ++k){
-				count = h->version==1 ? get2Bu(f) : (unsigned long)get4B(f); // PSD/PSB
-				if(count > 2*rb)  // this would be impossible
-					count = last; // make a guess, to help recover
-				rlebuf[k] = last = count;
-				//printf("rowpos[%d][%3ld]=%6lld\n",ch,j,pos);
-				if(rowpos) rowpos[ch][j] = pos;
-				pos += count;
-			}
-			if(rowpos) rowpos[ch][j] = pos; /* = end of last row */
-			if(j < rows) fatal("# couldn't read RLE counts");
-		}
-	}else if(rowpos){
-		/* make array of row start positions (uncompressed; each row is rb bytes) */
-		for(ch = 0; ch < channels; ++ch){
-			for(j = 0; j < rows; ++j){
-				rowpos[ch][j] = pos;
-				pos += rb;
-			}
-			rowpos[ch][j] = pos; /* = end of last row */
-		}
+	// copy this info to all channels
+	for(ch = 0; ch < channels; ++ch){
+		if(!li)
+			chan[ch].id = ch;
+		chan[ch].rowbytes = rb;
+		chan[ch].comptype = comp;
+		chan[ch].rows = chan->rows;
+		chan[ch].cols = chan->cols;
 	}
 
-	for(ch = k = 0; ch < channels; ++ch)
-	{
-		VERBOSE("\n    channel %d (@ " LL_L("%7lld):\n","%7ld):\n"), ch, (psd_bytes_t)ftello(f));
+	if(!chan->rows || comp == -1){
+		//VERBOSE("## skipping channel\n");
+		return;
+	}
 
-		for(j = 0; j < rows; ++j){
-			if(rows > 3*CONTEXTROWS){
-				if(j == rows-CONTEXTROWS)
-					VERBOSE("    ...%ld rows not shown...\n", rows-2*CONTEXTROWS);
-				dumpit = j < CONTEXTROWS || j >= rows-CONTEXTROWS;
+	// Prepare compressed data for later access:
+
+	// For RLE, we read the row count array and compute file positions.
+	// For ZIP, read and decompress whole channel.
+	switch(comp){
+	case RAWDATA:
+		// skip channel's image data
+		pos = chan->filepos + chan->rowbytes*chan->rows;
+		fseeko(f, pos, SEEK_SET);
+		break;
+	case RLECOMP:
+		/* image data starts after RLE counts */
+		pos = chan->filepos + ((channels*chan->rows) << h->version);
+
+		// assume that all channels have same row count and rowbytes
+		// - this is safe, only merged data will have channels > 1
+		rlebuf = checkmalloc(channels*chan->rows*sizeof(psd_pixels_t));
+
+		/* accumulate RLE counts, to make array of row start positions */
+		for(ch = 0; ch < channels; ++ch){
+			chan[ch].rowpos = checkmalloc((chan[ch].rows+1)*sizeof(psd_bytes_t));
+			last = chan[ch].rowbytes;
+			for(j = 0; j < chan[ch].rows && !feof(f); ++j){
+				count = h->version==1 ? get2Bu(f) : (unsigned long)get4B(f);
+
+				if(count > 2*chan[ch].rowbytes)  // this would be impossible
+					count = last; // make a guess, to help recover
+				last = count;
+
+				chan[ch].rowpos[j] = pos;
+				pos += count;
+			}
+			if(j < chan[ch].rows)
+				fatal("# couldn't read RLE counts");
+			chan[ch].rowpos[j] = pos; /* = end of last row */
+		}
+		// skip channel's compressed image data
+		fseeko(f, pos, SEEK_SET);
+		break;
+	case ZIPNOPREDICT:
+	case ZIPPREDICT:
+		if(li){
+			unsigned char *zipdata = checkmalloc(chan->length);
+			count = fread(zipdata, 1, chan->length, f);
+			if(count < chan->length)
+				warn("ZIP data short: wanted %d bytes, got %d", chan->length, count);
+			chan->unzipdata = checkmalloc(chan->rows*chan->rowbytes);
+			if(comp == ZIPNOPREDICT)
+				psd_unzip_without_prediction(zipdata, count, chan->unzipdata, chan->rows*chan->rowbytes);
+			else
+				psd_unzip_with_prediction(zipdata, count, chan->unzipdata, chan->rows*chan->rowbytes, chan->cols, h->depth);
+			free(zipdata);
+		}else
+			warn("ZIP data outside a layer");
+		break;
+	}
+#if 0
+	for(ch = 0; ch < channels; ++ch){
+		rowbuf = checkmalloc(chan[ch].rowbytes*2); /* slop for worst case RLE overhead (usually (rb/127+1) ) */
+		VERBOSE("\n    channel %d (@ " LL_L("%7lld):\n","%7ld):\n"),
+				ch, (psd_bytes_t)ftello(f));
+
+		for(j = 0; j < chan[ch].rows; ++j){
+			if(chan[ch].rows > 3*CONTEXTROWS){
+				if(j == chan[ch].rows-CONTEXTROWS)
+					VERBOSE("    ...%ld rows not shown...\n", chan[ch].rows-2*CONTEXTROWS);
+				dumpit = j < CONTEXTROWS || j >= chan[ch].rows-CONTEXTROWS;
 			}else
 				dumpit = 1;
 
-			if(comp == RLECOMP){
-				n = rlebuf[k++];
+			switch(comp){
+			case RLECOMP:
+				n = chan[ch].rowpos[j+1] - chan[ch].rowpos[j];
 				//VERBOSE("rle count[%5d] = %5d\n",j,n);
-				if(n < 0 || n > 2*rb){
+				if(n < 0 || n > 2*chan[ch].rowbytes){
 					warn("bad RLE count %5ld @ row %5ld",n,j);
-					n = 2*rb;
+					n = 2*chan[ch].rowbytes;
 				}
-				if((psd_pixels_t)fread(rowbuf,1,n,f) == n){
+				if(fseeko(f, chan[ch].rowpos[j], SEEK_SET) == -1)
+					warn("can't seek to RLE data @ %d", chan[ch].rowpos[j]);
+				else if((psd_pixels_t)fread(rowbuf, 1, n, f) == n){
 					if(dumpit){
-						VERBOSE("   %5ld: <%5ld> ",j,n);
-						dumprow(rowbuf,n,samplebytes);
+						VERBOSE("   %5ld: <%5ld> ", j, n);
+						dumprow(rowbuf, n, samplebytes);
 					}
-				}else{
-					memset(rowbuf,0,n);
+				}else
 					warn("couldn't read RLE row!");
-				}
-			}
-			else if(comp == RAWDATA){
-				if((psd_pixels_t)fread(rowbuf,1,rb,f) == rb){
+				break;
+			case RAWDATA:
+				pos = chan[ch].filepos + j*chan[ch].rowbytes;
+				if(fseeko(f, pos, SEEK_SET) == -1)
+					warn("can't seek to raw data @ %d", pos);
+				else if((psd_pixels_t)fread(rowbuf, 1, chan[ch].rowbytes, f) == chan[ch].rowbytes){
 					if(dumpit){
-						VERBOSE("   %5ld: ",j);
-						dumprow(rowbuf,rb,samplebytes);
+						VERBOSE("   %5ld: ", j);
+						dumprow(rowbuf, chan[ch].rowbytes, samplebytes);
 					}
-				}else{
-					memset(rowbuf,0,rb);
+				}else
 					warn("couldn't read raw row!");
-				}
+				break;
+			case ZIPNOPREDICT:
+			case ZIPPREDICT:
+				VERBOSE("   %5ld: (unzip) ",j);
+				dumprow(chan[ch].unzipdata + j*chan[ch].rowbytes, chan[ch].rowbytes, samplebytes);
+				break;
 			}
 		} // for rows
 
+		free(rowbuf);
 	} // for channels
-
-	if(li && ftello(f) != (chpos+2+chlen)){
-		warn("currentpos = " LL_L("%lld, should be %lld !",
-			 "%ld, should be %ld !"), ftello(f), chpos+2+chlen);
-		fseeko(f, chpos+2+chlen, SEEK_SET);
-	}
-
-	if(comp == RLECOMP) free(rlebuf);
-	free(rowbuf);
-
-	return comp;
+#endif
 }

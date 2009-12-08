@@ -202,7 +202,7 @@ int main(int argc, char *argv[]){
 					// position file after 'layer & mask info'
 					fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 					// process merged (composite) image data
-					doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
+					doimage(f, NULL, base ? base+1 : argv[i], &h);
 				}
 			}
 			else
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]){
 				// position file after 'layer & mask info'
 				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 				// process merged (composite) image data
-				doimage(f, NULL, base ? base+1 : argv[i], h.channels, h.rows, h.cols, &h);
+				doimage(f, NULL, base ? base+1 : argv[i], &h);
 			}
 
 #ifdef CAN_MMAP
@@ -251,10 +251,7 @@ int main(int argc, char *argv[]){
 						strcpy(temp_str, numbered ? h.linfo[j].nameno : h.linfo[j].name);
 						strcat(temp_str, ".scavenged");
 						fseeko(f, h.linfo[j].chpos, SEEK_SET);
-						doimage(f, &h.linfo[j], temp_str, h.linfo[j].channels,
-								h.linfo[j].bottom - h.linfo[j].top,
-								h.linfo[j].right - h.linfo[j].left,
-								&h);
+						doimage(f, &h.linfo[j], temp_str, &h);
 					}
 			}
 
