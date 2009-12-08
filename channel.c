@@ -86,11 +86,11 @@ void dochannel(psd_file_t f,
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
 	int comp, ch;
-	psd_bytes_t pos, rb;
+	psd_bytes_t chpos, pos, rb;
 	unsigned char *zipdata;
 	psd_pixels_t count, last, j;
 
-	chan->filepos = pos = ftello(f) + 2;
+	chpos = ftello(f);
 
 	if(li){
 		VERBOSE(">>> channel id = %d @ " LL_L("%7lld, %lld","%7ld, %ld") " bytes\n",
@@ -120,17 +120,13 @@ void dochannel(psd_file_t f,
 	// Read compression type
 	comp = get2Bu(f);
 
-	if(comp > ZIPPREDICT){
-		alwayswarn("## bad compression type %d, skipping channel\n", comp);
-		// give up on this channel
-		return;
-	}
-
 	VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
 	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
 			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*chan->rows*rb, rb);
 
 	// Prepare compressed data for later access:
+
+	pos = chpos + 2;
 
 	// skip rle counts, leave pos pointing to first compressed image row
 	if(comp == RLECOMP)
@@ -153,14 +149,10 @@ void dochannel(psd_file_t f,
 		switch(comp){
 		case RAWDATA:
 			pos += chan->rowbytes*chan->rows;
-			if(li && chan->length != 2 + chan->rowbytes*chan->rows)
-				alwayswarn("# uncompressed channel data is %d rows x %d = %ld bytes, but length = %ld\n",
-						   chan->rows, chan->rowbytes, chan->rowbytes*chan->rows, chan->length - 2);
 			break;
 
 		case RLECOMP:
 			/* accumulate RLE counts, to make array of row start positions */
-
 			chan[ch].rowpos = checkmalloc((chan[ch].rows+1)*sizeof(psd_bytes_t));
 			last = chan[ch].rowbytes;
 			for(j = 0; j < chan[ch].rows && !feof(f); ++j){
@@ -176,10 +168,6 @@ void dochannel(psd_file_t f,
 			if(j < chan[ch].rows)
 				fatal("# couldn't read RLE counts");
 			chan[ch].rowpos[j] = pos; /* = end of last row */
-
-			if(li && pos != chan->filepos - 2 + chan->length)
-				alwayswarn("# RLE channel data is %ld bytes, but length = %ld\n",
-						   pos - chan->filepos, chan->length - 2);
 			break;
 
 		case ZIPNOPREDICT:
@@ -198,7 +186,8 @@ void dochannel(psd_file_t f,
 												 chan->rows*chan->rowbytes);
 				else
 					psd_unzip_with_prediction(zipdata, count, chan->unzipdata,
-											  chan->rows*chan->rowbytes, chan->cols, h->depth);
+											  chan->rows*chan->rowbytes,
+											  chan->cols, h->depth);
 
 				free(zipdata);
 			}else
@@ -211,6 +200,10 @@ void dochannel(psd_file_t f,
 			break;
 		}
 	}
+
+	if(li && pos != chpos + chan->length)
+		alwayswarn("# channel data is %ld bytes, but length = %ld\n",
+				   pos - chpos, chan->length);
 
 	// the file pointer must be left at the end of the channel's data
 	fseeko(f, pos, SEEK_SET);
