@@ -105,7 +105,6 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 		li->blend.clipping = fgetc(f);
 		li->blend.flags = fgetc(f);
 		fgetc(f); // padding
-		layerblendmode(f, 0, 0, &li->blend);
 
 		// process layer's 'extra data' section
 
@@ -125,7 +124,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 			fseeko(f, li->mask.size-18, SEEK_CUR); // skip remainder
 			li->mask.rows = li->mask.bottom - li->mask.top;
 			li->mask.cols = li->mask.right - li->mask.left;
-			VERBOSE("  (has layer mask)\n", li->mask.size);
+			VERBOSE("  (has layer mask)\n");
 		}else
 			VERBOSE("  (no layer mask)\n");
 

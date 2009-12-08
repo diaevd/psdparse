@@ -124,7 +124,7 @@ char *getpstr(psd_file_t f){
 	return pstr;
 }
 
-// Pascal string, aligned to 2 byte
+// Pascal string, padded to multiple of 2 bytes
 char *getpstr2(psd_file_t f){
 	static char pstr[0x100];
 	int len = fgetc(f);
