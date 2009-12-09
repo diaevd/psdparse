@@ -147,8 +147,6 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 
 		li->additionalpos = ftello(f);
 		li->additionallen = extrastart + extralen - li->additionalpos;
-		if(extra)
-			doadditional(f, h, 0, li->additionallen);
 
 		// leave file positioned at end of layer's data
 		fseeko(f, extrastart + extralen, SEEK_SET);

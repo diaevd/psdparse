@@ -27,10 +27,9 @@ static void writeimage(psd_file_t psd, char *dir, char *name,
 					   int channels, long rows, long cols,
 					   struct psd_header *h, int color_type)
 {
-	if(writepng){
-		psd_bytes_t savepos = ftello(psd);
-		FILE *outfile;
+	FILE *outfile;
 
+	if(writepng){
 		if(h->depth == 32){
 			if((outfile = rawsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
 				rawwriteimage(outfile, psd, li, chan, channels, h);
@@ -38,9 +37,6 @@ static void writeimage(psd_file_t psd, char *dir, char *name,
 			if((outfile = pngsetupwrite(psd, dir, name, cols, rows, channels, color_type, li, h)))
 				pngwriteimage(outfile, psd, li, chan, channels, h);
 		}
-
-		fseeko(psd, savepos, SEEK_SET);
-		VERBOSE(">>> restoring filepos= " LL_L("%lld\n","%ld\n"), savepos);
 	}
 }
 
@@ -99,6 +95,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 	static int png_mode[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
 								PNG_COLOR_TYPE_RGB,  PNG_COLOR_TYPE_RGB_ALPHA};
 	int ch, pngchan, color_type, channels = li ? li->channels : h->channels;
+	psd_bytes_t image_data_end;
 
 	pngchan = color_type = 0;
 	switch(h->mode){
@@ -144,6 +141,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 			dochannel(f, li, li->chan + ch, 1/*count*/, h);
 		}
 
+		image_data_end = ftello(f);
+
 		if(writepng){
 			nwarns = 0;
 			if(pngchan && !split){
@@ -182,6 +181,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		VERBOSE("\n  merged channels:\n");
 		dochannel(f, NULL, merged_chans, channels, h);
 
+		image_data_end = ftello(f);
+
 		if(xml)
 			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld'>\n",
 					channels, h->rows, h->cols);
@@ -208,4 +209,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 
 		free(merged_chans);
 	}
+
+	// caller may expect this file position
+	fseeko(f, image_data_end, SEEK_SET);
 }

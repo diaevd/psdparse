@@ -83,7 +83,7 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 
 		if( (f = fopen(pngname, "wb")) ){
 			if(xml){
-				fputs("\t\t\t<PNG NAME='", xml);
+				fputs("\t\t<PNG NAME='", xml);
 				fputsxml(name, xml);
 				fputs("' DIR='", xml);
 				fputsxml(dir, xml);
