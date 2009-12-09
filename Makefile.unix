@@ -15,7 +15,7 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# This program uses libpng, which in turn uses zlib.
+# This program uses libpng, zlib and libiconv.
 # - on most Linux/UNIX systems, these are shared libraries preinstalled
 #   or easily installed with a package manager.
 # - on Windows, this makefile is set up to build them from source with MinGW
@@ -47,7 +47,7 @@ MINGW_WINDRES = i386-mingw32msvc-windres
 
 CFLAGS   += -W -Wall -O2 -Wno-unused-parameter
 CPPFLAGS += -DDEFAULT_VERBOSE=0 -DPSBSUPPORT -D_LARGEFILE_SOURCE \
-            -DVERSION=\"$(VERSION)\" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H
+            -DVERSION=\"$(VERSION)\"
 
 SRC    = main.c writepng.c writeraw.c unpackbits.c write.c \
 		 resources.c icc.c extra.c constants.c util.c descriptor.c \
@@ -82,7 +82,8 @@ test : adobehq_ind.psd ../garble/garble
 	done
 
 
-psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG) -DPSBSUPPORT -D_LARGEFILE_SOURCE
+psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG) -DPSBSUPPORT -D_LARGEFILE_SOURCE \
+                       -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H
 psdparse : $(OBJ) $(LIBPNGA)
 	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng -liconv $(LDFLAGS)
 
@@ -113,7 +114,7 @@ obj_w32/main_psd2png.o : main.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 obj_w32/res.o : version.rc version.h ; $(MINGW_WINDRES) -o $@ -i $<
 
 
-ZIP = psdparse-win-$(VERSION).zip
+ZIP = psdparse-$(VERSION)-win.zip
 zip : $(ZIP)
 
 $(ZIP) : README.txt gpl.html psdparse.exe psd2png.exe

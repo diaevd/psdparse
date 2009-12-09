@@ -94,7 +94,7 @@ void dochannel(psd_file_t f,
 
 	if(li){
 		VERBOSE(">>> channel id = %d @ " LL_L("%7lld, %lld","%7ld, %ld") " bytes\n",
-				chan->id, ftello(f), chan->length);
+				chan->id, chpos, chan->length);
 
 		// If this is a layer mask, the pixel size is a special case
 		if(chan->id == -2){
@@ -109,7 +109,7 @@ void dochannel(psd_file_t f,
 		}
 	}else{
 		// merged image, has dimensions of PSD
-		VERBOSE(">>> merged image data @ " LL_L("%7lld\n","%7ld\n"), ftello(f));
+		VERBOSE(">>> merged image data @ " LL_L("%7lld\n","%7ld\n"), chpos);
 		chan->rows = h->rows;
 		chan->cols = h->cols;
 	}

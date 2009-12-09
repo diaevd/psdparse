@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifdef powerc // MPW
+#if defined(powerc) || defined(_WIN32)
 	#include "getopt.h"
 #else
 	#include <getopt.h>
@@ -25,13 +25,7 @@
 
 #include "psdparse.h"
 
-#include <fcntl.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-
-#if defined(HAVE_SYS_MMAN_H) || defined(WIN32)
+#if defined(HAVE_SYS_MMAN_H) || defined(_WIN32)
 	#define CAN_MMAP
 #endif
 
@@ -270,7 +264,6 @@ int main(int argc, char *argv[]){
 			UNQUIET("  done.\n\n");
 
 #ifdef HAVE_ICONV_H
-			extern iconv_t ic;
 			if(ic != (iconv_t)-1) iconv_close(ic);
 #endif
 			fclose(f);

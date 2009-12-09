@@ -33,10 +33,15 @@
 #else
 	#include <stdint.h>
 	#include <sys/types.h>
-	#include <unistd.h>
 	#include <wchar.h>
 	#include <ctype.h>
 	#include <errno.h>
+	#include <fcntl.h>
+	#include <sys/stat.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+	#include <unistd.h>
 #endif
 
 #ifdef HAVE_ICONV_H
@@ -70,7 +75,7 @@ typedef int psd_status, psd_int, psd_bool;
 typedef uint8_t psd_uchar;
 typedef uint16_t psd_ushort;
 
-#ifdef WIN32
+#ifdef _WIN32
 	#include <direct.h>
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
 #else
@@ -107,7 +112,7 @@ typedef uint16_t psd_ushort;
 #else
 	typedef FILE *psd_file_t;
 
-	#if defined WIN32 || defined powerc
+	#if defined(_WIN32) || defined(powerc)
 		// MinGW doesn't have fseeko/ftello, nor does MPW
 		#define fseeko fseek
 		#define ftello ftell

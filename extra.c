@@ -178,16 +178,16 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 	unsigned short *utf16 = malloc(2*count);
 	short *style = malloc(2*count);
 	int i;
+	size_t inb, outb;
+	char *inbuf, *outbuf, *utf8;
 
 	if(utf16 && style){
 		for(i = 0; i < count; i++){
 			utf16[i] = get2Bu(f); // the UTF-16 char
 			style[i] = get2B(f);  // and its corresponding style code
 		}
-#ifdef HAVE_ICONV_H
-		size_t inb, outb;
-		char *inbuf, *outbuf, *utf8;
 
+#ifdef HAVE_ICONV_H
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
@@ -563,9 +563,9 @@ static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, s
 			// there is no function to parse this block
 			UNQUIET("    (data: %s)\n", d->desc);
 			if(verbose){
-				printf("    ");
 				psd_bytes_t pos = ftello(f);
 				int n = length > 32 ? 32 : length;
+				printf("    ");
 				while(n--)
 					printf("%02x ", fgetc(f));
 				printf(length > 32 ? "...\n" : "\n");
@@ -581,8 +581,8 @@ static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, s
 static void dumpblock(psd_file_t f, int level, int len, struct dictentry *dict){
 	// FIXME: this can over-run the actual block; need to pass block length into the function
 	if(verbose){
-		printf("%s: ", dict->desc);
 		int n = 32;
+		printf("%s: ", dict->desc);
 		while(n--)
 			printf("%02x ", fgetc(f));
 		putchar('\n');
