@@ -196,13 +196,14 @@ struct blend_mode_info{
 };
 
 struct channel_info{
-	int id;                 // channel id
-	int comptype;           // channel's compression type
-	psd_pixels_t rows, cols, rowbytes;  // computed by dochannel()
-	// FIXME: need depth??
-	psd_bytes_t length;     // channel byte count in file
-	psd_bytes_t filepos;    // file offset of channel data (AFTER compression type)
-	psd_bytes_t *rowpos;    // row data file positions (RLE ONLY)
+	int id;                   // channel id
+	int comptype;             // channel's compression type
+	psd_pixels_t rows, cols, rowbytes;  // set by dochannel()
+	psd_bytes_t length;       // channel byte count in file
+
+	// how to find image data, depending on compression type:
+	psd_bytes_t rawpos;       // file offset of RAW channel data (AFTER compression type)
+	psd_bytes_t *rowpos;      // row data file positions (RLE ONLY)
 	unsigned char *unzipdata; // uncompressed data (ZIP ONLY)
 };
 
@@ -243,7 +244,8 @@ extern FILE *xml, *listfile;
 void fatal(char *s);
 void warn(char *fmt,...);
 void alwayswarn(char *fmt,...);
-void *checkmalloc(long n);
+#define checkmalloc(N) ckmalloc(N, __FILE__, __LINE__)
+void *ckmalloc(long n, char *file, int line);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
 char *getpstr(psd_file_t f);

@@ -70,7 +70,7 @@ void usage(char *prog, int status){
          --mergedrows N  to scavenge merged image, row count must be known\n\
          --mergedcols N  to scavenge merged image, column count must be known\n\
          --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n\
-      --scavengerle  look for channel RLE counts\n"
+      --scavengeimg  search for compressed channel data\n"
 #endif
 	        , prog, DIRSEP, scavenge_depth, scavenge_chan);
 	exit(status);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]){
 		{"split",      no_argument, &split, 1},
 #ifdef CAN_MMAP
 		{"scavenge",   no_argument, &scavenge, 1},
-		{"scavengerle",no_argument, &scavenge_rle, 1},
+		{"scavengeimg",no_argument, &scavenge_rle, 1},
 		{"psb",        no_argument, &scavenge_psb, 1},
 		{"depth",      required_argument, NULL, 'D'},
 		{"mode",       required_argument, NULL, 'M'},
@@ -204,9 +204,6 @@ int main(int argc, char *argv[]){
 
 			if(dopsd(f, argv[i], &h))
 			{
-				// FIXME: a lot of data structures malloc'd in dopsd()
-				// and dolayermaskinfo() are never free'd
-
 				h.layerdatapos = ftello(f);
 				UNQUIET("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
 
@@ -242,6 +239,8 @@ int main(int argc, char *argv[]){
 				// process scavenged layer channel data
 				for(j = 0; j < h.nlayers; ++j)
 					if(h.linfo[j].chpos){
+						UNQUIET("layer %d: using scavenged pos @ %lu\n", j, (unsigned long)h.linfo[j].chpos);
+
 						strcpy(temp_str, numbered ? h.linfo[j].nameno : h.linfo[j].name);
 						strcat(temp_str, ".scavenged");
 						fseeko(f, h.linfo[j].chpos, SEEK_SET);

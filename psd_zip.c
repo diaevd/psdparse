@@ -24,6 +24,7 @@
  */
 
 // adapted from code in libpsd 0.9
+// modifications Copyright (C) Toby Thain <toby@telegraphics.com.au>
 
 #include "psdparse.h"
 

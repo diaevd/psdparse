@@ -148,7 +148,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 		li->additionalpos = ftello(f);
 		li->additionallen = extrastart + extralen - li->additionalpos;
 
-		// leave file positioned at end of layer's data
+		// leave file positioned after extra data
 		fseeko(f, extrastart + extralen, SEEK_SET);
 	}
 }
@@ -247,7 +247,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 		if(xml) fputs("\t</LAYER>\n\n", xml);
 	}
 
-	UNQUIET("## end of layer image data @ %ld\n", (long)ftello(f));
+	VERBOSE("## end of layer image data @ %ld\n", (long)ftello(f));
 }
 
 /**
@@ -310,7 +310,7 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				dolayermaskinfo(f, h);
 
 				h->layerdatapos = ftello(f);
-				UNQUIET("## layer data begins @ " LL_L("%lld","%ld") "\n", h->layerdatapos);
+				VERBOSE("## layer data begins @ " LL_L("%lld","%ld") "\n", h->layerdatapos);
 
 				result = 1;
 			}

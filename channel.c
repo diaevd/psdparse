@@ -47,7 +47,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 
 	switch(chan->comptype){
 	case RAWDATA: /* uncompressed */
-		pos = chan->filepos + chan->rowbytes*row;
+		pos = chan->rawpos + chan->rowbytes*row;
 		seekres = fseeko(psd, pos, SEEK_SET);
 		if(seekres != -1)
 			n = fread(inrow, 1, chan->rowbytes, psd);
@@ -86,9 +86,9 @@ void dochannel(psd_file_t f,
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
 	int comp, ch;
-	psd_bytes_t chpos, pos, rb;
+	psd_bytes_t chpos, pos;
 	unsigned char *zipdata;
-	psd_pixels_t count, last, j;
+	psd_pixels_t count, last, j, rb;
 
 	chpos = ftello(f);
 
@@ -121,8 +121,8 @@ void dochannel(psd_file_t f,
 	comp = get2Bu(f);
 
 	VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
-	VERBOSE("    uncompressed size " LL_L("%lld","%ld") " bytes"
-			" (row bytes = " LL_L("%lld","%ld") ")\n", channels*chan->rows*rb, rb);
+	VERBOSE("    uncompressed size %ld bytes (row bytes = %ld)\n",
+			channels*chan->rows*rb, rb);
 
 	// Prepare compressed data for later access:
 
@@ -139,7 +139,6 @@ void dochannel(psd_file_t f,
 		chan[ch].comptype = comp;
 		chan[ch].rows = chan->rows;
 		chan[ch].cols = chan->cols;
-		chan[ch].filepos = pos;
 
 		if(!chan->rows)
 			continue;
@@ -148,6 +147,7 @@ void dochannel(psd_file_t f,
 		// For ZIP, read and decompress whole channel.
 		switch(comp){
 		case RAWDATA:
+			chan[ch].rawpos = pos;
 			pos += chan->rowbytes*chan->rows;
 			break;
 
@@ -178,7 +178,7 @@ void dochannel(psd_file_t f,
 				zipdata = checkmalloc(chan->length);
 				count = fread(zipdata, 1, chan->length - 2, f);
 				if(count < chan->length - 2)
-					alwayswarn("ZIP data short: wanted %d bytes, got %d", chan->length, count);
+					alwayswarn("ZIP data short: wanted %ld bytes, got %ld", chan->length, count);
 
 				chan->unzipdata = checkmalloc(chan->rows*chan->rowbytes);
 				if(comp == ZIPNOPREDICT)
@@ -202,8 +202,8 @@ void dochannel(psd_file_t f,
 	}
 
 	if(li && pos != chpos + chan->length)
-		alwayswarn("# channel data is %ld bytes, but length = %ld\n",
-				   pos - chpos, chan->length);
+		alwayswarn("# channel data is %lu bytes, but length = %lu\n",
+				   (unsigned long)(pos - chpos), (unsigned long)chan->length);
 
 	// the file pointer must be left at the end of the channel's data
 	fseeko(f, pos, SEEK_SET);

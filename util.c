@@ -69,10 +69,13 @@ void alwayswarn(char *fmt, ...){
 	fputs(s, stderr);
 }
 
-void *checkmalloc(long n){
+void *ckmalloc(long n, char *file, int line){
 	void *p = malloc(n);
 	if(p) return p;
-	else fatal("can't get memory");
+	else{
+		fprintf(stderr, "can't get %ld bytes @ %s:%d\n", n, file, line);
+		exit(1);
+	}
 	return NULL;
 }
 

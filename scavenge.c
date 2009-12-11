@@ -20,6 +20,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef HAVE_ZLIB_H
+	#include "zlib.h"
+#endif
+
 #include "psdparse.h"
 
 extern struct dictentry bmdict[];
@@ -180,56 +184,111 @@ for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
 	}
 }
 
+size_t try_inflate(unsigned char *src_buf, size_t src_len,
+				   unsigned char *dst_buf, size_t dst_len)
+{
+#ifdef HAVE_ZLIB_H
+	z_stream stream;
+	int state;
+
+	memset(&stream, 0, sizeof(z_stream));
+	stream.data_type = Z_BINARY;
+
+	stream.next_in = src_buf;
+	stream.avail_in = src_len;
+	stream.next_out = dst_buf;
+	stream.avail_out = dst_len;
+
+	if(inflateInit(&stream) == Z_OK) {
+		do {
+			state = inflate(&stream, Z_FINISH);
+			//fprintf(stderr,"inflate: state=%d next_in=%p avail_in=%d next_out=%p avail_out=%d\n",
+			//		state, stream.next_in, stream.avail_in, stream.next_out, stream.avail_out);
+			if(state == Z_STREAM_END)
+				return stream.next_in - src_buf;
+		}  while (state == Z_OK && stream.avail_out > 0);
+	}
+#endif
+	return 0;
+}
+
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	int i, n, c, rows, cols, rb, totalrle, countbytes = 2*h->version;
+	int i, n, c, rows, cols, rb, totalrle, comp, nextcomp, countbytes = 2*h->version;
 	struct layer_info *li = h->linfo;
-	size_t lastpos = h->layerdatapos, pos, p, count;
+	size_t lastpos = h->layerdatapos, pos, p, count, bufsize;
+	unsigned char *buf;
 
-	UNQUIET("scavengerle: searching for channel info starting @ %lu\n", (unsigned long)lastpos);
+	UNQUIET("scan_channels(): starting @ %lu\n", (unsigned long)lastpos);
+
 	for(i = 0; i < h->nlayers; ++i)
 	{
+		UNQUIET("scan_channels(): layer %d, channels: %d\n", i, li[i].channels);
+
 		li[i].chpos = 0;
 		rows = li[i].bottom - li[i].top;
 		cols = li[i].right  - li[i].left;
-		rb = ((long)cols*h->depth + 7)/8;
 		if(rows && cols)
 		{
+			rb = ((long)cols*h->depth + 7)/8;
+
 			// scan forward for compression type value
 			for(pos = lastpos; pos < len-2; pos += 2)
 			{
 				p = pos;
-				for(c = li[i].channels; c-- && p < len-2;)
+				for(c = 0; c < li[i].channels && p < len-2; ++c)
 				{
-					if(peek2Bu(addr+p) == 1)
+					comp = peek2Bu(addr+p);
+					p += 2;
+					switch(comp)
 					{
-						//UNQUIET("possible rle start pos for layer %d channel %d: %lu ch=%d rows=%d\n",
-						//		i, c, pos, li[i].channels, rows);
-						p += 2;
+					case RAWDATA:
+						nextcomp = peek2Bu(addr + p + rows*rb);
+						if(nextcomp >= RAWDATA && nextcomp <= ZIPPREDICT){
+							p += li[c].chan[c].length = rows*rb;
+							//VERBOSE("layer %d channel %d: possible RAW data @ %lu\n", i, c, p);
+						}else
+							goto mismatch;
+						break;
+					case RLECOMP:
 						totalrle = 0;
 						for(n = rows; n-- && p < len-countbytes; p += countbytes){ // assume PSD for now
 							count = h->version == 1 ? peek2Bu(addr+p) : (size_t)peek4B(addr+p);
-							if(count < 2)
-								goto mismatch; // bad RLE count
-							else
+							if(count >= 2){
 								totalrle += count;
+								//VERBOSE("layer %d channel %d: possible RLE data @ %lu\n", i, c, p);
+							}else
+								goto mismatch; // bad RLE count
 						}
-						p += totalrle;
-					}
-					else if(peek2Bu(addr+p) == 0)
-					{
-						//UNQUIET("possible raw start pos for layer %d channel %d: %lu ch=%d rows=%d\n",
-						//		i, c, pos, li[i].channels, rows);
-						p += 2+rows*rb;
-					}
-					else
+						p += li[c].chan[c].length = totalrle;
+						break;
+					case ZIPNOPREDICT:
+					case ZIPPREDICT:
+						//fprintf(stderr,"ZIP comp type seen... rows=%d rb=%d\n",rows,rb);
+						bufsize = rows*rb;
+						buf = checkmalloc(bufsize);
+						count = try_inflate(addr+p, len-p, buf, bufsize);
+						free(buf);
+						if(count){
+							//fprintf(stderr,"ZIP OK @ %d! count=%d\n",p,count);
+							//li[i].chan[c].length = count;
+							p += li[c].chan[c].length = count;
+							break;
+						}
+					default:
 						goto mismatch;
+					}
+
+					li[c].chan[c].comptype = comp;
+					li[c].chan[c].id = c;
 				}
-				if(c == -1)
+
+				if(c == li[i].channels)
 				{
 					// found likely match for RLE counts location
-					UNQUIET("scavengerle: Likely start pos for layer %d: %7lu\n", i, (unsigned long)pos);
+					UNQUIET("scan_channels(): layer %d may be @ %7lu\n", i, (unsigned long)pos);
 					li[i].chpos = pos;
+					li[i].chan = checkmalloc(li[i].channels*sizeof(struct channel_info));
 					lastpos = p; // step past it
 
 					goto next_layer;
