@@ -205,7 +205,7 @@ int main(int argc, char *argv[]){
 			if(dopsd(f, argv[i], &h))
 			{
 				h.layerdatapos = ftello(f);
-				UNQUIET("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
+				VERBOSE("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
 
 				// process the layers in 'image data' section,
 				// creating PNG/raw files if requested

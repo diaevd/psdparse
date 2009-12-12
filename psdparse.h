@@ -296,7 +296,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 void doimageresources(psd_file_t f);
 
-int scavenge_psd(void *addr, size_t st_size, struct psd_header *h);
+unsigned scavenge_psd(void *addr, size_t st_size, struct psd_header *h);
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h);
 
 void setupfile(char *dstname,char *dir,char *name,char *suffix);

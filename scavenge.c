@@ -57,14 +57,18 @@ unsigned peek2Bu(unsigned char *p){
 	return (p[0]<<8) | p[1];
 }
 
-unsigned scan(unsigned char *addr, size_t len, struct psd_header *h)
+// Search for layer signatures which appear to be followed by valid
+// layer metadata.
+// If li is not NULL, update this array with the layer metadata.
+// Return a count of all possible layers found.
+
+unsigned scan(unsigned char *addr, size_t len, int psd_version, struct layer_info *li)
 {
 	unsigned char *p = addr, *q;
 	size_t i;
 	int j, k;
-	unsigned n = 0, ps_ptr_bytes = 2 << h->version;
+	unsigned n = 0, ps_ptr_bytes = 2 << psd_version;
 	struct dictentry *de;
-	struct layer_info *li = h->linfo;
 
 	for(i = 0; i < len;)
 	{
@@ -184,6 +188,11 @@ for --mergedrows, --mergedcols, --mergedchan, --depth and --mode.\n");
 	}
 }
 
+// Given a starting pointer, determine if it can be inflate'd as ZIP data
+// into a buffer of the expected uncompressed size.
+// Return the compressed byte count if the data inflates without errors,
+// otherwise return NULL.
+
 size_t try_inflate(unsigned char *src_buf, size_t src_len,
 				   unsigned char *dst_buf, size_t dst_len)
 {
@@ -212,11 +221,15 @@ size_t try_inflate(unsigned char *src_buf, size_t src_len,
 	return 0;
 }
 
+// For each layer we know about, search for possible channel data
+// based on pixel dimensions (also using compression type).
+// If a complete set of channels is found, store chpos to indicate this.
+
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	int i, n, c, rows, cols, rb, totalrle, comp, nextcomp, countbytes = 2*h->version;
+	int i, j, n, c, rows, cols, rb, comp, nextcomp, countbytes = 2*h->version;
 	struct layer_info *li = h->linfo;
-	size_t lastpos = h->layerdatapos, pos, p, count, bufsize;
+	size_t lastpos = h->layerdatapos, pos, p, q, count, bufsize;
 	unsigned char *buf;
 
 	UNQUIET("scan_channels(): starting @ %lu\n", (unsigned long)lastpos);
@@ -228,6 +241,7 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 		li[i].chpos = 0;
 		rows = li[i].bottom - li[i].top;
 		cols = li[i].right  - li[i].left;
+		// FIXME: what about layer masks? (different size)
 		if(rows && cols)
 		{
 			rb = ((long)cols*h->depth + 7)/8;
@@ -245,23 +259,24 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 					case RAWDATA:
 						nextcomp = peek2Bu(addr + p + rows*rb);
 						if(nextcomp >= RAWDATA && nextcomp <= ZIPPREDICT){
-							p += li[c].chan[c].length = rows*rb;
+							count = rows*rb;
 							//VERBOSE("layer %d channel %d: possible RAW data @ %lu\n", i, c, p);
 						}else
 							goto mismatch;
 						break;
+
 					case RLECOMP:
-						totalrle = 0;
-						for(n = rows; n-- && p < len-countbytes; p += countbytes){ // assume PSD for now
-							count = h->version == 1 ? peek2Bu(addr+p) : (size_t)peek4B(addr+p);
-							if(count >= 2){
-								totalrle += count;
+						count = countbytes*rows;
+						for(j = rows, q = p; j-- && q < len-countbytes; q += countbytes){ // assume PSD for now
+							n = h->version == 1 ? peek2Bu(addr+q) : (size_t)peek4B(addr+q);
+							if(n >= 2){
+								count += n;
 								//VERBOSE("layer %d channel %d: possible RLE data @ %lu\n", i, c, p);
 							}else
 								goto mismatch; // bad RLE count
 						}
-						p += li[c].chan[c].length = totalrle;
 						break;
+
 					case ZIPNOPREDICT:
 					case ZIPPREDICT:
 						//fprintf(stderr,"ZIP comp type seen... rows=%d rb=%d\n",rows,rb);
@@ -269,23 +284,26 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 						buf = checkmalloc(bufsize);
 						count = try_inflate(addr+p, len-p, buf, bufsize);
 						free(buf);
-						if(count){
-							//fprintf(stderr,"ZIP OK @ %d! count=%d\n",p,count);
-							//li[i].chan[c].length = count;
-							p += li[c].chan[c].length = count;
+						if(count)
 							break;
-						}
+
 					default:
 						goto mismatch;
 					}
 
-					li[c].chan[c].comptype = comp;
-					li[c].chan[c].id = c;
+					// Channel passed the test. Store its position in chan[].
+
+					p += count;
+					//li[i].chan[c].length = count;
+					li[i].chan[c].comptype = comp;
+					li[i].chan[c].id = c;
 				}
 
 				if(c == li[i].channels)
 				{
-					// found likely match for RLE counts location
+					// All channels found. Store location in linfo[]
+					// and allocate array for channel data.
+
 					UNQUIET("scan_channels(): layer %d may be @ %7lu\n", i, (unsigned long)pos);
 					li[i].chpos = pos;
 					li[i].chan = checkmalloc(li[i].channels*sizeof(struct channel_info));
@@ -302,24 +320,22 @@ next_layer:
 	}
 }
 
-int scavenge_psd(void *addr, size_t st_size, struct psd_header *h)
+unsigned scavenge_psd(void *addr, size_t st_size, struct psd_header *h)
 {
-	if(scavenge){
-		h->linfo = NULL;
-		h->nlayers = scan(addr, st_size, h);
-		if(h->nlayers){
-			if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
-				scan(addr, st_size, h);
-		}
-		else
-			scan_merged(addr, st_size, h);
-
-		if(h->nlayers){
-			UNQUIET("scavenge: possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
-		}else
-			alwayswarn("Did not find any plausible layer signatures (flattened file?)\n");
-		//printf("possible layers (PSB): %d\n", scan(addr, sb.st_size, 1));
+	// Pass 1: count possible layers
+	h->nlayers = scan(addr, st_size, h->version, NULL);
+	if(h->nlayers){
+		// Pass 2: store layer information in linfo array.
+		if( (h->linfo = checkmalloc(h->nlayers*sizeof(struct layer_info))) )
+			scan(addr, st_size, h->version, h->linfo);
 	}
+	else
+		scan_merged(addr, st_size, h);
+
+	if(h->nlayers){
+		UNQUIET("scavenge: possible layers (PS%c): %d\n", h->version == 2 ? 'B' : 'D', h->nlayers);
+	}else
+		alwayswarn("Did not find any plausible layer signatures (flattened file?)\n");
 
 	return h->nlayers;
 }
