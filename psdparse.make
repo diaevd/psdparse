@@ -32,7 +32,7 @@ ZLIBOBJ = ¶
 OBJ = main.c.x extra.c.x channel.c.x constants.c.x descriptor.c.x ¶
 	psd.c.x icc.c.x resources.c.x write.c.x writeraw.c.x writepng.c.x ¶
 	unpackbits.c.x mkdir_unimpl.c.x util.c.x ¶
-	getopt_init.c.x getopt.c.x getopt1.c.x ¶
+	getopt.c.x getopt1.c.x ¶
 	{PNGOBJ} {ZLIBOBJ}
 
 LIB =	"{SharedLibraries}InterfaceLib" ¶

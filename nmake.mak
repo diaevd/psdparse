@@ -58,13 +58,11 @@ LIBICONV = libiconv-1.9.1
 	# e.g. http://mirror.csclub.uwaterloo.ca/gnu/gettext/gettext-0.17.tar.gz
 GETTEXT = gettext-0.17
 
-CFLAGS = -I$(ZLIB) -I$(LIBPNG) -Imsinttypes -I$(GETTEXT)\gettext-tools\gnulib-lib \
+CFLAGS = /O2 \
+         -I$(ZLIB) -I$(LIBPNG) -Imsinttypes -I$(GETTEXT)\gettext-tools\gnulib-lib \
          -DDEFAULT_VERBOSE=0 -DPSBSUPPORT -D_LARGEFILE_SOURCE \
          -DVERSION=\"win32\" -DDIRSEP='\\' \
          -DHAVE_ICONV_H -I$(LIBICONV)\include
-
-# Note since VS8 it is necessary to link with multithreaded standard lib, using /MT
-LDFLAGS = /MT $(LIBICONV)\lib\*
 
 ZLIBOBJ = $(ZLIB)\adler32.obj $(ZLIB)\deflate.obj $(ZLIB)\inftrees.obj \
           $(ZLIB)\uncompr.obj $(ZLIB)\compress.obj $(ZLIB)\zutil.obj \
@@ -72,22 +70,21 @@ ZLIBOBJ = $(ZLIB)\adler32.obj $(ZLIB)\deflate.obj $(ZLIB)\inftrees.obj \
           $(ZLIB)\trees.obj
 
 PNGOBJ = $(LIBPNG)\png.obj $(LIBPNG)\pngerror.obj $(LIBPNG)\pngget.obj \
-         $(LIBPNG)\pngmem.obj $(LIBPNG)\pngpread.obj $(LIBPNG)\pngread.obj \
-         $(LIBPNG)\pngrio.obj $(LIBPNG)\pngrtran.obj $(LIBPNG)\pngrutil.obj \
+         $(LIBPNG)\pngmem.obj \
          $(LIBPNG)\pngset.obj $(LIBPNG)\pngtrans.obj $(LIBPNG)\pngwio.obj \
          $(LIBPNG)\pngwrite.obj $(LIBPNG)\pngwtran.obj $(LIBPNG)\pngwutil.obj
 
 OBJ = main.obj writepng.obj writeraw.obj unpackbits.obj write.obj \
       resources.obj icc.obj extra.obj constants.obj util.obj descriptor.obj \
       channel.obj psd.obj scavenge.obj pdf.obj psd_zip.obj mmap_win.obj \
-      getopt_init.obj getopt.obj getopt1.obj \
+      getopt.obj getopt1.obj \
       version.res \
       $(ZLIBOBJ) $(PNGOBJ)
 
 all : psdparse.exe
 
 clean :
-	-del psdparse.exe *.obj *.res
+	-del psdparse.exe $(OBJ) version.res
 
 psdparse.exe : $(OBJ)
-	$(CC) /Fe$@ $(**F) $(LDFLAGS)
+	$(CC) /ML /Fe$@ $(**F) $(LIBICONV)\lib\*
