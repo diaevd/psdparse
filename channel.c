@@ -35,6 +35,12 @@ void dumprow(unsigned char *b, long n, int group){
 	VERBOSE("\n");
 }
 
+// Read one row's data from the PSD file, according to the parameters:
+//   chan   - points to the channel info struct
+//   row    - row index
+//   inrow  - destination for uncompressed row data (at least rowbytes in size)
+//   rlebuf - temporary buffer for RLE decompression (at least 2*rowbytes in size)
+
 void readunpackrow(psd_file_t psd,        // input file handle
 				   struct channel_info *chan, // channel info
 				   psd_pixels_t row,      // row index
@@ -77,6 +83,11 @@ void readunpackrow(psd_file_t psd,        // input file handle
 		memset(inrow + n, 0, chan->rowbytes - n);
 	}
 }
+
+// Read channel metadata and populate the chan[] struct
+// in preparation for later reading/decompression of image data.
+// Called both individually for layer channels (channels always == 1)
+// and merged data in one call (channels == PSD header channel count).
 
 void dochannel(psd_file_t f,
 			   struct layer_info *li,
@@ -158,7 +169,7 @@ void dochannel(psd_file_t f,
 			for(j = 0; j < chan[ch].rows && !feof(f); ++j){
 				count = h->version==1 ? get2Bu(f) : (unsigned long)get4B(f);
 
-				if(count > 2*chan[ch].rowbytes)  // this would be impossible
+				if(count < 2 || count > 2*chan[ch].rowbytes)  // this would be impossible
 					count = last; // make a guess, to help recover
 				last = count;
 
