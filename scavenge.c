@@ -215,7 +215,7 @@ size_t try_inflate(unsigned char *src_buf, size_t src_len,
 			//		state, stream.next_in, stream.avail_in, stream.next_out, stream.avail_out);
 			if(state == Z_STREAM_END)
 				return stream.next_in - src_buf;
-		}  while (state == Z_OK && stream.avail_out > 0);
+		}  while (state == Z_OK && stream.avail_out > 0 && stream.avail_in > 0);
 	}
 #endif
 	return 0;
@@ -227,9 +227,9 @@ size_t try_inflate(unsigned char *src_buf, size_t src_len,
 
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	int i, j, n, c, rows, cols, rb, comp, nextcomp, countbytes = 2*h->version;
+	int i, j, n, c, rows, cols, comp, nextcomp, countbytes = 1 << h->version;
 	struct layer_info *li = h->linfo;
-	size_t lastpos = h->layerdatapos, pos, p, q, count, bufsize;
+	size_t lastpos = h->layerdatapos, pos, p, count, uncompsize;
 	unsigned char *buf;
 
 	UNQUIET("scan_channels(): starting @ %lu\n", (unsigned long)lastpos);
@@ -241,35 +241,40 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 		li[i].chpos = 0;
 		rows = li[i].bottom - li[i].top;
 		cols = li[i].right  - li[i].left;
-		// FIXME: what about layer masks? (different size)
 		if(rows && cols)
 		{
-			rb = ((long)cols*h->depth + 7)/8;
-
 			// scan forward for compression type value
-			for(pos = lastpos; pos < len-2; pos += 2)
+			for(pos = lastpos; pos < len-2; ++pos)
 			{
 				p = pos;
 				for(c = 0; c < li[i].channels && p < len-2; ++c)
 				{
+					//fprintf(stderr,"scavenge_channels(): layer=%d ch=%d p=%lu id=%d length=%lld r%ld x c%ld rb=%ld\n",
+					//		i,c,p,li[i].chan[c].id,li[i].chan[c].length,li[i].chan[c].rows,li[i].chan[c].cols,li[i].chan[c].rowbytes);
+
 					comp = peek2Bu(addr+p);
 					p += 2;
+					uncompsize = li[i].chan[c].rows*li[i].chan[c].rowbytes;
 					switch(comp)
 					{
 					case RAWDATA:
-						nextcomp = peek2Bu(addr + p + rows*rb);
+						if(p > len-uncompsize-2)
+							goto mismatch;
+						nextcomp = peek2Bu(addr + p + uncompsize);
 						if(nextcomp >= RAWDATA && nextcomp <= ZIPPREDICT){
-							count = rows*rb;
+							count = uncompsize;
 							//VERBOSE("layer %d channel %d: possible RAW data @ %lu\n", i, c, p);
 						}else
 							goto mismatch;
 						break;
 
 					case RLECOMP:
-						count = countbytes*rows;
-						for(j = rows, q = p; j-- && q < len-countbytes; q += countbytes){ // assume PSD for now
-							n = h->version == 1 ? peek2Bu(addr+q) : (size_t)peek4B(addr+q);
-							if(n >= 2){
+						count = 0;
+						for(j = li[i].chan[c].rows; j--; p += countbytes){ // assume PSD for now
+							if(p > len-countbytes)
+								goto mismatch;
+							n = h->version == 1 ? peek2Bu(addr+p) : (size_t)peek4B(addr+p);
+							if(n >= 2 && n <= li[i].chan[c].rowbytes*2){
 								count += n;
 								//VERBOSE("layer %d channel %d: possible RLE data @ %lu\n", i, c, p);
 							}else
@@ -280,9 +285,8 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 					case ZIPNOPREDICT:
 					case ZIPPREDICT:
 						//fprintf(stderr,"ZIP comp type seen... rows=%d rb=%d\n",rows,rb);
-						bufsize = rows*rb;
-						buf = checkmalloc(bufsize);
-						count = try_inflate(addr+p, len-p, buf, bufsize);
+						buf = checkmalloc(uncompsize);
+						count = try_inflate(addr+p, len-p, buf, uncompsize);
 						free(buf);
 						if(count)
 							break;
@@ -291,12 +295,8 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 						goto mismatch;
 					}
 
-					// Channel passed the test. Store its position in chan[].
-
+					// Likely channel data for this layer was found.
 					p += count;
-					//li[i].chan[c].length = count;
-					li[i].chan[c].comptype = comp;
-					li[i].chan[c].id = c;
 				}
 
 				if(c == li[i].channels)
@@ -306,7 +306,6 @@ void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 
 					UNQUIET("scan_channels(): layer %d may be @ %7lu\n", i, (unsigned long)pos);
 					li[i].chpos = pos;
-					li[i].chan = checkmalloc(li[i].channels*sizeof(struct channel_info));
 					lastpos = p; // step past it
 
 					goto next_layer;
