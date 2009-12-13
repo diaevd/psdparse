@@ -60,7 +60,7 @@ GETTEXT = gettext-0.17
 
 CFLAGS = /O2 \
          -I$(ZLIB) -I$(LIBPNG) -Imsinttypes -I$(GETTEXT)\gettext-tools\gnulib-lib \
-         -DDEFAULT_VERBOSE=0 -DPSBSUPPORT -D_LARGEFILE_SOURCE \
+         -DDEFAULT_VERBOSE=0 -DPSBSUPPORT \
          -DVERSION=\"win32\" -DDIRSEP='\\' \
          -DHAVE_ICONV_H -I$(LIBICONV)\include
 
@@ -87,4 +87,4 @@ clean :
 	-del psdparse.exe $(OBJ) version.res
 
 psdparse.exe : $(OBJ)
-	$(CC) /ML /Fe$@ $(**F) $(LIBICONV)\lib\*
+	$(CC) /Fe$@ $(**F) $(LIBICONV)\lib\*

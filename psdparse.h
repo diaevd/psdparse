@@ -77,7 +77,11 @@ typedef uint16_t psd_ushort;
 
 #ifdef _WIN32
 	#include <direct.h>
+
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
+
+	#define fseeko _fseeki64
+	#define ftello _ftelli64
 #else
 	#if defined(macintosh) && !defined(_SYS_STAT_H_)
 		// don't clash with OS X header -- this prototype is meant for MPW build.
@@ -112,8 +116,7 @@ typedef uint16_t psd_ushort;
 #else
 	typedef FILE *psd_file_t;
 
-	#if defined(_WIN32) || defined(powerc)
-		// MinGW doesn't have fseeko/ftello, nor does MPW
+	#if defined(powerc)
 		#define fseeko fseek
 		#define ftello ftell
 	#endif
