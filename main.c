@@ -109,8 +109,10 @@ int main(int argc, char *argv[]){
 	psd_bytes_t k;
 	char *base;
 	void *addr = NULL;
-	struct stat sb;
 	char temp_str[PATH_MAX];
+#ifdef HAVE_FSTAT
+	struct stat sb;
+#endif
 
 	while( (opt = getopt_long(argc, argv, "hvqrewnd:mlxs", longopts, &indexptr)) != -1 )
 		switch(opt){

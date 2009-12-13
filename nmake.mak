@@ -61,7 +61,7 @@ GETTEXT = gettext-0.17
 CFLAGS = /O2 \
          -I$(ZLIB) -I$(LIBPNG) -Imsinttypes -I$(GETTEXT)\gettext-tools\gnulib-lib \
          -DDEFAULT_VERBOSE=0 -DPSBSUPPORT \
-         -DVERSION=\"win32\" -DDIRSEP='\\' \
+         -DDIRSEP='\\' \
          -DHAVE_ICONV_H -I$(LIBICONV)\include
 
 ZLIBOBJ = $(ZLIB)\adler32.obj $(ZLIB)\deflate.obj $(ZLIB)\inftrees.obj \

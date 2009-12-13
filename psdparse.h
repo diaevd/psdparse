@@ -26,10 +26,13 @@
 	#include <MacTypes.h>
 
 	typedef SInt64 int64_t, off_t;
-	typedef unsigned short uint16_t;
+	typedef UInt16 uint16_t;
+	typedef UInt8  uint8_t;
+
 	#define fputwc fputc // none of that Unicode nonsense for us! (UniChar)
 	#define putwchar putchar
 	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
+	#define strdup(s) strcpy(malloc(strlen(s)+1),(s))
 #else
 	#include <stdint.h>
 	#include <sys/types.h>
