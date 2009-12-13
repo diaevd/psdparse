@@ -83,8 +83,14 @@ typedef uint16_t psd_ushort;
 
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
 
-	#define fseeko _fseeki64
-	#define ftello _ftelli64
+	#ifdef _MSC_VER
+		#define fseeko _fseeki64
+		#define ftello _ftelli64
+	#else
+		// probably mingw32
+		#define fseeko fseek
+		#define ftello ftell
+	#endif
 #else
 	#if defined(macintosh) && !defined(_SYS_STAT_H_)
 		// don't clash with OS X header -- this prototype is meant for MPW build.
