@@ -86,8 +86,8 @@ void readunpackrow(psd_file_t psd,        // input file handle
 
 // Read channel metadata and populate the chan[] struct
 // in preparation for later reading/decompression of image data.
-// Called both individually for layer channels (channels always == 1)
-// and merged data in one call (channels == PSD header channel count).
+// Called individually for layer channels (channels always == 1), and
+// once for entire merged data (channels == PSD header channel count).
 
 void dochannel(psd_file_t f,
 			   struct layer_info *li,
@@ -96,7 +96,7 @@ void dochannel(psd_file_t f,
 			   struct psd_header *h)
 {
 	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
-	int comp, ch;
+	int compr, ch;
 	psd_bytes_t chpos, pos;
 	unsigned char *zipdata;
 	psd_pixels_t count, last, j, rb;
@@ -129,9 +129,9 @@ void dochannel(psd_file_t f,
 	rb = ((long)chan->cols*h->depth + 7)/8;
 
 	// Read compression type
-	comp = get2Bu(f);
+	compr = get2Bu(f);
 
-	VERBOSE("    compression = %d (%s)\n", comp, comptype[comp]);
+	VERBOSE("    compression = %d (%s)\n", compr, comptype[compr]);
 	VERBOSE("    uncompressed size %ld bytes (row bytes = %ld)\n",
 			channels*chan->rows*rb, rb);
 
@@ -140,14 +140,14 @@ void dochannel(psd_file_t f,
 	pos = chpos + 2;
 
 	// skip rle counts, leave pos pointing to first compressed image row
-	if(comp == RLECOMP)
+	if(compr == RLECOMP)
 		pos += (channels*chan->rows) << h->version;
 
 	for(ch = 0; ch < channels; ++ch){
 		if(!li)
 			chan[ch].id = ch;
 		chan[ch].rowbytes = rb;
-		chan[ch].comptype = comp;
+		chan[ch].comptype = compr;
 		chan[ch].rows = chan->rows;
 		chan[ch].cols = chan->cols;
 
@@ -156,7 +156,7 @@ void dochannel(psd_file_t f,
 
 		// For RLE, we read the row count array and compute file positions.
 		// For ZIP, read and decompress whole channel.
-		switch(comp){
+		switch(compr){
 		case RAWDATA:
 			chan[ch].rawpos = pos;
 			pos += chan->rowbytes*chan->rows;
@@ -192,7 +192,7 @@ void dochannel(psd_file_t f,
 					alwayswarn("ZIP data short: wanted %ld bytes, got %ld", chan->length, count);
 
 				chan->unzipdata = checkmalloc(chan->rows*chan->rowbytes);
-				if(comp == ZIPNOPREDICT)
+				if(compr == ZIPNOPREDICT)
 					psd_unzip_without_prediction(zipdata, count, chan->unzipdata,
 												 chan->rows*chan->rowbytes);
 				else

@@ -21,26 +21,42 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <fcntl.h>
 
-#ifdef powerc // MPW MrC
+#if defined(__SC__) || defined(MPW_C)
+	// MPW 68K or PPC
 	#include <MacTypes.h>
+	#include "getopt.h"
 
-	typedef SInt64 int64_t, off_t;
+	typedef SInt64 int64_t;
 	typedef UInt16 uint16_t;
 	typedef UInt8  uint8_t;
 
-	#define fputwc fputc // none of that Unicode nonsense for us! (UniChar)
-	#define putwchar putchar
 	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
 	#define strdup(s) strcpy(malloc(strlen(s)+1),(s))
+
+	int mkdir(char *s, int mode);
 #else
 	#include <stdint.h>
 	#include <sys/types.h>
 	#include <wchar.h>
 	#include <ctype.h>
 	#include <errno.h>
-	#include <fcntl.h>
 	#include <sys/stat.h>
+	#include <getopt.h>
+#endif
+
+#ifdef _WIN32
+	#include <direct.h>
+	#include "getopt.h"
+
+	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
+#else
+	#define MKDIR mkdir
+#endif
+
+#if defined(HAVE_SYS_MMAN_H) || defined(_WIN32)
+	#define CAN_MMAP
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -78,29 +94,6 @@ typedef int psd_status, psd_int, psd_bool;
 typedef uint8_t psd_uchar;
 typedef uint16_t psd_ushort;
 
-#ifdef _WIN32
-	#include <direct.h>
-
-	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
-
-	#ifdef _MSC_VER
-		#define fseeko _fseeki64
-		#define ftello _ftelli64
-	#else
-		// probably mingw32
-		#define fseeko fseek
-		#define ftello ftell
-	#endif
-#else
-	#if defined(macintosh) && !defined(_SYS_STAT_H_)
-		// don't clash with OS X header -- this prototype is meant for MPW build.
-		int mkdir(char *s, int mode);
-	#else
-		#include <sys/stat.h>
-	#endif
-	#define MKDIR mkdir
-#endif
-
 #ifdef PSDPARSE_PLUGIN
 	#include "world.h" // for DIRSEP
 	#include "file_compat.h"
@@ -124,10 +117,14 @@ typedef uint16_t psd_ushort;
 	Boolean warndialog(char *s);
 #else
 	typedef FILE *psd_file_t;
-
-	#if defined(powerc)
-		#define fseeko fseek
-		#define ftello ftell
+	#ifdef _MSC_VER
+		#define fseeko _fseeki64
+		#define ftello _ftelli64
+	#else
+		#if defined(__SC__) || defined(MPW_C) || defined(_WIN32)
+			#define fseeko fseek
+			#define ftello ftell
+		#endif
 	#endif
 #endif
 

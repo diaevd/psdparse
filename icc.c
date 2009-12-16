@@ -211,6 +211,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	};
 
 	long size, offset, count, tagsize;
+	unsigned long hi, lo;
 	const char *indent = tabs(level);
 	char sig[4];
 	off_t iccpos, pos;
@@ -238,7 +239,9 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<flags>%08lx</flags>\n", indent, get4B(f));
 	fprintf(xml, "%s<manufacturer>%s</manufacturer>\n", indent, getkey(f));
 	fprintf(xml, "%s<model>%s</model>\n", indent, getkey(f));
-	fprintf(xml, "%s<attributes>%016llx</attributes>\n", indent, get8B(f));
+	hi = get4B(f);
+	lo = get4B(f);
+	fprintf(xml, "%s<attributes>%08lx%08lx</attributes>\n", indent, hi, lo);
 	fprintf(xml, "%s<renderingIntent>%08lx</renderingIntent>\n", indent, get4B(f));
 	fprintf(xml, "%s<illuminant>", indent);
 	icc_xyz(f, level, 12, parent);

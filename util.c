@@ -190,12 +190,14 @@ long get4B(psd_file_t f){
 	return n | fgetc(f);
 }
 
+#ifndef __SC__ // MPW 68K compiler does not support long long
 // Read a 8-byte signed binary value in BigEndian format.
 // Assumes sizeof(long) == 4
 int64_t get8B(psd_file_t f){
 	int64_t msl = (unsigned long)get4B(f);
 	return (msl << 32) | (unsigned long)get4B(f);
 }
+#endif
 
 // Read a 2-byte signed binary value in BigEndian format.
 // Meant to work even where sizeof(short) > 2

@@ -17,17 +17,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#if defined(powerc) || defined(_WIN32)
-	#include "getopt.h"
-#else
-	#include <getopt.h>
-#endif
-
 #include "psdparse.h"
-
-#if defined(HAVE_SYS_MMAN_H) || defined(_WIN32)
-	#define CAN_MMAP
-#endif
 
 extern int nwarns;
 extern char indir[];

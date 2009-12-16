@@ -70,7 +70,7 @@
 #ifdef _LIBC
 # include <libintl.h>
 #else
-#ifdef powerc
+#if defined(powerc) || defined(__SC__)
 #define _(msgid) msgid
 #else
 # include "gettext.h"

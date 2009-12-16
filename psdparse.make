@@ -1,5 +1,5 @@
 # This file is part of "psdparse"
-# Copyright (C) 2004-8 Toby Thain, toby@telegraphics.com.au
+# Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by  
@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-PNGDIR = ::libpng-1.2.32:
+PNGDIR = ::libpng-1.2.35:
 PNGOBJ = ¶
 	{PNGDIR}png.c.x {PNGDIR}pngerror.c.x {PNGDIR}pngget.c.x ¶
 	{PNGDIR}pngmem.c.x {PNGDIR}pngset.c.x ¶
@@ -35,20 +35,19 @@ OBJ = main.c.x extra.c.x channel.c.x constants.c.x descriptor.c.x ¶
 	getopt.c.x getopt1.c.x ¶
 	{PNGOBJ} {ZLIBOBJ}
 
-LIB =	"{SharedLibraries}InterfaceLib" ¶
-		"{SharedLibraries}StdCLib" ¶
-		"{SharedLibraries}MathLib" ¶
-		"{PPCLibraries}StdCRuntime.o" ¶
-		"{PPCLibraries}PPCCRuntime.o" ¶
-		"{PPCLibraries}PPCToolLibs.o"
+LIB = "{SharedLibraries}StdCLib" ¶
+	"{SharedLibraries}MathLib" ¶
+	"{PPCLibraries}StdCRuntime.o" ¶
+	"{PPCLibraries}PPCCRuntime.o" ¶
+	"{PPCLibraries}PPCToolLibs.o"
 
 # "-enum int -d STDC" are needed to make zlib build happily
-CFLAGS = -enum int -i {PNGDIR},{ZLIBDIR} -w 2,35 ¶
+COptions = -enum int -i {PNGDIR},{ZLIBDIR} -w 2,35 ¶
 	-d STDC -d MAC_ENV -d DEFAULT_VERBOSE=0 -d DIRSEP=¶':¶' ¶
 	-d PNG_NO_SNPRINTF
 
 .c.x Ä .c
-	{PPCC} {depDir}{default}.c -o {targDir}{default}.c.x {CFLAGS}
+	{PPCC} {depDir}{default}.c -o {targDir}{default}.c.x {COptions}
 
 psdparse ÄÄ {OBJ} {LIB}
 	PPCLink -o {Targ} {OBJ} {LIB} -d -t 'MPST' -c 'MPS '
