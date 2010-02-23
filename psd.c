@@ -84,7 +84,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 			if(chid >= -2 && chid < li->channels)
 				li->chindex[chid] = j;
 			else
-				warn("unexpected channel id %d", chid);
+				warn_msg("unexpected channel id %d", chid);
 
 			switch(chid){
 			case -2: chidstr = " (layer mask)"; break;

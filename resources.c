@@ -289,5 +289,5 @@ void doimageresources(psd_file_t f){
 	while(len > 0)
 		len -= doirb(f);
 	if(len != 0)
-		warn("image resources overran expected size by %d bytes\n", -len);
+		warn_msg("image resources overran expected size by %d bytes\n", -len);
 }

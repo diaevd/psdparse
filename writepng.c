@@ -117,7 +117,7 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 				fseeko(psd, h->colormodepos, SEEK_SET);
 				n = get4B(psd)/3;
 				if(n > 256){ // sanity check...
-					warn("# more than 256 entries in colour palette! (%d)\n", n);
+					warn_msg("# more than 256 entries in colour palette! (%d)\n", n);
 					n = 256;
 				}
 				pngpal = checkmalloc(sizeof(png_color)*n);
@@ -191,7 +191,7 @@ void pngwriteimage(
 		for(ch = 0; ch < chancount; ++ch){
 			/* get row data */
 			if(map[ch] < 0 || map[ch] >= chancount){
-				warn("bad map[%d]=%d, skipping a channel", ch, map[ch]);
+				warn_msg("bad map[%d]=%d, skipping a channel", ch, map[ch]);
 				memset(inrows[ch], 0, chan->rowbytes); // zero out the row
 			}else
 				readunpackrow(psd, chan + map[ch], j, inrows[ch], rledata);

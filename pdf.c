@@ -159,7 +159,7 @@ void pop_name(const char *indent){
 		free(name_stack[name_tos]);
 	}
 	else
-		warn("pop_name(): underflow");
+		warn_msg("pop_name(): underflow");
 }
 
 void begin_value(const char *indent){
@@ -306,7 +306,7 @@ static void pdf_data(char *buf, size_t n, int level){
 				if(dict_tos)
 					--dict_tos;
 				else
-					warn("dict stack underflow");
+					warn_msg("dict stack underflow");
 				in_array = dict_tos && is_array[dict_tos-1];
 				pop_name(tabs(--level));
 			}
@@ -358,7 +358,7 @@ static void pdf_data(char *buf, size_t n, int level){
 
 	// close any open elements (should not happen)
 	while(name_tos){
-		warn("unclosed element %s", name_stack[name_tos-1]);
+		warn_msg("unclosed element %s", name_stack[name_tos-1]);
 		pop_name(tabs(--level));
 	}
 }

@@ -44,7 +44,7 @@ void fatal(char *s){
 
 int nwarns = 0;
 
-void warn(char *fmt, ...){
+void warn_msg(char *fmt, ...){
 	char s[0x200];
 	va_list v;
 
@@ -251,7 +251,6 @@ void openfiles(char *psdpath, struct psd_header *h)
 	}
 	if(xml){
 #ifdef HAVE_ICONV_H
-		// I'm guessing that Adobe's unicode is utf-16 and not ucs-2; need to check this
 		ic = iconv_open("UTF-8", "UTF-16BE");
 		if(ic == (iconv_t)-1)
 			alwayswarn("iconv_open(): failed, errno = %d\n", errno);
@@ -267,6 +266,7 @@ void openfiles(char *psdpath, struct psd_header *h)
 void setupfile(char *dstname, char *dir, char *name, char *suffix){
 	char *last, d[PATH_MAX];
 
+#ifdef MKDIR
 	MKDIR(dir, 0755);
 
 	if(strchr(name, DIRSEP)){
@@ -286,6 +286,11 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 
 	strcpy(dstname, dir);
 	strcat(dstname, dirsep);
+#else
+	strcpy(dstname, dir);
+	strcat(dstname, "_");
+#endif
+
 	strcat(dstname, name);
 	strcat(dstname, suffix);
 }

@@ -94,6 +94,21 @@ typedef int psd_status, psd_int, psd_bool;
 typedef uint8_t psd_uchar;
 typedef uint16_t psd_ushort;
 
+#ifdef _WIN32
+	#include <direct.h>
+
+	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
+
+	#define fseeko _fseeki64
+	#define ftello _ftelli64
+#else
+	#if defined(macintosh) && !defined(HAVE_SYS_STAT_H)
+		// don't clash with OS X header -- this prototype is meant for MPW build.
+		int mkdir(char *s, int mode);
+	#endif
+	#define MKDIR mkdir
+#endif
+
 #ifdef PSDPARSE_PLUGIN
 	#include "world.h" // for DIRSEP
 	#include "file_compat.h"
@@ -251,8 +266,8 @@ extern int verbose, quiet, rsrc, extra, makedirs, numbered,
 extern FILE *xml, *listfile;
 
 void fatal(char *s);
-void warn(char *fmt,...);
-void alwayswarn(char *fmt,...);
+void warn_msg(char *fmt, ...);
+void alwayswarn(char *fmt, ...);
 #define checkmalloc(N) ckmalloc(N, __FILE__, __LINE__)
 void *ckmalloc(long n, char *file, int line);
 void fputcxml(char c, FILE *f);

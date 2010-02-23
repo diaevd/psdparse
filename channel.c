@@ -78,7 +78,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 		alwayswarn("# can't seek to " LL_L("%lld\n","%ld\n"), pos);
 
 	if(n < chan->rowbytes){
-		warn("row data short (wanted %d, got %d bytes)", chan->rowbytes, n);
+		warn_msg("row data short (wanted %d, got %d bytes)", chan->rowbytes, n);
 		// zero out unwritten part of row
 		memset(inrow + n, 0, chan->rowbytes - n);
 	}
