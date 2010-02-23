@@ -60,6 +60,7 @@
   08-Dec-2009: 3.2b1 overhaul image data handling (simplify and prepare for ZIP layer data)
   09-Dec-2009: 3.2b2 process 'nested' Lr16 layers (thanks to Rino for headsup and test data)
   12-Dec-2009: 3.3b1 cleanup & debugging, mainly to scavenging
+  22-Feb-2010: 3.3b2 just tag
 */
 
 #define VERSION_STR "3.3b2"  // <-- remember to change in configure.ac!
