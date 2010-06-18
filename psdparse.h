@@ -260,7 +260,7 @@ struct dictentry{
 
 extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
 extern char dirsep[], *pngdir;
-extern int verbose, quiet, rsrc, extra, makedirs, numbered,
+extern int verbose, quiet, rsrc, resdump, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout;
 
 extern FILE *xml, *listfile;

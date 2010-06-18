@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2010 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -61,19 +61,20 @@
   09-Dec-2009: 3.2b2 process 'nested' Lr16 layers (thanks to Rino for headsup and test data)
   12-Dec-2009: 3.3b1 cleanup & debugging, mainly to scavenging
   22-Feb-2010: 3.3b2 just tag
+  17-Jun-2010: 3.3b3 add --resdump option to hex dump image resources
 */
 
-#define VERSION_STR "3.3b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x30,beta,2
+#define VERSION_STR "3.3b3"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x30,beta,3
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-9 http://www.telegraphics.com.au/"
+	VERSION_STR ", Copyright (C) Toby Thain 2004-2010 http://www.telegraphics.com.au/"
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,3,0x60,2
+#define VI_VERS_NUM 3,3,0x60,3
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

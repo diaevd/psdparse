@@ -302,7 +302,7 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				h->colormodepos = ftello(f);
 				skipblock(f, "color mode data");
 
-				if(rsrc)
+				if(rsrc || resdump)
 					doimageresources(f);
 				else
 					skipblock(f, "image resources");

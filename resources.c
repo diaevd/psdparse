@@ -245,11 +245,30 @@ static struct dictentry *findbyid(int id){
 	return NULL;
 }
 
+#define BYTES_LINE 16
+void dumphex(unsigned char *data, long size){
+	unsigned char *p;
+	long j, n;
+
+	for(p = data; size; p += BYTES_LINE, size -= n){
+		fputs("    ", stdout);
+		n = size > BYTES_LINE ? BYTES_LINE : size;
+		for(j = 0; j < n; ++j)
+			printf("%02x ", p[j]);
+		for(; j < BYTES_LINE+1; ++j)
+			fputs("   ", stdout);
+		for(j = 0; j < n; ++j)
+			printf("%c", isprint(p[j]) ? p[j] : '.');
+		putchar('\n');
+	}
+	putchar('\n');
+}
+
 static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
 	char type[4], name[0x100];
 	int id, namelen;
-	long size;
+	long size, padded_size;
 	struct dictentry *d;
 
 	fread(type, 1, 4, f);
@@ -258,6 +277,7 @@ static long doirb(psd_file_t f){
 	fread(name, 1, PAD2(1+namelen)-1, f);
 	name[namelen] = 0;
 	size = get4B(f);
+	padded_size = PAD2(size);
 
 	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
 			type[0],type[1],type[2],type[3], id, name, size);
@@ -278,9 +298,17 @@ static long doirb(psd_file_t f){
 			fputs(" />\n", xml);
 		}
 	}
-	fseeko(f, PAD2(size), SEEK_CUR); // skip resource block data
+	if(resdump){
+		char *temp_buf = malloc(padded_size);
+		if(fread(temp_buf, 1, padded_size, f) < padded_size)
+			fatal("did not read expected bytes in image resource\n");
+		dumphex((unsigned char*)temp_buf, size);
+		free(temp_buf);
+	}
+	else
+		fseeko(f, padded_size, SEEK_CUR); // skip resource block data
 
-	return 4+2+PAD2(1+namelen)+4+PAD2(size); /* returns total bytes in block */
+	return 4+2+PAD2(1+namelen)+4+padded_size; /* returns total bytes in block */
 }
 
 void doimageresources(psd_file_t f){
