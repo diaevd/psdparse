@@ -19,22 +19,6 @@
 
 #include "psdparse.h"
 
-#define CONTEXTROWS 3
-#define DUMPCOLS 50
-
-void dumprow(unsigned char *b, long n, int group){
-	long k, m = group ? group*((DUMPCOLS/2)/(group+1)) : DUMPCOLS/2;
-	if(m > n)
-		m = n;
-	for(k = 0; k < m; ++k){
-		if(group && !(k % group)) VERBOSE(" ");
-		VERBOSE("%02x",b[k]);
-	}
-	if(n > m)
-		VERBOSE(" ...%ld more", group ? (n-m)/group : n-m);
-	VERBOSE("\n");
-}
-
 // Read one row's data from the PSD file, according to the parameters:
 //   chan   - points to the channel info struct
 //   row    - row index
