@@ -1,5 +1,5 @@
 # This file is part of "psdparse"
-# Copyright (C) 2002-9 Toby Thain, toby@telegraphics.com.au
+# Copyright (C) 2002-2010 Toby Thain, toby@telegraphics.com.au
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by  
@@ -45,7 +45,7 @@
 ZLIB = ..\zlib-1.2.3
 
 	# libpng: http://www.libpng.org/pub/png/libpng.html
-LIBPNG = ..\libpng-1.2.35
+LIBPNG = ..\libpng-1.4.0
 
 	# libiconv win32 binaries
 	# e.g. http://mirror.csclub.uwaterloo.ca/gnu/libiconv/libiconv-1.9.1.bin.woe32.zip
@@ -56,7 +56,7 @@ LIBICONV = libiconv-1.9.1
 
 	# gettext sources
 	# e.g. http://mirror.csclub.uwaterloo.ca/gnu/gettext/gettext-0.17.tar.gz
-GETTEXT = gettext-0.17
+GETTEXT = gettext-0.18.1.1
 
 CFLAGS = /O2 \
          -I$(ZLIB) -I$(LIBPNG) -Imsinttypes -I$(GETTEXT)\gettext-tools\gnulib-lib \

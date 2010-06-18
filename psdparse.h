@@ -43,7 +43,6 @@
 	#include <ctype.h>
 	#include <errno.h>
 	#include <sys/stat.h>
-	#include <getopt.h>
 #endif
 
 #ifdef _WIN32
@@ -52,6 +51,8 @@
 
 	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
 #else
+	#include <getopt.h>
+
 	#define MKDIR mkdir
 #endif
 
