@@ -28,7 +28,7 @@ VERSION := $(shell perl -n -e 'm/^\#.*VERSION_STR[[:blank:]]+\"([^"]*)\"/ && pri
 
 # for OS X build, download and extract libpng archive, and define path to it:
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
-LIBPNG = ../libpng-1.2.35
+LIBPNG = ../lpng141
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
@@ -87,7 +87,7 @@ psdparse : $(OBJ) $(LIBPNGA)
 	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng -liconv $(LDFLAGS)
 
 fat : CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
-fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
+fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386 -mmacosx-version-min=10.4
 fat : psdparse
 
 
