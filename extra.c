@@ -552,9 +552,11 @@ static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, s
 	is_photoshop = KEYMATCH(sig, "8BIM") || KEYMATCH(sig, "8B64");
 	fread(key, 1, 4, f);
 	length = is_photoshop
-			 && ( KEYMATCH(key, "LMsk") || KEYMATCH(key, "Lr16")
-			   || KEYMATCH(key, "Layr") || KEYMATCH(key, "Mt16")
-			   || KEYMATCH(key, "Mtrn") || KEYMATCH(key, "Alph") )
+			 && ( KEYMATCH(key, "LMsk") || KEYMATCH(key, "Lr16") || KEYMATCH(key, "Lr32")
+			   || KEYMATCH(key, "Layr") || KEYMATCH(key, "Mt16") || KEYMATCH(key, "Mt32")
+			   || KEYMATCH(key, "Mtrn") || KEYMATCH(key, "Alph") || KEYMATCH(key, "FMsk")
+			   || KEYMATCH(key, "Ink2") || KEYMATCH(key, "FEid") || KEYMATCH(key, "FXid")
+			   || KEYMATCH(key, "PxSD") )
 			  ? GETPSDBYTES(f) : get4B(f);
 	if(!xml)
 		VERBOSE("    data block: sig='%c%c%c%c' key='%c%c%c%c' length=%7ld\n",
@@ -900,7 +902,7 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 		{0, "thrs", "THRESHOLD", "Threshold", NULL},
 		{0, "nvrt", "INVERT", "Invert", NULL},
 		{0, "post", "POSTERIZE", "Posterize", NULL},
-		// v5.0
+		// v5.0, 5.5
 		{0, "lrFX", "EFFECT", "Effects layer", ed_layereffects},
 		{0, "tySh", "TYPETOOL5", "Type tool (5.0)", ed_typetool},
 		{0, "luni", "-UNICODENAME", "Unicode layer name", ed_unicodename},
@@ -909,6 +911,7 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 		{0, "lfx2", "OBJECTEFFECT", "Object based effects layer", ed_objecteffects},
 		{0, "Patt", "PATTERN", "Pattern", NULL},
 		{0, "Pat2", "PATTERNCS", "Pattern (CS)", NULL},
+		{0, "Pat3", "PATTERN3", "Pattern (3)", NULL}, // July 2007 doc
 		{0, "Anno", "ANNOTATION", "Annotation", ed_annotation},
 		{0, "clbl", "-BLENDCLIPPING", "Blend clipping", ed_byte},
 		{0, "infx", "-BLENDINTERIOR", "Blend interior", ed_byte},
@@ -916,7 +919,7 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 		{0, "lspf", "-PROTECTED", "Protected", ed_long},
 		{0, "lclr", "SHEETCOLOR", "Sheet color", ed_color},
 		{0, "fxrp", "-REFERENCEPOINT", "Reference point", ed_referencepoint},
-		{0, "grdm", "GRADIENT", "Gradient", ed_gradient},
+		{0, "grdm", "GRADIENTMAP", "Gradient map", ed_gradient},
 		{0, "lsct", "SECTIONDIVIDER", "Section divider", ed_sectiondivider}, // CS doc
 		{0, "SoCo", "SOLIDCOLORSHEET", "Solid color sheet", ed_versdesc}, // CS doc
 		{0, "PtFl", "PATTERNFILL", "Pattern fill", ed_versdesc}, // CS doc
@@ -936,8 +939,25 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 		// CS
 		{0, "mixr", "CHANNELMIXER", "Channel mixer", NULL}, // CS doc
 		{0, "phfl", "PHOTOFILTER", "Photo Filter", NULL}, // CS doc
+		{0, "expA", "EXPOSURE", "Exposure", NULL}, // July 2007 doc
+		{0, "plLd", "PLACEDLAYER", "Placed layer", NULL}, // July 2007 doc
+		{0, "lnkD", "LINKEDLAYER", "Linked layer", NULL}, // July 2007 doc
+		{0, "lnk2", "LINKEDLAYER2", "Linked layer (2)", NULL}, // July 2007 doc
+		{0, "lnk3", "LINKEDLAYER3", "Linked layer (3)", NULL}, // July 2007 doc
+		// CS3
+		{0, "blwh", "BLACKWHITE", "Black White", NULL}, // July 2007 doc
+		{0, "FMsk", "FILTERMASK", "Filter mask", NULL}, // July 2007 doc
+		{0, "SoLd", "PLACEDLAYERCS3", "Placed layer (CS3 SoLd)", NULL}, // July 2007 doc
+		{0, "PILd", "PLACEDLAYERCS3PILD", "Placed layer (CS3 PILd)", NULL}, // July 2007 doc
+
+		{0, "Mtrn", "SAVINGMERGEDTRANSPARENCY", "Saving merged transparency", NULL}, // July 2007 doc
+		{0, "Mt16", "SAVINGMERGEDTRANSPARENCY16", "Saving merged transparency (16)", NULL}, // July 2007 doc
+		{0, "Mt32", "SAVINGMERGEDTRANSPARENCY32", "Saving merged transparency (32)", NULL}, // July 2007 doc
+		{0, "LMsk", "USERMASK", "User mask", NULL}, // July 2007 doc
+		{0, "FXid", "FILTEREFFECTS", "Filter effects (FXid)", NULL}, // July 2007 doc
+		{0, "FEid", "FILTEREFFECTSFEID", "Filter effects (FEid)", NULL}, // July 2007 doc
 		// from libpsd
-		{0, "Lr16", "LAYER16", "Layer 16", ed_layer16},
+		{0, "Lr16", "LAYER16", "Layer (16)", ed_layer16},
 
 		{0, NULL, NULL, NULL, NULL}
 	};
