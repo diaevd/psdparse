@@ -546,36 +546,36 @@ static int sigkeyblock(psd_file_t f, struct psd_header *h, int level, int len, s
 	char sig[4], key[4];
 	long length;
 	struct dictentry *d;
+	int is_photoshop;
 
 	fread(sig, 1, 4, f);
+	is_photoshop = KEYMATCH(sig, "8BIM") || KEYMATCH(sig, "8B64");
 	fread(key, 1, 4, f);
-	length = KEYMATCH(key, "LMsk") || KEYMATCH(key, "Lr16")
-		  || KEYMATCH(key, "Layr") || KEYMATCH(key, "Mt16")
-		  || KEYMATCH(key, "Mtrn") || KEYMATCH(key, "Alph")
+	length = is_photoshop
+			 && ( KEYMATCH(key, "LMsk") || KEYMATCH(key, "Lr16")
+			   || KEYMATCH(key, "Layr") || KEYMATCH(key, "Mt16")
+			   || KEYMATCH(key, "Mtrn") || KEYMATCH(key, "Alph") )
 			  ? GETPSDBYTES(f) : get4B(f);
-	if(KEYMATCH(sig, "8BIM")){
-		if(!xml)
-			VERBOSE("    data block: key='%c%c%c%c' length=%7ld\n",
-					key[0],key[1],key[2],key[3], length);
-		if(dict && (d = findbykey(f, level, dict, key, length, 1))
-		   && !d->func && !xml)
-		{
-			// there is no function to parse this block
-			UNQUIET("    (data: %s)\n", d->desc);
-			if(verbose){
-				psd_bytes_t pos = ftello(f);
-				int n = length > 32 ? 32 : length;
-				printf("    ");
-				while(n--)
-					printf("%02x ", fgetc(f));
-				printf(length > 32 ? "...\n" : "\n");
-				fseeko(f, pos, SEEK_SET);
-			}
+	if(!xml)
+		VERBOSE("    data block: sig='%c%c%c%c' key='%c%c%c%c' length=%7ld\n",
+				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3], length);
+	if(is_photoshop && dict && (d = findbykey(f, level, dict, key, length, 1))
+	   && !d->func && !xml)
+	{
+		// there is no function to parse this block
+		UNQUIET("    (data: %s)\n", d->desc);
+		if(verbose){
+			psd_bytes_t pos = ftello(f);
+			int n = length > 32 ? 32 : length;
+			printf("    ");
+			while(n--)
+				printf("%02x ", fgetc(f));
+			printf(length > 32 ? "...\n" : "\n");
+			fseeko(f, pos, SEEK_SET);
 		}
-		fseeko(f, length, SEEK_CUR);
-		return length + 12; // return number of bytes consumed
 	}
-	return 0; // bad signature
+	fseeko(f, length, SEEK_CUR);
+	return length + 12; // return number of bytes consumed
 }
 
 static void dumpblock(psd_file_t f, int level, int len, struct dictentry *dict){
