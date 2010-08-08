@@ -101,7 +101,7 @@ void fputcxml(char c, FILE *f){
 		fputc(c, f);
 		break;
 	default:
-		if(isprint(c))
+		if(isprint(c) || (c & 0x80)) // pass through multibyte UTF-8
 			fputc(c, f);
 		else
 			fprintf(f, "&#%02x;", (unsigned char)c);
@@ -109,9 +109,13 @@ void fputcxml(char c, FILE *f){
 }
 
 void fputsxml(char *str, FILE *f){
-	char *p = str;
-	while(*p)
-		fputcxml(*p++, f);
+	while(*str)
+		fputcxml(*str++, f);
+}
+
+void fwritexml(char *buf, size_t count, FILE *f){
+	while(count--)
+		fputcxml(*buf++, f);
 }
 
 // fetch Pascal string (length byte followed by text)

@@ -56,12 +56,9 @@ void conv_unicodestr(psd_file_t f, long count){
 			inb = 2*n;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
-				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
-					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
-					fputs("<![CDATA[", xml);
-					fwrite(utf8, 1, outbuf-utf8, xml);
-					fputs("]]>", xml);
-				}else
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
+					fwritexml(utf8, outbuf-utf8, xml);
+				else
 					alwayswarn("conv_unicodestr(): iconv() failed, errno=%u (count=%d)\n", errno, count);
 			}
 			free(utf8);

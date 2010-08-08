@@ -197,10 +197,9 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
-					// use CDATA wrap until we can pick through the UTF-8 for & < > ' " and escape them
-					fprintf(xml, "%s<UNICODE><![CDATA[", indent);
-					fwrite(utf8, 1, outbuf-utf8, xml);
-					fputs("]]></UNICODE>\n", xml);
+					fprintf(xml, "%s<UNICODE>", indent);
+					fwritexml(utf8, outbuf-utf8, xml);
+					fputs("</UNICODE>\n", xml);
 
 					// copy to terminal FIXME: UTF-8 may not be useful anyway
 					if(verbose)

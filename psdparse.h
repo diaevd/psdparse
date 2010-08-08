@@ -273,6 +273,7 @@ void alwayswarn(char *fmt, ...);
 void *ckmalloc(long n, char *file, int line);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
+void fwritexml(char *buf, size_t count, FILE *f);
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
 char *getkey(psd_file_t f);

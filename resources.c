@@ -46,7 +46,14 @@ static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
 	}
 }
 
-void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent){
+void ir_string(psd_file_t f, int level, int len, struct dictentry *parent){
+	while(len--)
+		fputcxml(fgetc(f), xml);
+}
+
+// this should be used if the content is known to be valid XML.
+// (does not check for invalid characters)
+void ir_cdata(psd_file_t f, int level, int len, struct dictentry *parent){
 	fputs("<![CDATA[", xml);
 	while(len--)
 		fputc(fgetc(f), xml);
@@ -192,7 +199,7 @@ static struct dictentry rdesc[] = {
 	{1032, NULL, "GRIDGUIDES", "Grid and guides info", ir_gridguides},
 	{1033, NULL, NULL, "Thumbnail resource", NULL},
 	{1034, NULL, "-COPYRIGHTFLAG", "Copyright flag", ir_1byte},
-	{1035, NULL, "-URL", "URL", ir_raw}, // incorrectly documented as Pascal string
+	{1035, NULL, "-URL", "URL", ir_string}, // incorrectly documented as Pascal string
 	// v5.0
 	{1036, NULL, NULL, "Thumbnail resource (5.0)", NULL},
 	{1037, NULL, "-GLOBALANGLE", "Global Angle", ir_4byte},
@@ -217,7 +224,7 @@ static struct dictentry rdesc[] = {
 	// v7.0 - from CS doc
 	{1058, NULL, NULL, "EXIF data 1", NULL},
 	{1059, NULL, NULL, "EXIF data 3", NULL},
-	{1060, NULL, "XMP", "XMP metadata", ir_raw},
+	{1060, NULL, "XMP", "XMP metadata", ir_cdata},
 	{1061, NULL, "-CAPTIONDIGEST", "Caption digest (RSA MD5)", ir_digest},
 	{1062, NULL, NULL, "Print scale", NULL},
 	// CS

@@ -211,11 +211,9 @@ void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
 			inb = cnt - 2;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
-				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
-					fputs("<![CDATA[", xml);
-					fwrite(utf8, 1, outbuf-utf8, xml);
-					fputs("]]>", xml);
-				}else
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
+					fwritexml(utf8, outbuf-utf8, xml);
+				else
 					alwayswarn("stringxml(): iconv() failed, errno=%u\n", errno);
 			}
 			free(utf8);
