@@ -104,7 +104,7 @@ void fputcxml(char c, FILE *f){
 		if(isprint(c) || (c & 0x80)) // pass through multibyte UTF-8
 			fputc(c, f);
 		else
-			fprintf(f, "&#%02x;", (unsigned char)c);
+			fprintf(f, "&#x%02x;", (unsigned char)c);
 	}
 }
 
