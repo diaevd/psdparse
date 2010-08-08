@@ -235,7 +235,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<magic>%s</magic>\n", indent, getkey(f));
 	fprintf(xml, "%s<platform>\n", indent);
 	findbykey(f, level+1, platdict, getkey(f), 1, 1);
-	fprintf(xml, "%s<platform>\n", indent);
+	fprintf(xml, "%s</platform>\n", indent);
 	fprintf(xml, "%s<flags>%08lx</flags>\n", indent, get4B(f));
 	fprintf(xml, "%s<manufacturer>%s</manufacturer>\n", indent, getkey(f));
 	fprintf(xml, "%s<model>%s</model>\n", indent, getkey(f));
