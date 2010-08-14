@@ -131,7 +131,7 @@ void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm
 				indent, bm->opacity/2.55, bm->clipping);
 		findbykey(f, level+1, bmdict, bm->key, len, 1);
 		if(bm->flags & 1) fprintf(xml, "%s\t<TRANSPARENCYPROTECTED />\n", indent);
-		if(bm->flags & 2) fprintf(xml, "%s\t<VISIBLE />\n", indent);
+		if(bm->flags & 2) fprintf(xml, "%s\t<HIDDEN />\n", indent);
 		if((bm->flags & (8|16)) == (8|16))  // both bits set
 			fprintf(xml, "%s\t<PIXELDATAIRRELEVANT />\n", indent);
 		fprintf(xml, "%s</BLENDMODE>\n", indent);
