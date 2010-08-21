@@ -10,6 +10,9 @@ still cause the program to give up, but it is usually much more robust
 than Photoshop when dealing with damaged files: It is unlikely to crash,
 and it recovers a more complete image.
 
+For more information on using psdparse as a library to your application,
+see 'example.c'
+
 Tested with PSDs created by PS 3.0, 5.5, 7.0, CS and CS2,
 in Bitmap, Indexed, Grey Scale, CMYK and RGB Colour modes
 and 8/16 bit depths, with up to 53 alpha channels.
@@ -64,7 +67,7 @@ License
 -------
 
 This file is part of "psdparse"
-Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+Copyright (C) 2004-2010 Toby Thain, toby@telegraphics.com.au
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
