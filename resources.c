@@ -207,7 +207,7 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 				if(!subpath_count)
 					fprintf(xml, "%s</SUBPATH>\n", indent);
 			}else
-				warn("path resource: unexpected knot record");
+				warn_msg("path resource: unexpected knot record");
 			break;
 		case 6: // path fill rule record
 			fprintf(xml, "%s<PATHFILLRULE/>\n", indent);
@@ -229,7 +229,7 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 			skip -= 2;
 			break;
 		default:
-			warn("path resource: unexpected record selector");
+			warn_msg("path resource: unexpected record selector");
 		}
 		if(skip)
 			fseek(f, skip, SEEK_CUR);
@@ -344,7 +344,8 @@ static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
 	char type[4], name[0x100];
 	int id, namelen;
-	long size, padded_size;
+	long size;
+	off_t padded_size;
 	struct dictentry *d;
 
 	fread(type, 1, 4, f);

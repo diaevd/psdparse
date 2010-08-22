@@ -28,7 +28,7 @@ VERSION := $(shell perl -n -e 'm/^\#.*VERSION_STR[[:blank:]]+\"([^"]*)\"/ && pri
 
 # for OS X build, download and extract libpng archive, and define path to it:
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
-LIBPNG = ../libpng-1.4.0
+LIBPNG = ../libpng-1.4.3
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
@@ -84,7 +84,7 @@ test : adobehq_ind.psd ../garble/garble
 psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG) -D_LARGEFILE_SOURCE \
                        -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
 psdparse : $(OBJ) $(LIBPNGA)
-	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng $(LDFLAGS)
+	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng -liconv $(LDFLAGS)
 
 fat : CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
 fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386 -mmacosx-version-min=10.4
@@ -94,7 +94,7 @@ fat : psdparse
 # Example application using psdparse as a library.
 
 example : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
-example : LDFLAGS += -lz
+example : LDFLAGS += -lz -liconv
 # This is the minimum set of prerequisite objects.
 example : example.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
