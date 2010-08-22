@@ -86,7 +86,7 @@ psdparse : CPPFLAGS += -DDIRSEP="'/'" -I$(LIBPNG) -D_LARGEFILE_SOURCE \
 
 # remove -liconv if building on Linux:
 psdparse : $(OBJ) $(LIBPNGA)
-	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng $(LDFLAGS)
+	$(CC) -o $@ $(filter-out %.a,$^) -L$(LIBPNG) -lz -lpng -liconv $(LDFLAGS)
 
 fat : CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
 fat : LDFLAGS += -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386 -mmacosx-version-min=10.4
@@ -98,7 +98,7 @@ fat : psdparse
 example : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
 
 # remove -liconv if building on Linux:
-example : LDFLAGS += -lz
+example : LDFLAGS += -lz -liconv
 # This is the minimum set of prerequisite objects.
 example : example.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
