@@ -18,6 +18,8 @@
 */
 
 #include "psdparse.h"
+#include "version.h"
+#include "png.h"
 
 extern int nwarns;
 extern char indir[];
@@ -40,6 +42,7 @@ long hres, vres; // we don't use these, but they're set within doresources()
 void usage(char *prog, int status){
 	fprintf(stderr, "usage: %s [options] psdfile...\n\
   -h, --help         show this help\n\
+  -V, --version      show version\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
   -r, --resources    process 'image resources' metadata\n\
@@ -70,6 +73,7 @@ void usage(char *prog, int status){
 int main(int argc, char *argv[]){
 	static struct option longopts[] = {
 		{"help",       no_argument, &help, 1},
+		{"version",    no_argument, NULL, 'V'},
 		{"verbose",    no_argument, &verbose, 1},
 		{"quiet",      no_argument, &quiet, 1},
 		{"resources",  no_argument, &rsrc, 1},
@@ -106,10 +110,17 @@ int main(int argc, char *argv[]){
 	struct stat sb;
 #endif
 
-	while( (opt = getopt_long(argc, argv, "hvqrewnd:mlxs", longopts, &indexptr)) != -1 )
+	while( (opt = getopt_long(argc, argv, "hVvqrewnd:mlxs", longopts, &indexptr)) != -1 )
 		switch(opt){
 		case 0: break; // long option
 		case 'h': help = 1; break;
+		case 'V':
+			printf("psdparse version " VERSION_STR
+				   "\nCopyright (C) 2004-2010 Toby Thain <toby@telegraphics.com.au>"
+				   "\n\nUses zlib version " ZLIB_VERSION
+				   " - Copyright (C) 1995-2005 Jean-loup Gailly and Mark Adler"
+				   "%s", png_get_copyright(NULL));
+			return EXIT_SUCCESS;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
 		case 'r': rsrc = 1; break;

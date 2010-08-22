@@ -45,7 +45,7 @@
 ZLIB = ..\zlib-1.2.3
 
 	# libpng: http://www.libpng.org/pub/png/libpng.html
-LIBPNG = ..\libpng-1.4.0
+LIBPNG = ..\libpng-1.4.3
 
 	# libiconv win32 binaries
 	# e.g. http://mirror.csclub.uwaterloo.ca/gnu/libiconv/libiconv-1.9.1.bin.woe32.zip
