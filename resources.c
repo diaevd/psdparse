@@ -167,6 +167,75 @@ static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry 
 	}
 }
 
+#define PATHFIX(f) ((double)(f)/0x1000000)
+
+static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	int subpath_count = 0;
+
+	for(; len >= 26; len -= 26){
+		int i, sel = get2B(f), skip = 24;
+		double p[6];
+
+		switch (sel){
+		case 0: // closed subpath length record
+		case 3: // open subpath length record
+			subpath_count = get2B(f);
+			skip -= 2;
+			fprintf(xml, "%s<SUBPATH>\n", indent);
+			fprintf(xml, "%s\t<%s/>\n", indent, sel ? "OPEN" : "CLOSED");
+			break;
+		case 1: // closed subpath Bezier knot, linked
+		case 2: //    "      "       "     "   unlinked
+		case 4: // open subpath Bezier knot, linked
+		case 5: //  "      "       "     "   unlinked
+			if(subpath_count){
+				for(i = 0; i < 6; ++i)
+					p[i] = PATHFIX(get4B(f));
+				skip -= 24;
+				fprintf(xml, "%s\t<KNOT>\n", indent);
+				fprintf(xml, "%s\t\t<%sLINKED/>\n", indent,
+						sel == 1 || sel == 4 ? "" : "UN");
+				fprintf(xml, "%s\t\t<IN><V>%.9f</V><H>%.9f</H></IN>\n",
+						indent, p[0], p[1]);
+				fprintf(xml, "%s\t\t<ANCHOR><V>%.9f</V><H>%.9f</H></ANCHOR>\n",
+						indent, p[2], p[3]);
+				fprintf(xml, "%s\t\t<OUT><V>%.9f</V><H>%.9f</H></OUT>\n",
+						indent, p[4], p[5]);
+				fprintf(xml, "%s\t</KNOT>\n", indent);
+				--subpath_count;
+				if(!subpath_count)
+					fprintf(xml, "%s</SUBPATH>\n", indent);
+			}else
+				warn("path resource: unexpected knot record");
+			break;
+		case 6: // path fill rule record
+			fprintf(xml, "%s<PATHFILLRULE/>\n", indent);
+			break;
+		case 7: // clipboard record
+			for(i = 0; i < 5; ++i)
+				p[i] = PATHFIX(get4B(f));
+			skip -= 20;
+			fprintf(xml, "%s<BOUNDS>\n", indent);
+			fprintf(xml, "%s\t<TOP>%.9f</TOP>\n", indent, p[0]);
+			fprintf(xml, "%s\t<LEFT>%.9f</LEFT>\n", indent, p[1]);
+			fprintf(xml, "%s\t<BOTTOM>%.9f</BOTTOM>\n", indent, p[2]);
+			fprintf(xml, "%s\t<RIGHT>%.9f</RIGHT>\n", indent, p[3]);
+			fprintf(xml, "%s</BOUNDS>\n", indent);
+			fprintf(xml, "%s<RESOLUTION>%.9f</RESOLUTION>\n", indent, p[4]);
+			break;
+		case 8: // initial fill rule record
+			fprintf(xml, "%s<INITIALFILL>%d</INITIALFILL>\n", indent, get2B(f));
+			skip -= 2;
+			break;
+		default:
+			warn("path resource: unexpected record selector");
+		}
+		if(skip)
+			fseek(f, skip, SEEK_CUR);
+	}
+}
+
 // id, key, tag, desc, func
 static struct dictentry rdesc[] = {
 	{1000, NULL, NULL, "PS2.0 mode data", NULL},
@@ -239,12 +308,12 @@ static struct dictentry rdesc[] = {
 };
 
 static struct dictentry *findbyid(int id){
-	static struct dictentry path = {0, NULL, "PATH", "Path", NULL};
+	static struct dictentry path = {0, NULL, "PATH", "Path", ir_path};
 	struct dictentry *d;
 
 	/* dumb linear lookup of description string from resource id */
 	/* assumes array ends with a NULL desc pointer */
-	if(id >= 2000 && id <= 2999)
+	if(id >= 2000 && id <= 2998)
 		return &path; // special case
 	for(d = rdesc; d->desc; ++d)
 		if(d->id == id)
