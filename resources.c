@@ -216,13 +216,15 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 			for(i = 0; i < 5; ++i)
 				p[i] = PATHFIX(get4B(f));
 			skip -= 20;
-			fprintf(xml, "%s<BOUNDS>\n", indent);
-			fprintf(xml, "%s\t<TOP>%.9f</TOP>\n", indent, p[0]);
-			fprintf(xml, "%s\t<LEFT>%.9f</LEFT>\n", indent, p[1]);
-			fprintf(xml, "%s\t<BOTTOM>%.9f</BOTTOM>\n", indent, p[2]);
-			fprintf(xml, "%s\t<RIGHT>%.9f</RIGHT>\n", indent, p[3]);
-			fprintf(xml, "%s</BOUNDS>\n", indent);
-			fprintf(xml, "%s<RESOLUTION>%.9f</RESOLUTION>\n", indent, p[4]);
+			fprintf(xml, "%s<CLIPBOARD>\n", indent);
+			fprintf(xml, "%s\t<BOUNDS>\n", indent);
+			fprintf(xml, "%s\t\t<TOP>%.9f</TOP>\n", indent, p[0]);
+			fprintf(xml, "%s\t\t<LEFT>%.9f</LEFT>\n", indent, p[1]);
+			fprintf(xml, "%s\t\t<BOTTOM>%.9f</BOTTOM>\n", indent, p[2]);
+			fprintf(xml, "%s\t\t<RIGHT>%.9f</RIGHT>\n", indent, p[3]);
+			fprintf(xml, "%s\t</BOUNDS>\n", indent);
+			fprintf(xml, "%s\t<RESOLUTION>%.9f</RESOLUTION>\n", indent, p[4]);
+			fprintf(xml, "%s</CLIPBOARD>\n", indent);
 			break;
 		case 8: // initial fill rule record
 			fprintf(xml, "%s<INITIALFILL>%d</INITIALFILL>\n", indent, get2B(f));
