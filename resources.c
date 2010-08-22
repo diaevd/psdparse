@@ -180,10 +180,13 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 		switch (sel){
 		case 0: // closed subpath length record
 		case 3: // open subpath length record
-			subpath_count = get2B(f);
-			skip -= 2;
-			fprintf(xml, "%s<SUBPATH>\n", indent);
-			fprintf(xml, "%s\t<%s/>\n", indent, sel ? "OPEN" : "CLOSED");
+			if(!subpath_count){
+				subpath_count = get2B(f);
+				skip -= 2;
+				fprintf(xml, "%s<SUBPATH>\n", indent);
+				fprintf(xml, "%s\t<%s/>\n", indent, sel ? "OPEN" : "CLOSED");
+			}else
+				warn_msg("path resource: unexpected subpath record");
 			break;
 		case 1: // closed subpath Bezier knot, linked
 		case 2: //    "      "       "     "   unlinked
@@ -213,18 +216,16 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 			fprintf(xml, "%s<PATHFILLRULE/>\n", indent);
 			break;
 		case 7: // clipboard record
-			for(i = 0; i < 5; ++i)
-				p[i] = PATHFIX(get4B(f));
-			skip -= 20;
 			fprintf(xml, "%s<CLIPBOARD>\n", indent);
 			fprintf(xml, "%s\t<BOUNDS>\n", indent);
-			fprintf(xml, "%s\t\t<TOP>%.9f</TOP>\n", indent, p[0]);
-			fprintf(xml, "%s\t\t<LEFT>%.9f</LEFT>\n", indent, p[1]);
-			fprintf(xml, "%s\t\t<BOTTOM>%.9f</BOTTOM>\n", indent, p[2]);
-			fprintf(xml, "%s\t\t<RIGHT>%.9f</RIGHT>\n", indent, p[3]);
+			fprintf(xml, "%s\t\t<TOP>%.9f</TOP>\n", indent, PATHFIX(get4B(f)));
+			fprintf(xml, "%s\t\t<LEFT>%.9f</LEFT>\n", indent, PATHFIX(get4B(f)));
+			fprintf(xml, "%s\t\t<BOTTOM>%.9f</BOTTOM>\n", indent, PATHFIX(get4B(f)));
+			fprintf(xml, "%s\t\t<RIGHT>%.9f</RIGHT>\n", indent, PATHFIX(get4B(f)));
 			fprintf(xml, "%s\t</BOUNDS>\n", indent);
-			fprintf(xml, "%s\t<RESOLUTION>%.9f</RESOLUTION>\n", indent, p[4]);
+			fprintf(xml, "%s\t<RESOLUTION>%.9f</RESOLUTION>\n", indent, PATHFIX(get4B(f)));
 			fprintf(xml, "%s</CLIPBOARD>\n", indent);
+			skip -= 20;
 			break;
 		case 8: // initial fill rule record
 			fprintf(xml, "%s<INITIALFILL>%d</INITIALFILL>\n", indent, get2B(f));
