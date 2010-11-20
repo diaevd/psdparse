@@ -64,10 +64,11 @@
   17-Jun-2010: 3.3b3 add --resdump option to hex dump image resources
   08-Aug-2010: 3.3b4 include fixes suggested by Andreas Jung: bug in ICC XML, remove CDATA sections
   21-Aug-2010: 3.4b1 include path data in XML resource output, suggested by Robert H
+  20-Nov-2010: 3.4b2 add option to use Unicode layer name for output filenames
 */
 
-#define VERSION_STR "3.4b1"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x40,beta,1
+#define VERSION_STR "3.4b2"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x40,beta,2
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -76,7 +77,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,4,0x60,1
+#define VI_VERS_NUM 3,4,0x60,2
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

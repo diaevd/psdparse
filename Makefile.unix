@@ -46,6 +46,7 @@ MINGW_RANLIB  = i386-mingw32msvc-ranlib
 MINGW_WINDRES = i386-mingw32msvc-windres
 
 CFLAGS   += -g -W -Wall -O2 -Wno-unused-parameter
+LDFLAGS += -g
 CPPFLAGS += -DDEFAULT_VERBOSE=0 -DPSBSUPPORT
 
 SRC    = main.c writepng.c writeraw.c unpackbits.c write.c \
