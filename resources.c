@@ -101,7 +101,7 @@ static void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *p
 }
 
 static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
-	conv_unicodestr(f, get4B(f));
+	xml_unicodestr(f, get4B(f));
 }
 
 static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *parent){

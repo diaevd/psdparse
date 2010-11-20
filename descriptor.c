@@ -39,14 +39,19 @@ static void ascii_string(psd_file_t f, long count){
 	fputs("</STRING>", xml);
 }
 
-void conv_unicodestr(psd_file_t f, long count){
-	char *buf = malloc(2*count);
+// Return pointer to a newly allocated, NUL-terminated buffer of UTF-8
+// characters, converted from 2-byte UTF-16 in input file, per PDF standard.
+// Returns NULL if iconv() not available or an error occurred.
+// Caller must free the buffer.
+
+char *conv_unicodestr(psd_file_t f, long count){
+	char *buf = malloc(2*count), *utf8 = NULL;
 
 	if(buf){
 		size_t n = fread(buf, 2, count, f);
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
-		char *inbuf, *outbuf, *utf8;
+		char *inbuf, *outbuf;
 
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
@@ -56,14 +61,25 @@ void conv_unicodestr(psd_file_t f, long count){
 			inb = 2*n;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
-				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1)
-					fwritexml(utf8, outbuf-utf8, xml);
-				else
+				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
+					*outbuf = 0; // add NUL termination
+				}else{
 					alwayswarn("conv_unicodestr(): iconv() failed, errno=%u (count=%d)\n", errno, count);
+					free(utf8);
+					utf8 = NULL;
+				}
 			}
-			free(utf8);
 		}
 #endif
+		free(buf);
+	}
+	return utf8;
+}
+
+void xml_unicodestr(psd_file_t f, long count){
+	char *buf = conv_unicodestr(f, count);
+	if(buf){
+		fputs(buf, xml);
 		free(buf);
 	}
 }
@@ -192,7 +208,7 @@ static void desc_unitfloat(psd_file_t f, int level, int len, struct dictentry *p
 static void desc_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
 	long count = get4B(f);
 	fprintf(xml, "%s<UNICODE>", parent->tag[0] == '-' ? " " : tabs(level));
-	conv_unicodestr(f, count);
+	xml_unicodestr(f, count);
 	fprintf(xml, "</UNICODE>%c", parent->tag[0] == '-' ? ' ' : '\n');
 }
 

@@ -295,7 +295,8 @@ struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, cha
 void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t length);
 void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm);
 
-void conv_unicodestr(psd_file_t f, long count);
+char *conv_unicodestr(psd_file_t f, long count);
+void xml_unicodestr(psd_file_t f, long count);
 void descriptor(psd_file_t f, int level, int len, struct dictentry *dict);
 
 void ed_versdesc(psd_file_t f, int level, int len, struct dictentry *parent);

@@ -232,14 +232,14 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 		doimage(f, li, numbered ? li->nameno : li->name, h);
 
-		if(extra && xml){
+		if(extra){
 			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
-			// This pass is purely for XML output.
+
 			savepos = ftello(f);
 			fseeko(f, li->additionalpos, SEEK_SET);
 
-			// this time we want to generate XML
+			UNQUIET("Layer %d additional data:\n", i);
 			doadditional(f, h, 2, li->additionallen);
 
 			fseeko(f, savepos, SEEK_SET); // restore file position

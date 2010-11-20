@@ -165,13 +165,15 @@ static void blendmode(psd_file_t f, int level, int len, struct dictentry *parent
 static void colorspace(psd_file_t f, int level){
 	int i, space = get2B(f);
 
-	fprintf(xml, "%s<COLOR SPACE='%d'", tabs(level), space);
-	if(space >= -1 && space < (int)(sizeof(colour_spaces)/sizeof(*colour_spaces))-1)
-		fprintf(xml, " NAME='%s'", colour_spaces[space+1]);
-	fputc('>', xml);
-	for(i = 0; i < 4; ++i)
-		fprintf(xml, " <C%d>%g</C%d>", i, FIXEDPT(get2Bu(f)), i);
-	fputs(" </COLOR>\n", xml);
+	if(xml){
+		fprintf(xml, "%s<COLOR SPACE='%d'", tabs(level), space);
+		if(space >= -1 && space < (int)(sizeof(colour_spaces)/sizeof(*colour_spaces))-1)
+			fprintf(xml, " NAME='%s'", colour_spaces[space+1]);
+		fputc('>', xml);
+		for(i = 0; i < 4; ++i)
+			fprintf(xml, " <C%d>%g</C%d>", i, FIXEDPT(get2Bu(f)), i);
+		fputs(" </COLOR>\n", xml);
+	}
 }
 
 void conv_unicodestyles(psd_file_t f, long count, const char *indent){
@@ -197,11 +199,13 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
 				if(iconv(ic, &inbuf, &inb, &outbuf, &outb) != (size_t)-1){
-					fprintf(xml, "%s<UNICODE>", indent);
-					fwritexml(utf8, outbuf-utf8, xml);
-					fputs("</UNICODE>\n", xml);
+					if(xml){
+						fprintf(xml, "%s<UNICODE>", indent);
+						fwritexml(utf8, outbuf-utf8, xml);
+						fputs("</UNICODE>\n", xml);
+					}
 
-					// copy to terminal FIXME: UTF-8 may not be useful anyway
+					// copy to terminal
 					if(verbose)
 						fwrite(utf8, 1, outbuf-utf8, stdout);
 				}else
@@ -210,8 +214,9 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 			free(utf8);
 		}
 #endif
-		for(i = 0; i < count; ++i)
-			fprintf(xml, "%s<S>%d</S>\n", indent, style[i]);
+		if(xml)
+			for(i = 0; i < count; ++i)
+				fprintf(xml, "%s<S>%d</S>\n", indent, style[i]);
 	}else
 		fatal("conv_unicodestyle(): can't get memory");
 
@@ -315,17 +320,14 @@ static void ed_typetool(psd_file_t f, int level, int len, struct dictentry *pare
 
 static void ed_unicodename(psd_file_t f, int level, int len, struct dictentry *parent){
 	unsigned long length = get4B(f); // character count, not byte count
+	char *buf = conv_unicodestr(f, length);
 
-	if(xml)
-		conv_unicodestr(f, length);
-	/* FIXME: We don't have a way to spit the UTF-8 to terminal as well. Maybe a flag parameter?
-	else if(!quiet){
-		fputs("    (Unicode name = '", stdout);
-		while(len--)
-			putwchar(get2Bu(f)); // FIXME: not working
-		fputs("')\n", stdout);
+	if(buf){
+		if(xml)
+			fputs(buf, xml);
+		UNQUIET("    (Unicode name = '%s')\n", buf);
+		free(buf);
 	}
-	*/
 }
 
 static void ed_long(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -370,7 +372,7 @@ static void ed_sectiondivider(psd_file_t f, int level, int len, struct dictentry
 
 static void ed_blendingrestrictions(psd_file_t f, int level, int len, struct dictentry *parent){
 	int i = len/4;
-	if(len)
+	if(len && xml)
 		while(i--)
 			fprintf(xml, "%s<CHANNEL>%ld</CHANNEL>\n", tabs(level), get4B(f));
 }
@@ -384,7 +386,7 @@ static void ed_gradient(psd_file_t f, int level, int len, struct dictentry *pare
 		fprintf(xml, "%s<REVERSED>%d</REVERSED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<DITHERED>%d</DITHERED>\n", indent, fgetc(f));
 		fprintf(xml, "%s<NAME>", indent);
-		conv_unicodestr(f, get4B(f));
+		xml_unicodestr(f, get4B(f));
 		fputs("</NAME>\n", xml);
 		for(stops = get2Bu(f); stops--;){
 			fprintf(xml, "%s<COLORSTOP>\n", indent);
@@ -470,7 +472,7 @@ static void ed_annotation(psd_file_t f, int level, int len, struct dictentry *pa
 				len2 -= datalen; // we consumed this much from the file
 				datalen -= 2;
 				if(bom[0] == 0xfe && bom[1] == 0xff)
-					conv_unicodestr(f, datalen/2);
+					xml_unicodestr(f, datalen/2);
 				else{
 					fputcxml(bom[0], xml);
 					fputcxml(bom[1], xml);
