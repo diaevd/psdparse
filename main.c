@@ -28,7 +28,7 @@ char *pngdir = indir;
 int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, resdump = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
 	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
-	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0, bom = 0;
+	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0, unicode_filenames = 0;
 long hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
@@ -50,6 +50,7 @@ void usage(char *prog, int status){
   -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
+      --unicode      use Unicode layer names for filenames (implies --extra)\n\
   -d, --pngdir dir   put PNGs in specified directory (implies --writepng)\n\
   -m, --makedirs     create subdirectory for PNG if layer name contains %c's\n\
   -l, --list         write an 'asset list' of layer sizes and positions\n\
@@ -81,6 +82,7 @@ int main(int argc, char *argv[]){
 		{"extra",      no_argument, &extra, 1},
 		{"writepng",   no_argument, &writepng, 1},
 		{"numbered",   no_argument, &numbered, 1},
+		{"unicode",    no_argument, &unicode_filenames, 1},
 		{"pngdir",     required_argument, NULL, 'd'},
 		{"makedirs",   no_argument, &makedirs, 1},
 		{"list",       no_argument, &writelist, 1},

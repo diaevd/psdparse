@@ -204,6 +204,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 {
 	int i;
 	psd_bytes_t savepos;
+	extern char *last_layer_name;
 
 	if(listfile) fputs("assetlist = {\n", listfile);
 
@@ -230,9 +231,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 		layerblendmode(f, 2, 1, &li->blend);
 
-		doimage(f, li, numbered ? li->nameno : li->name, h);
-
-		if(extra){
+		if(extra || unicode_filenames){
 			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
 
@@ -244,6 +243,9 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 			fseeko(f, savepos, SEEK_SET); // restore file position
 		}
+
+		doimage(f, li, unicode_filenames && last_layer_name ? last_layer_name : (numbered ? li->nameno : li->name), h);
+
 		if(xml) fputs("\t</LAYER>\n\n", xml);
 	}
 

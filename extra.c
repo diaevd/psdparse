@@ -318,15 +318,18 @@ static void ed_typetool(psd_file_t f, int level, int len, struct dictentry *pare
 		UNQUIET("    (%s, version = %d)\n", parent->desc, v);
 }
 
+// Stores last layer name encountered; pointer to UTF-8 string.
+char *last_layer_name = NULL;
+
 static void ed_unicodename(psd_file_t f, int level, int len, struct dictentry *parent){
 	unsigned long length = get4B(f); // character count, not byte count
-	char *buf = conv_unicodestr(f, length);
+	char *buf = last_layer_name = conv_unicodestr(f, length);
 
 	if(buf){
 		if(xml)
 			fputs(buf, xml);
 		UNQUIET("    (Unicode name = '%s')\n", buf);
-		free(buf);
+		//free(buf); // caller may use it via global
 	}
 }
 
