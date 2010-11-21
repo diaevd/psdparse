@@ -231,6 +231,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 		layerblendmode(f, 2, 1, &li->blend);
 
+		last_layer_name = NULL;
 		if(extra || unicode_filenames){
 			// Process 'additional data' (non-image layer data,
 			// such as adjustments, effects, type tool).
