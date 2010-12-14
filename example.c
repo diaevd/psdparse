@@ -33,7 +33,7 @@
 // You WILL get text output unless you set quiet = 1 !
 int verbose = 0, quiet = 1, rsrc = 0, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
-	writepng = 0, writelist = 0, writexml = 0;
+	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1;
 long hres, vres; // we don't use these, but they're set within doresources()
 char *pngdir;
 
@@ -48,7 +48,8 @@ int main(int argc, char *argv[]){
 		if(dopsd(f, argv[1], &h)){
 			/* The following members of psd_header struct h are initialised:
 			 * sig, version, channels, rows, cols, depth, mode */
-			printf("PSD file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
+			printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
+				   h.version == 1 ? 'D' : 'B',
 				   h.rows, h.cols, h.channels, h.depth, h.nlayers);
 			h.layerdatapos = ftello(f);
 
