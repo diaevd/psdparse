@@ -17,6 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#ifndef _PSDPARSE_H_
+#define _PSDPARSE_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -179,6 +182,9 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 
 #define KEYMATCH(p, str) (!memcmp(p, str, strlen(str)))
 
+#define TRANS_CHAN_ID (-1)
+#define LMASK_CHAN_ID (-2)
+
 struct psd_header{
 	char sig[4];
 	short version;
@@ -251,6 +257,7 @@ struct layer_info{
 
 	psd_bytes_t filepos; // only used in scavenge layers mode
 	psd_bytes_t chpos; // only used in scavenge channels mode
+	psd_bytes_t xcf_pos; // only used by psd2xcf tool
 };
 
 struct dictentry{
@@ -363,3 +370,5 @@ psd_status psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
 psd_status psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
 	psd_uchar *dst_buf, psd_int dst_len,
 	psd_int row_size, psd_int color_depth);
+
+#endif

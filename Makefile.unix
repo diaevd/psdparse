@@ -28,7 +28,7 @@ VERSION := $(shell perl -n -e 'm/^\#.*VERSION_STR[[:blank:]]+\"([^"]*)\"/ && pri
 
 # for OS X build, download and extract libpng archive, and define path to it:
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
-LIBPNG = ../libpng-1.4.3
+LIBPNG = ../lpng144
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
@@ -102,6 +102,15 @@ example : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLI
 example : LDFLAGS += -lz -liconv
 # This is the minimum set of prerequisite objects.
 example : example.o psd.o util.o extra.o descriptor.o constants.o \
+          pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
+
+
+psd2xcf : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
+
+# remove -liconv if building on Linux:
+psd2xcf : LDFLAGS += -lz -liconv
+# This is the minimum set of prerequisite objects.
+psd2xcf : psd2xcf.o xcf.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
 
 

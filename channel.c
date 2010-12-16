@@ -92,7 +92,7 @@ void dochannel(psd_file_t f,
 				chan->id, chpos, chan->length);
 
 		// If this is a layer mask, the pixel size is a special case
-		if(chan->id == -2){
+		if(chan->id == LMASK_CHAN_ID){
 			chan->rows = li->mask.rows;
 			chan->cols = li->mask.cols;
 			VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",

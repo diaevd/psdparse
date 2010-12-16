@@ -87,8 +87,8 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 				warn_msg("unexpected channel id %d", chid);
 
 			switch(chid){
-			case -2: chidstr = " (layer mask)"; break;
-			case -1: chidstr = " (transparency mask)"; break;
+			case LMASK_CHAN_ID: chidstr = " (layer mask)"; break;
+			case TRANS_CHAN_ID: chidstr = " (transparency mask)"; break;
 			default:
 				if(h->mode != SCAVENGE_MODE && chid < (int)strlen(channelsuffixes[h->mode]))
 					sprintf(chidstr = tmp, " (%c)", channelsuffixes[h->mode][chid]); // it's a mode-ish channel

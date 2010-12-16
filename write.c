@@ -52,7 +52,7 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 		// build PNG file name
 		strcpy(pngname, name);
 
-		if(chan[ch].id == -2){
+		if(chan[ch].id == LMASK_CHAN_ID){
 			if(xml){
 				fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
 						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols, li->mask.default_colour);
@@ -61,7 +61,7 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 				if(li->mask.flags & 4) fputs("\t\t\t<INVERT />\n", xml);
 			}
 			strcat(pngname, ".lmask");
-		}else if(chan[ch].id == -1){
+		}else if(chan[ch].id == TRANS_CHAN_ID){
 			if(xml) fputs("\t\t<TRANSPARENCY>\n", xml);
 			strcat(pngname, li ? ".trans" : ".alpha");
 		}else{
@@ -79,9 +79,9 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 			writeimage(f, dir, pngname, li, chan + ch, 1,
 					   chan[ch].rows, chan[ch].cols, h, PNG_COLOR_TYPE_GRAY);
 
-		if(chan[ch].id == -2){
+		if(chan[ch].id == LMASK_CHAN_ID){
 			if(xml) fputs("\t\t</LAYERMASK>\n", xml);
-		}else if(chan[ch].id == -1){
+		}else if(chan[ch].id == TRANS_CHAN_ID){
 			if(xml) fputs("\t\t</TRANSPARENCY>\n", xml);
 		}else{
 			if(xml) fputs("\t\t</CHANNEL>\n", xml);
