@@ -109,10 +109,12 @@ int main(int argc, char *argv[]){
 				xcf_prop_end(xcf);
 
 				// layer pointers... write dummies now,
-				// we'll have to fixup later.
+				// we'll have to fixup later. Ignore zero-sized layers.
 				xcf_layers_pos = ftello(xcf);
 				for(i = h.nlayers; i--;)
-					put4xcf(xcf, 0);
+					if(h.linfo[i].right > h.linfo[i].left
+					&& h.linfo[i].bottom > h.linfo[i].top)
+						put4xcf(xcf, 0);
 				put4xcf(xcf, 0); // end of layer pointers
 				// channel pointers here... is this the background image??
 				put4xcf(xcf, 0); // end of channel pointers
@@ -129,10 +131,19 @@ int main(int argc, char *argv[]){
 				doimage(f, NULL, NULL, &h);
 
 				fseeko(xcf, xcf_layers_pos, SEEK_SET);
-				UNQUIET("layer position fixup:\n");
+				UNQUIET("xcf layer offset fixup:\n");
 				for(i = 0; i < h.nlayers; ++i){
-					UNQUIET("  layer %d @ %lld\n", i, h.linfo[i].xcf_pos);
-					put4xcf(xcf, h.linfo[i].xcf_pos);
+					if(h.linfo[i].right > h.linfo[i].left
+					   && h.linfo[i].bottom > h.linfo[i].top)
+					{
+						UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
+								i, h.linfo[i].xcf_pos, h.linfo[i].name);
+						put4xcf(xcf, h.linfo[i].xcf_pos);
+					}
+					else{
+						UNQUIET("  layer %3d       skipped  \"%s\"\n",
+								i, h.linfo[i].name);
+					}
 				}
 
 				return EXIT_SUCCESS;
@@ -162,24 +173,6 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 
 	/* li points to layer information. If it is NULL, then
 	 * the merged image is being being processed, not a layer. */
-
-	/* You probably want to treat the layer/image differently
-	 * according to its mode. */
-	switch(h->mode){
-	case ModeBitmap:
-	case ModeGrayScale:
-	case ModeGray16:
-	case ModeDuotone:
-	case ModeDuotone16:
-		break;
-	case ModeIndexedColor:
-		break;
-	case ModeRGBColor:
-	case ModeRGB48:
-		break;
-	default: // multichannel, cmyk, lab etc
-		;
-	}
 
 	if(li){
 		// Process layer, described by struct layer_info pointed to by li
@@ -212,7 +205,9 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 				   li->chan[ch].length);
 		}
 
-		li->xcf_pos = xcf_layer(xcf, f, li, xcf_compr);
+		li->xcf_pos = li->right > li->left && li->bottom > li->top
+							? xcf_layer(xcf, f, li, xcf_compr)
+							: 0;
 	}else{
 		// The merged image has the size, mode, depth, and channel count
 		// given by the main PSD header (h).

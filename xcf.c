@@ -318,7 +318,7 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 			if( !(chan_data[ch] = malloc(XCF_TILESIZE*w)) )
 				fatal("can't get memory for channel data");
 			if(chan[ch].id == TRANS_CHAN_ID)
-				xcf_chan[channel_cnt-1] = chan+ch; // transparency/alpha
+				xcf_chan[channel_cnt-1] = chan+ch;  // transparency/alpha
 			else if(chan[ch].id >= 0 && chan[ch].id < 4)
 				xcf_chan[chan[ch].id] = chan+ch;    // image channel
 		}
