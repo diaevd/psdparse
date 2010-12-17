@@ -21,6 +21,7 @@
 
 #include "psdparse.h"
 #include "xcf.h"
+#include "version.h"
 
 /* This program outputs a GIMP XCF file converted from PSD layer data.
  *
@@ -52,112 +53,154 @@ FILE *xcf_open(char *psd_name){
 static FILE *xcf;
 static int xcf_compr = 1; // RLE
 
+void usage(char *prog, int status){
+	fprintf(stderr, "usage: %s [options] psdfile...\n\
+  -h, --help         show this help\n\
+  -V, --version      show version\n\
+  -v, --verbose      print more information\n\
+  -q, --quiet        work silently\n\
+  -c, --rle          RLE compression (default)\n\
+  -u, --raw          no compression\n", prog);
+	exit(status);
+}
+
 int main(int argc, char *argv[]){
+	static struct option longopts[] = {
+		{"help",       no_argument, &help, 1},
+		{"version",    no_argument, NULL, 'V'},
+		{"verbose",    no_argument, &verbose, 1},
+		{"quiet",      no_argument, &quiet, 1},
+		{"rle",        no_argument, &xcf_compr, 1},
+		{"raw",        no_argument, &xcf_compr, 0},
+		{NULL,0,NULL,0}
+	};
 	FILE *f;
 	struct psd_header h;
 	extern int xcf_mode;
-	int i;
+	int i, indexptr, opt;
 	off_t pos, xcf_layers_pos;
 
-	if(argc == 2 && (f = fopen(argv[1], "rb"))){
-		h.version = h.nlayers = 0;
-		h.layerdatapos = 0;
-
-		if(dopsd(f, argv[1], &h)){
-			/* The following members of psd_header struct h are initialised:
-			 * sig, version, channels, rows, cols, depth, mode */
-			printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
-				   h.version == 1 ? 'D' : 'B',
-				   h.rows, h.cols, h.channels, h.depth, h.nlayers);
-			h.layerdatapos = ftello(f);
-
-			if(h.depth != 8)
-				fatal("input file must be 8 bits/channel");
-
-			switch(h.mode){
-			case ModeGrayScale:
-				xcf_mode = 1; // Grayscale
-				break;
-			case ModeIndexedColor:
-				xcf_mode = 2; // Indexed color
-				break;
-			case ModeRGBColor:
-				xcf_mode = 0; // RGB color
-				break;
-			//case ModeCMYKColor:
-			default:
-				fatal("can only convert grey scale, indexed, and RGB mode images");
-			}
-
-			if( (xcf = xcf_open(argv[1])) ){
-				fputs("gimp xcf ", xcf); //  File type magic
-				fputs("v001", xcf);
-				fputc(0, xcf); // Zero-terminator for version tag
-				put4xcf(xcf, h.cols); // Width of canvas
-				put4xcf(xcf, h.rows); // Height of canvas
-				put4xcf(xcf, xcf_mode);
-
-				// properties...
-				xcf_prop_compression(xcf, xcf_compr);
-				// image resolution in pixels per cm
-				xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
-				if(h.mode == ModeIndexedColor){ // copy palette from psd to xcf
-					pos = ftello(f);
-					xcf_prop_colormap(xcf, f, &h);
-					fseeko(f, pos, SEEK_SET);
-				}
-				xcf_prop_end(xcf);
-
-				// layer pointers... write dummies now,
-				// we'll have to fixup later. Ignore zero-sized layers.
-				xcf_layers_pos = ftello(xcf);
-				for(i = h.nlayers; i--;)
-					if(h.linfo[i].right > h.linfo[i].left
-					&& h.linfo[i].bottom > h.linfo[i].top)
-						put4xcf(xcf, 0);
-				put4xcf(xcf, 0); // end of layer pointers
-				// channel pointers here... is this the background image??
-				put4xcf(xcf, 0); // end of channel pointers
-
-				// process the layers in 'image data' section.
-				// this will, in turn, call doimage() for each layer.
-				processlayers(f, &h);
-
-				// position file after 'layer & mask info', i.e. at the
-				// beginning of the merged image data.
-				fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
-
-				// process merged (composite) image data
-				doimage(f, NULL, NULL, &h);
-
-				fseeko(xcf, xcf_layers_pos, SEEK_SET);
-				UNQUIET("xcf layer offset fixup:\n");
-				for(i = 0; i < h.nlayers; ++i){
-					if(h.linfo[i].right > h.linfo[i].left
-					   && h.linfo[i].bottom > h.linfo[i].top)
-					{
-						UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
-								i, h.linfo[i].xcf_pos, h.linfo[i].name);
-						put4xcf(xcf, h.linfo[i].xcf_pos);
-					}
-					else{
-						UNQUIET("  layer %3d       skipped  \"%s\"\n",
-								i, h.linfo[i].name);
-					}
-				}
-
-				return EXIT_SUCCESS;
-			}
-			else{
-				fatal("could not open xcf file for writing");
-			}
-		}else{
-			fprintf(stderr, "Not a PSD or PSB file.\n");
+	while( (opt = getopt_long(argc, argv, "hVvqcu", longopts, &indexptr)) != -1 )
+		switch(opt){
+		case 0: break; // long option
+		case 'h': help = 1; break;
+		case 'V':
+			printf("psd2xcf version " VERSION_STR
+				   "\nCopyright (C) 2004-2010 Toby Thain <toby@telegraphics.com.au>\n");
+			return EXIT_SUCCESS;
+		case 'v': verbose = 1; break;
+		case 'q': quiet = 1; break;
+		case 'c': xcf_compr = 1; break;
+		case 'u': xcf_compr = 0; break;
+		default:  usage(argv[0], EXIT_FAILURE);
 		}
 
-		fclose(f);
-	}else{
-		fprintf(stderr, "Could not open: %s\n", argv[1]);
+	if(optind >= argc)
+		usage(argv[0], EXIT_FAILURE);
+	else if(help)
+		usage(argv[0], EXIT_SUCCESS);
+
+	for(i = optind; i < argc; ++i){
+		if( (f = fopen(argv[i], "rb")) ){
+			h.version = h.nlayers = 0;
+			h.layerdatapos = 0;
+
+			if(dopsd(f, argv[i], &h)){
+				/* The following members of psd_header struct h are initialised:
+				 * sig, version, channels, rows, cols, depth, mode */
+				printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
+					   h.version == 1 ? 'D' : 'B',
+					   h.rows, h.cols, h.channels, h.depth, h.nlayers);
+				h.layerdatapos = ftello(f);
+
+				if(h.depth != 8)
+					fatal("input file must be 8 bits/channel\n");
+
+				switch(h.mode){
+				case ModeGrayScale:
+					xcf_mode = 1; // Grayscale
+					break;
+				case ModeIndexedColor:
+					xcf_mode = 2; // Indexed color
+					break;
+				case ModeRGBColor:
+					xcf_mode = 0; // RGB color
+					break;
+				//case ModeCMYKColor:
+				default:
+					fatal("can only convert grey scale, indexed, and RGB mode images\n");
+				}
+
+				if( (xcf = xcf_open(argv[i])) ){
+					fputs("gimp xcf ", xcf); //  File type magic
+					fputs("v001", xcf);
+					fputc(0, xcf); // Zero-terminator for version tag
+					put4xcf(xcf, h.cols); // Width of canvas
+					put4xcf(xcf, h.rows); // Height of canvas
+					put4xcf(xcf, xcf_mode);
+
+					// properties...
+					xcf_prop_compression(xcf, xcf_compr);
+					// image resolution in pixels per cm
+					xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
+					if(h.mode == ModeIndexedColor){ // copy palette from psd to xcf
+						pos = ftello(f);
+						xcf_prop_colormap(xcf, f, &h);
+						fseeko(f, pos, SEEK_SET);
+					}
+					xcf_prop_end(xcf);
+
+					// layer pointers... write dummies now,
+					// we'll have to fixup later. Ignore zero-sized layers.
+					xcf_layers_pos = ftello(xcf);
+					for(i = h.nlayers; i--;)
+						if(h.linfo[i].right > h.linfo[i].left
+						&& h.linfo[i].bottom > h.linfo[i].top)
+							put4xcf(xcf, 0);
+					put4xcf(xcf, 0); // end of layer pointers
+					// channel pointers here... is this the background image??
+					put4xcf(xcf, 0); // end of channel pointers
+
+					// process the layers in 'image data' section.
+					// this will, in turn, call doimage() for each layer.
+					processlayers(f, &h);
+
+					// position file after 'layer & mask info', i.e. at the
+					// beginning of the merged image data.
+					fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
+
+					// process merged (composite) image data
+					doimage(f, NULL, NULL, &h);
+
+					fseeko(xcf, xcf_layers_pos, SEEK_SET);
+					UNQUIET("xcf layer offset fixup:\n");
+					for(i = 0; i < h.nlayers; ++i){
+						if(h.linfo[i].right > h.linfo[i].left
+						   && h.linfo[i].bottom > h.linfo[i].top)
+						{
+							UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
+									i, h.linfo[i].xcf_pos, h.linfo[i].name);
+							put4xcf(xcf, h.linfo[i].xcf_pos);
+						}
+						else{
+							UNQUIET("  layer %3d       skipped  \"%s\"\n",
+									i, h.linfo[i].name);
+						}
+					}
+
+					return EXIT_SUCCESS;
+				}
+				else{
+					fatal("could not open xcf file for writing\n");
+				}
+			}else{
+				fprintf(stderr, "Not a PSD or PSB file.\n");
+			}
+
+			fclose(f);
+		}else{
+			fprintf(stderr, "Could not open: %s\n", argv[i]);
+		}
 	}
 
 	return EXIT_FAILURE;

@@ -80,7 +80,7 @@ void xcf_prop_colormap(FILE *xcf, FILE *psd, struct psd_header *h){
 			fputc(ctab[i+0x200], xcf);
 		}
 	}else{
-		fatal("indexed color mode data wrong size");
+		fatal("indexed color mode data wrong size\n");
 	}
 }
 
@@ -306,7 +306,7 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 
 		ntiles = ((w+XCF_TILESIZE-1)/XCF_TILESIZE) * ((h+XCF_TILESIZE-1)/XCF_TILESIZE);
 		if( !(tile_pos = malloc(sizeof(off_t)*ntiles)) )
-			fatal("can't get memory for tile offset array");
+			fatal("can't get memory for tile offset array\n");
 
 		// chan is an array of channel_cnt channels. Do not assume the
 		// order of these channels. The interpretation is given by the 'id'
@@ -316,7 +316,7 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 		for(ch = 0; ch < channel_cnt; ++ch){
 			// need space for 64 rows of each channel
 			if( !(chan_data[ch] = malloc(XCF_TILESIZE*w)) )
-				fatal("can't get memory for channel data");
+				fatal("can't get memory for channel data\n");
 			if(chan[ch].id == TRANS_CHAN_ID)
 				xcf_chan[channel_cnt-1] = chan+ch;  // transparency/alpha
 			else if(chan[ch].id >= 0 && chan[ch].id < 4)
@@ -328,9 +328,9 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 		// and (optionally) compressed.
 
 		if( !(rlebuf = malloc(2*w)) )
-			fatal("can't get memory for RLE buffer");
+			fatal("can't get memory for RLE buffer\n");
 		if( !(tilebuf = malloc(XCF_TILESIZE*XCF_TILESIZE)) )
-			fatal("can't get memory for tile buffer");
+			fatal("can't get memory for tile buffer\n");
 
 		tile_idx = 0;
 		for(ytile = 0; ytile < h; ytile += XCF_TILESIZE){
@@ -339,7 +339,7 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 			// read the next 64 rows from each channel
 			for(ch = 0; ch < channel_cnt; ++ch){
 				if(!xcf_chan[ch])
-					fatal("missing mapping for channel");
+					fatal("missing mapping for channel\n");
 				for(i = 0; i < tileh; ++i)
 					readunpackrow(psd, xcf_chan[ch], ytile+i, chan_data[ch] + i*w, rlebuf);
 			}
@@ -522,9 +522,14 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 
 	// look for the layer mask channel
 	for(ch = 0; ch < li->channels; ++ch){
-		if(li->chan[ch].id == LMASK_CHAN_ID)
+		if(li->chan[ch].id == LMASK_CHAN_ID){
+			// TODO: layer masks not yet supported
+			// one complication is that Photoshop layer mask dimensions
+			// are not the same as the layer's, but xcf requires same.
+			fatal("layer mask yet not supported\n");
 			lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
 								"layer mask", &li->chan[ch], compr);
+		}
 	}
 
 	layerptr = ftello(xcf);
