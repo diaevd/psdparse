@@ -88,7 +88,7 @@ size_t putfxcf(FILE *f, float v){
 	return put4xcf(f, u.i);
 }
 
-// write C string per xcf convention; if zero-length, write 32 bit zero
+// write C string per xcf convention
 // return 1 if succeeded, or zero if error
 size_t putsxcf(FILE *f, char *s){
 	size_t len = strlen(s);
@@ -310,14 +310,14 @@ size_t xcf_rle(FILE *xcf, unsigned char *src, size_t n){
 			// because then we must switch to a compressed run
 			for(p = run; p < (run+maxrun); ++p)
 				if(p <= (end-3) && p[1] == p[0] && p[2] == p[0])
-					break; // 3 bytes repeated end verbatim run
+					break;
 
 			count = p-run;
 			if(count > 127){
 				fputc(128, xcf);
 				fputc(count >> 8, xcf);
 				fputc(count, xcf);
-				out += 2;
+				out += 3;
 			}
 			else{
 				fputc(256-count, xcf);
@@ -339,7 +339,7 @@ size_t xcf_rle(FILE *xcf, unsigned char *src, size_t n){
 802	  uint32   0      A zero marks the end of the array of tile pointers
  */
 
-#define XCF_TILESIZE 64
+#define XCF_TILE 64
 
 off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
 				int channel_cnt, struct channel_info *xcf_chan[], int compr)
@@ -351,23 +351,23 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
 	if(xcf_chan){
 		// break data into tiles up to 64x64 wide
 
-		ntiles = ((w+XCF_TILESIZE-1)/XCF_TILESIZE) * ((h+XCF_TILESIZE-1)/XCF_TILESIZE);
+		ntiles = ((w+XCF_TILE-1)/XCF_TILE) * ((h+XCF_TILE-1)/XCF_TILE);
 		tile_pos = checkmalloc(sizeof(off_t)*ntiles);
 
 		// need space for 64 rows of each mapped channel
 		for(ch = 0; ch < 4; ++ch)
 			if(xcf_chan[ch])
-				chan_data[ch] = checkmalloc(XCF_TILESIZE*w);
+				chan_data[ch] = checkmalloc(XCF_TILE*w);
 
 		rlebuf = checkmalloc(2*w);
-		tilebuf = checkmalloc(XCF_TILESIZE*XCF_TILESIZE);
+		tilebuf = checkmalloc(XCF_TILE*XCF_TILE);
 
 		// Break image into tiles, top-to-bottom, left-to-right,
-		// where each tile is no larger than XCF_TILESIZE.
+		// where each tile is no larger than XCF_TILE.
 
 		tile_idx = 0;
-		for(ytile = 0; ytile < h; ytile += XCF_TILESIZE){
-			tileh = (h - ytile) > XCF_TILESIZE ? XCF_TILESIZE : h - ytile;
+		for(ytile = 0; ytile < h; ytile += XCF_TILE){
+			tileh = (h - ytile) > XCF_TILE ? XCF_TILE : h - ytile;
 
 			// read the next 64 row strip from each channel
 			for(ch = 0; ch < channel_cnt; ++ch){
@@ -382,8 +382,8 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
 				}
 			}
 
-			for(xtile = 0; xtile < w; xtile += XCF_TILESIZE){
-				tilew = (w - xtile) > XCF_TILESIZE ? XCF_TILESIZE : w - xtile;
+			for(xtile = 0; xtile < w; xtile += XCF_TILE){
+				tilew = (w - xtile) > XCF_TILE ? XCF_TILE : w - xtile;
 
 				tile_pos[tile_idx++] = ftello(xcf);
 
@@ -565,13 +565,13 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	for(ch = chan_cnt = 0; ch < li->channels; ++ch){
 		if(li->chan[ch].id == TRANS_CHAN_ID){
 			++chan_cnt;
-			xcf_chan[img_channels] = li->chan+ch;  // transparency/alpha: always last in XCF
+			xcf_chan[img_channels] = li->chan+ch; // transparency/alpha: always last in XCF
 			VERBOSE(" channel %d (%2d) -> xcf channel %d (alpha)\n",
 					ch, li->chan[ch].id, img_channels);
 		}
 		else if(li->chan[ch].id >= 0 && li->chan[ch].id < img_channels){
 			++chan_cnt;
-			xcf_chan[li->chan[ch].id] = li->chan+ch;    // positive id: index of image channel
+			xcf_chan[li->chan[ch].id] = li->chan+ch; // positive id: index of image channel
 			VERBOSE(" channel %d (%2d) -> xcf channel %d\n",
 					ch, li->chan[ch].id, li->chan[ch].id);
 		}
@@ -612,6 +612,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 			break;
 	if(*p)
 		xcf_prop_mode(xcf, m);
+
 	xcf_prop_end(xcf);
 
 	put4xcf(xcf, hptr);
