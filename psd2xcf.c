@@ -128,6 +128,13 @@ int main(int argc, char *argv[]){
 				// process merged (composite) image data
 				doimage(f, NULL, NULL, &h);
 
+				fseeko(xcf, xcf_layers_pos, SEEK_SET);
+				UNQUIET("layer position fixup:\n");
+				for(i = 0; i < h.nlayers; ++i){
+					UNQUIET("  layer %d @ %lld\n", i, h.linfo[i].xcf_pos);
+					put4xcf(xcf, h.linfo[i].xcf_pos);
+				}
+
 				return EXIT_SUCCESS;
 			}
 			else{
@@ -205,7 +212,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 				   li->chan[ch].length);
 		}
 
-		li->xcf_pos = xcf_layer(xcf, li, xcf_compr);
+		li->xcf_pos = xcf_layer(xcf, f, li, xcf_compr);
 	}else{
 		// The merged image has the size, mode, depth, and channel count
 		// given by the main PSD header (h).

@@ -284,12 +284,58 @@ size_t xcf_rle(FILE *xcf, char *src, size_t n){
 801	  `--
 802	  uint32   0      A zero marks the end of the array of tile pointers
  */
-off_t xcf_level(FILE *xcf, int w, int h, struct channel_info *chan, int compr){
-	off_t lptr = ftello(xcf);
+
+#define XCF_TILESIZE 64
+
+off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct channel_info *chan, int compr){
+	struct channel_info *xcf_chan[4] = {NULL, NULL, NULL, NULL};
+	unsigned char *chan_data[4], *rlebuf;
+	int i, ch, xtile, ytile, tilew, tileh;
+	off_t lptr;
+
+	lptr = ftello(xcf);
+	UNQUIET("xcf_level @ %ld w:%d h:%d channels:%d\n", lptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	if(chan){
 		// break data into tiles up to 64x64 wide
+
+		// chan is an array of channel_cnt channels. Do not assume the
+		// order of these channels. The interpretation is given by the 'id'
+		// field. 0, 1, 2 are RGB respectively, and -1 is transparency (alpha).
+
+		// Establish the mapping to XCF channels based on ids:
+		for(i = 0; i < channel_cnt; ++i){
+			// space for 64 rows
+			if( !(chan_data[i] = malloc(XCF_TILESIZE*w)) )
+				fatal("can't get memory for channel data");
+			if(chan[i].id == TRANS_CHAN_ID)
+				xcf_chan[channel_cnt-1] = chan+i; // transparency/alpha
+			else if(chan[i].id >= 0 && chan[i].id < 4)
+				xcf_chan[chan[i].id] = chan+i;    // image channel
+		}
+
+		// A tile is a planar piece of the image, no more than 64 pixels
+		// wide or high, with each channel stored sequentially and compressed.
+
+		if( !(rlebuf = malloc(2*w)) )
+			fatal("can't get memory for RLE buffer");
+
+		for(ytile = 0; ytile < h; ytile += XCF_TILESIZE){
+			tileh = (h - ytile) > XCF_TILESIZE ? XCF_TILESIZE : h - ytile;
+			// read the next 64 rows from each channel
+			for(ch = 0; ch < channel_cnt; ++ch){
+				for(i = 0; i < tileh; ++i)
+					readunpackrow(psd, xcf_chan[ch], ytile+i, chan_data[ch]+i*w, rlebuf);
+			}
+			for(xtile = 0; xtile < w; xtile += XCF_TILESIZE){
+				tilew = (w - xtile) > XCF_TILESIZE ? XCF_TILESIZE : w - xtile;
+				if(compr){ // RLE compress
+				}
+				else{ // raw data, without compression
+				}
+			}
+		}
 	}
 	put4xcf(xcf, 0);
 	return lptr;
@@ -309,7 +355,8 @@ off_t xcf_level(FILE *xcf, int w, int h, struct channel_info *chan, int compr){
 767	  uint32   0       A zero ends the list of level pointers
  */
 
-off_t xcf_hierarchy(FILE *xcf, int w, int h, int bpp, struct channel_info *chan, int compr){
+off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
+					int channel_cnt, struct channel_info *chan, int compr){
 	int i, j;
 	off_t hptr, level_ptrs[32];
 
@@ -318,20 +365,23 @@ off_t xcf_hierarchy(FILE *xcf, int w, int h, int bpp, struct channel_info *chan,
 		level_ptrs[i] = ftello(xcf);
 		if(i == 0){
 			// first level - containing tiles
-			xcf_level(xcf, w, h, chan, compr);
+			xcf_level(xcf, psd, w, h, channel_cnt, chan, compr);
 		}
 		else{
 			// dummy level - no tiles
-			xcf_level(xcf, w, h, NULL, compr);
+			xcf_level(xcf, NULL, w, h, 0, NULL, compr);
 		}
 	}
 
 	hptr = ftello(xcf);
+	UNQUIET("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
-	put4xcf(xcf, bpp);
-	for(j = 0; j < i; ++j)
+	put4xcf(xcf, channel_cnt);
+	for(j = 0; j < i; ++j){
+		UNQUIET("  level @ %ld\n", level_ptrs[j]);
 		put4xcf(xcf, level_ptrs[j]);
+	}
 	put4xcf(xcf, 0);
 	return hptr;
 }
@@ -348,10 +398,11 @@ off_t xcf_hierarchy(FILE *xcf, int w, int h, int bpp, struct channel_info *chan,
 707	  uint32  hptr   Pointer to the hierarchy structure containing the pixels
  */
 
-off_t xcf_channel(FILE *xcf, int w, int h, char *name, struct channel_info *chan, int compr){
-	off_t hptr = xcf_hierarchy(xcf, w, h, 1, chan, compr), chptr;
+off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel_info *chan, int compr){
+	off_t hptr = xcf_hierarchy(xcf, psd, w, h, 1, chan, compr), chptr;
 
 	chptr = ftello(xcf);
+	UNQUIET("xcf_channel @ %ld w:%d h:%d \"%s\"\n", chptr, w, h, name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	putsxcf(xcf, name);
@@ -382,19 +433,21 @@ off_t xcf_channel(FILE *xcf, int w, int h, char *name, struct channel_info *chan
 
 int xcf_mode;
 
-off_t xcf_layer(FILE *xcf, struct layer_info *li, int compr)
+off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 {
 	off_t hptr, lmptr = 0, layerptr;
 	int ch, w = li->right - li->left, h = li->bottom - li->top;
 
-	hptr = xcf_hierarchy(xcf, w, h, li->channels, li->chan, compr);
-	for(ch = 0; ch < li->channels; ++ch)
+	hptr = xcf_hierarchy(xcf, psd, w, h, li->channels, li->chan, compr);
+	for(ch = 0; ch < li->channels; ++ch){
 		if(li->chan[ch].id == LMASK_CHAN_ID){
-			lmptr = xcf_channel(xcf, li->mask.cols, li->mask.rows,
+			lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
 								"layer mask", &li->chan[ch], compr);
 		}
+	}
 
 	layerptr = ftello(xcf);
+	UNQUIET("xcf_layer @ %ld \"%s\"\n", layerptr, li->name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, xcf_mode*2 + !(li->channels & 1)); // even # of channels -> alpha exists
