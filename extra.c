@@ -327,7 +327,7 @@ static void ed_unicodename(psd_file_t f, int level, int len, struct dictentry *p
 
 	if(buf){
 		if(xml)
-			fputs(buf, xml);
+			fputsxml(buf, xml);
 		UNQUIET("    (Unicode name = '%s')\n", buf);
 		//free(buf); // caller may use it via global
 	}
