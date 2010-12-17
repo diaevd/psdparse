@@ -209,9 +209,7 @@ int main(int argc, char *argv[]){
 			else
 #endif
 
-			if(dopsd(f, argv[i], &h))
-			{
-				h.layerdatapos = ftello(f);
+			if(dopsd(f, argv[i], &h)){
 				VERBOSE("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
 
 				// process the layers in 'image data' section,

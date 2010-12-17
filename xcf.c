@@ -23,6 +23,53 @@
 
 #include "xcf.h"
 
+static int xcf_mode;
+static int img_channels;
+
+FILE *xcf_open(char *psd_name, struct psd_header *h){
+	char *ext, fname[PATH_MAX];
+	const char *xcf_ext = ".xcf";
+	FILE *xcf;
+
+	if(h->depth != 8)
+		fatal("input file must be 8 bits/channel\n");
+
+	switch(h->mode){
+	case ModeGrayScale:
+		xcf_mode = 1; // Grayscale
+		img_channels = 1;
+		break;
+	case ModeIndexedColor:
+		xcf_mode = 2; // Indexed color
+		img_channels = 1;
+		break;
+	case ModeRGBColor:
+		xcf_mode = 0; // RGB color
+		img_channels = 3;
+		break;
+	//case ModeCMYKColor:
+	default:
+		fatal("can only convert grey scale, indexed, and RGB mode images\n");
+	}
+
+	strcpy(fname, psd_name);
+	if( (ext = strrchr(fname, '.')) ) // FIXME: won't work correctly if '.' is in directory names and not filename
+		strcpy(ext, xcf_ext);
+	else
+		strcat(fname, xcf_ext);
+
+	if( (xcf = fopen(fname, "wb")) ){
+		fputs("gimp xcf ", xcf); // File type magic
+		fputs("v001", xcf);      // version
+		fputc(0, xcf);           // Zero-terminator for version tag
+		put4xcf(xcf, h->cols);   // Width of canvas
+		put4xcf(xcf, h->rows);   // Height of canvas
+		put4xcf(xcf, xcf_mode);
+	}
+
+	return xcf;
+}
+
 // write 32 bit integer in network byte order per xcf convention
 // return 1 if succeeded, or zero if an error occurred
 size_t put4xcf(FILE *f, uint32_t v){
@@ -261,11 +308,10 @@ size_t xcf_rle(FILE *xcf, unsigned char *src, size_t n){
 		}else{
 			// three equal bytes marks the end of a 'verbatim' run,
 			// because then we must switch to a compressed run
-			for(p = run; p < (run+maxrun);)
+			for(p = run; p < (run+maxrun); ++p)
 				if(p <= (end-3) && p[1] == p[0] && p[2] == p[0])
 					break; // 3 bytes repeated end verbatim run
-				else
-					++p;
+
 			count = p-run;
 			if(count > 127){
 				fputc(128, xcf);
@@ -295,103 +341,97 @@ size_t xcf_rle(FILE *xcf, unsigned char *src, size_t n){
 
 #define XCF_TILESIZE 64
 
-off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct channel_info *chan, int compr){
-	struct channel_info *xcf_chan[4] = {NULL, NULL, NULL, NULL};
+off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
+				int channel_cnt, struct channel_info *xcf_chan[], int compr)
+{
 	unsigned char *chan_data[4], *rlebuf, *tilebuf, *dst, *src;
 	int i, j, ch, xtile, ytile, tilew, tileh, ntiles = 0, tile_idx;
 	off_t lptr, *tile_pos = NULL;
 
-	if(chan){
+	if(xcf_chan){
 		// break data into tiles up to 64x64 wide
 
 		ntiles = ((w+XCF_TILESIZE-1)/XCF_TILESIZE) * ((h+XCF_TILESIZE-1)/XCF_TILESIZE);
-		if( !(tile_pos = malloc(sizeof(off_t)*ntiles)) )
-			fatal("can't get memory for tile offset array\n");
+		tile_pos = checkmalloc(sizeof(off_t)*ntiles);
 
-		// chan is an array of channel_cnt channels. Do not assume the
-		// order of these channels. The interpretation is given by the 'id'
-		// field. 0, 1, 2 are RGB respectively, and -1 is transparency (alpha).
+		// need space for 64 rows of each mapped channel
+		for(ch = 0; ch < 4; ++ch)
+			if(xcf_chan[ch])
+				chan_data[ch] = checkmalloc(XCF_TILESIZE*w);
 
-		// Establish the mapping to XCF channels based on ids:
-		for(ch = 0; ch < channel_cnt; ++ch){
-			// need space for 64 rows of each channel
-			if( !(chan_data[ch] = malloc(XCF_TILESIZE*w)) )
-				fatal("can't get memory for channel data\n");
-			if(chan[ch].id == TRANS_CHAN_ID)
-				xcf_chan[channel_cnt-1] = chan+ch;  // transparency/alpha
-			else if(chan[ch].id >= 0 && chan[ch].id < 4)
-				xcf_chan[chan[ch].id] = chan+ch;    // image channel
-		}
+		rlebuf = checkmalloc(2*w);
+		tilebuf = checkmalloc(XCF_TILESIZE*XCF_TILESIZE);
 
-		// A tile is a planar piece of the image, no more than 64 pixels
-		// wide or high, with each channel stored sequentially
-		// and (optionally) compressed.
-
-		if( !(rlebuf = malloc(2*w)) )
-			fatal("can't get memory for RLE buffer\n");
-		if( !(tilebuf = malloc(XCF_TILESIZE*XCF_TILESIZE)) )
-			fatal("can't get memory for tile buffer\n");
+		// Break image into tiles, top-to-bottom, left-to-right,
+		// where each tile is no larger than XCF_TILESIZE.
 
 		tile_idx = 0;
 		for(ytile = 0; ytile < h; ytile += XCF_TILESIZE){
 			tileh = (h - ytile) > XCF_TILESIZE ? XCF_TILESIZE : h - ytile;
 
-			// read the next 64 rows from each channel
+			// read the next 64 row strip from each channel
 			for(ch = 0; ch < channel_cnt; ++ch){
-				if(!xcf_chan[ch])
-					fatal("missing mapping for channel\n");
-				for(i = 0; i < tileh; ++i)
-					readunpackrow(psd, xcf_chan[ch], ytile+i, chan_data[ch] + i*w, rlebuf);
+				if(xcf_chan[ch]){
+					for(i = 0; i < tileh; ++i){
+						readunpackrow(psd,          // input file
+									  xcf_chan[ch], // pointer to channel information
+									  ytile+i,      // row index
+									  chan_data[ch] + i*w,  // destination buffer
+									  rlebuf);      // temporary decompression buffer
+					}
+				}
 			}
 
 			for(xtile = 0; xtile < w; xtile += XCF_TILESIZE){
 				tilew = (w - xtile) > XCF_TILESIZE ? XCF_TILESIZE : w - xtile;
 
-				UNQUIET("  xcf tile (%4d,%4d)  w:%2d h:%2d compr:%d\n",
-						xtile, ytile, tilew, tileh, compr);
-
-
 				tile_pos[tile_idx++] = ftello(xcf);
 
+				// Tiles may be RLE compressed, or uncompressed.
 				if(compr){
-					for(ch = 0; ch < channel_cnt; ++ch){
-						// Tile data is concatenation of channels (planar),
-						// but each channel is a separate RLE "stream".
-						for(j = 0, dst = tilebuf, src = chan_data[ch] + xtile;
-							j < tileh;
-							++j, dst += tilew, src += w)
-						{
-							memcpy(dst, src, tilew);
+					for(ch = 0; ch < channel_cnt; ++ch)
+						if(xcf_chan[ch]){
+							// Tile data is concatenation of channels (planar),
+							// but each channel is a separate RLE "stream".
+							for(j = 0, dst = tilebuf, src = chan_data[ch] + xtile;
+								j < tileh;
+								++j, dst += tilew, src += w)
+							{
+								memcpy(dst, src, tilew);
+							}
+							xcf_rle(xcf, tilebuf, tileh*tilew);
 						}
-						xcf_rle(xcf, tilebuf, tileh*tilew);
-					}
 				}
 				else{
 					// raw data, without compression (channels are interleaved)
 					for(j = 0; j < tileh; ++j)
 						for(i = 0; i < tilew; ++i)
 							for(ch = 0; ch < channel_cnt; ++ch)
-								fputc(chan_data[ch][j*w + xtile + i], xcf);
+								if(xcf_chan[ch])
+									fputc(chan_data[ch][j*w + xtile + i], xcf);
 				}
 
 			}
 		}
 
-		for(ch = 0; ch < channel_cnt; ++ch)
-			free(chan_data[ch]);
+		for(ch = 0; ch < 4; ++ch)
+			if(xcf_chan[ch])
+				free(chan_data[ch]);
 		free(tilebuf);
 		free(rlebuf);
 	}
 
 	lptr = ftello(xcf);
-	UNQUIET("xcf_level @ %ld w:%d h:%d channels:%d\n", lptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	for(i = 0; i < ntiles; ++i){
 		put4xcf(xcf, tile_pos[i]);
-		UNQUIET("  xcf_tile @ %d\n", tile_pos[i]);
+		VERBOSE("  xcf_tile @ %ld\n", tile_pos[i]);
 	}
 	put4xcf(xcf, 0);
+
+	UNQUIET("xcf_level @ %ld w:%4d h:%4d channels:%d compr:%d\n",
+			lptr, w, h, channel_cnt, compr);
 
 	if(tile_pos)
 		free(tile_pos);
@@ -413,27 +453,28 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
  */
 
 off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
-					int channel_cnt, struct channel_info *chan, int compr){
-	int i, j, hh, ww;
+					int channel_cnt, struct channel_info *chan[], int compr){
+	int n_levels, j, hh, ww;
 	off_t hptr, level_ptrs[32];
 
-	/* write levels first, collecting pointers */
 	// first level is the image data, in tiles
 	level_ptrs[0] = xcf_level(xcf, psd, w, h, channel_cnt, chan, compr);
+
 	// remaining levels are dummies, each half the dimension of the preceding
-	for(i = 1, hh = h, ww = w; hh >= 64 || ww >= 64; ++i)
-		level_ptrs[i] = xcf_level(xcf, NULL, ww /= 2, hh /= 2, 0, NULL, compr);
+	for(n_levels = 1, hh = h, ww = w; hh >= 64 || ww >= 64; ++n_levels)
+		level_ptrs[n_levels] = xcf_level(xcf, NULL, ww /= 2, hh /= 2, 0, NULL, compr);
 
 	hptr = ftello(xcf);
-	UNQUIET("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, channel_cnt);
-	for(j = 0; j < i; ++j){
-		UNQUIET("  level @ %ld\n", level_ptrs[j]);
+	for(j = 0; j < n_levels; ++j){
+		VERBOSE("  level @ %ld\n", level_ptrs[j]);
 		put4xcf(xcf, level_ptrs[j]);
 	}
 	put4xcf(xcf, 0);
+
+	UNQUIET("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
 	return hptr;
 }
 
@@ -449,11 +490,11 @@ off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
 707	  uint32  hptr   Pointer to the hierarchy structure containing the pixels
  */
 
-off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel_info *chan, int compr){
-	off_t hptr = xcf_hierarchy(xcf, psd, w, h, 1, chan, compr), chptr;
+off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name,
+				  struct channel_info *chan, int compr){
+	off_t hptr = xcf_hierarchy(xcf, psd, w, h, 1, &chan, compr), chptr;
 
 	chptr = ftello(xcf);
-	UNQUIET("xcf_channel @ %ld w:%d h:%d \"%s\"\n", chptr, w, h, name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	putsxcf(xcf, name);
@@ -462,6 +503,8 @@ off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel
 	xcf_prop_end(xcf);
 
 	put4xcf(xcf, hptr);
+
+	UNQUIET("xcf_channel @ %ld w:%d h:%d \"%s\"\n", chptr, w, h, name);
 	return chptr;
 }
 
@@ -481,8 +524,6 @@ off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel
 536	  uint32  hptr   Pointer to the hierarchy structure containing the pixels
 537	  uint32  mptr   Pointer to the layer mask (a channel structure), or 0
 */
-
-int xcf_mode;
 
 // maps xcf mode indexes to Photoshop blend mode keys;
 // not all Gimp modes have a mapping.
@@ -514,27 +555,47 @@ static const char *xcf_modes[] = {
 
 off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 {
+	struct channel_info *xcf_chan[4] = {NULL, NULL, NULL, NULL};
 	off_t hptr, lmptr = 0, layerptr;
-	int ch, m, ltype, w = li->right - li->left, h = li->bottom - li->top;
-	char **p;
+	int ch, m, ltype, chan_cnt, w = li->right - li->left, h = li->bottom - li->top;
+	const char **p;
 
-	hptr = xcf_hierarchy(xcf, psd, w, h, li->channels, li->chan, compr);
-
-	// look for the layer mask channel
-	for(ch = 0; ch < li->channels; ++ch){
-		if(li->chan[ch].id == LMASK_CHAN_ID){
-			// TODO: layer masks not yet supported
-			// one complication is that Photoshop layer mask dimensions
-			// are not the same as the layer's, but xcf requires same.
-			fatal("layer mask yet not supported\n");
-			lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
-								"layer mask", &li->chan[ch], compr);
+	// Establish the mapping to XCF channels. Do not assume any
+	// order of channels. Interpretation is given by the 'id' field.
+	for(ch = chan_cnt = 0; ch < li->channels; ++ch){
+		if(li->chan[ch].id == TRANS_CHAN_ID){
+			++chan_cnt;
+			xcf_chan[img_channels] = li->chan+ch;  // transparency/alpha: always last in XCF
+			VERBOSE(" channel %d (%2d) -> xcf channel %d (alpha)\n",
+					ch, li->chan[ch].id, img_channels);
+		}
+		else if(li->chan[ch].id >= 0 && li->chan[ch].id < img_channels){
+			++chan_cnt;
+			xcf_chan[li->chan[ch].id] = li->chan+ch;    // positive id: index of image channel
+			VERBOSE(" channel %d (%2d) -> xcf channel %d\n",
+					ch, li->chan[ch].id, li->chan[ch].id);
+		}
+		else{
+			VERBOSE(" channel %d (%2d) skipped\n", ch, li->chan[ch].id);
+			alwayswarn("# missing mapping for PS channel %d (id = %d)\n",
+					   ch, li->chan[ch].id);
 		}
 	}
 
+	hptr = xcf_hierarchy(xcf, psd, w, h, chan_cnt, xcf_chan, compr);
+
+	// look for the layer mask channel
+	if(li->chindex[LMASK_CHAN_ID] != -1){
+		alwayswarn("## layer mask not yet supported\n");
+		// TODO: one complication is that Photoshop layer mask dimensions
+		//       are not the same as the layer's, but xcf requires same.
+
+		//lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
+		//					"layer mask", &li->chan[ch], compr);
+	}
+
 	layerptr = ftello(xcf);
-	ltype = xcf_mode*2 + !(li->channels & 1); // even # of channels -> alpha exists
-	UNQUIET("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
+	ltype = xcf_mode*2 + (li->chindex[TRANS_CHAN_ID] != -1); // even # of channels -> alpha exists
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);
@@ -544,6 +605,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	xcf_prop_offsets(xcf, li->left, li->top);
 	xcf_prop_opacity(xcf, li->blend.opacity);
 	xcf_prop_visible(xcf, !(li->blend.flags & 2));
+
 	// find the Gimp mode index for Photoshop's blend mode key
 	for(p = xcf_modes, m = 0; *p; ++m, ++p)
 		if((*p)[0] && !memcmp(li->blend.key, *p, 4))
@@ -555,5 +617,6 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	put4xcf(xcf, hptr);
 	put4xcf(xcf, lmptr);
 
+	UNQUIET("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
 	return layerptr;
 }

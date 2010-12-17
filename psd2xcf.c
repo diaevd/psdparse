@@ -34,21 +34,8 @@
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1;
-long hres, vres; // we don't use these, but they're set within doresources()
+long hres, vres; // set by doresources()
 char *pngdir;
-
-FILE *xcf_open(char *psd_name){
-	char *ext, fname[PATH_MAX];
-	const char *xcf_ext = ".xcf";
-
-	strcpy(fname, psd_name);
-	if( (ext = strrchr(fname, '.')) ) // FIXME: won't work correctly if '.' is in directory names and not filename
-		strcpy(ext, xcf_ext);
-	else
-		strcat(fname, xcf_ext);
-
-	return fopen(fname, "w");
-}
 
 static FILE *xcf;
 static int xcf_compr = 1; // RLE
@@ -76,9 +63,8 @@ int main(int argc, char *argv[]){
 	};
 	FILE *f;
 	struct psd_header h;
-	extern int xcf_mode;
 	int i, indexptr, opt;
-	off_t pos, xcf_layers_pos;
+	off_t xcf_layers_pos;
 
 	while( (opt = getopt_long(argc, argv, "hVvqcu", longopts, &indexptr)) != -1 )
 		switch(opt){
@@ -106,52 +92,19 @@ int main(int argc, char *argv[]){
 			h.layerdatapos = 0;
 
 			if(dopsd(f, argv[i], &h)){
-				/* The following members of psd_header struct h are initialised:
-				 * sig, version, channels, rows, cols, depth, mode */
-				printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
-					   h.version == 1 ? 'D' : 'B',
-					   h.rows, h.cols, h.channels, h.depth, h.nlayers);
-				h.layerdatapos = ftello(f);
-
-				if(h.depth != 8)
-					fatal("input file must be 8 bits/channel\n");
-
-				switch(h.mode){
-				case ModeGrayScale:
-					xcf_mode = 1; // Grayscale
-					break;
-				case ModeIndexedColor:
-					xcf_mode = 2; // Indexed color
-					break;
-				case ModeRGBColor:
-					xcf_mode = 0; // RGB color
-					break;
-				//case ModeCMYKColor:
-				default:
-					fatal("can only convert grey scale, indexed, and RGB mode images\n");
-				}
-
-				if( (xcf = xcf_open(argv[i])) ){
-					fputs("gimp xcf ", xcf); //  File type magic
-					fputs("v001", xcf);
-					fputc(0, xcf); // Zero-terminator for version tag
-					put4xcf(xcf, h.cols); // Width of canvas
-					put4xcf(xcf, h.rows); // Height of canvas
-					put4xcf(xcf, xcf_mode);
+				if( (xcf = xcf_open(argv[i], &h)) ){
+					// xcf_open() has written the XCF header.
 
 					// properties...
 					xcf_prop_compression(xcf, xcf_compr);
 					// image resolution in pixels per cm
 					xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
-					if(h.mode == ModeIndexedColor){ // copy palette from psd to xcf
-						pos = ftello(f);
+					if(h.mode == ModeIndexedColor) // copy palette from psd to xcf
 						xcf_prop_colormap(xcf, f, &h);
-						fseeko(f, pos, SEEK_SET);
-					}
 					xcf_prop_end(xcf);
 
-					// layer pointers... write dummies now,
-					// we'll have to fixup later. Ignore zero-sized layers.
+					// layer pointers... write dummies now, fixup later.
+					// Ignore zero-sized layers.
 					xcf_layers_pos = ftello(xcf);
 					for(i = h.nlayers; i--;)
 						if(h.linfo[i].right > h.linfo[i].left
@@ -163,18 +116,22 @@ int main(int argc, char *argv[]){
 
 					// process the layers in 'image data' section.
 					// this will, in turn, call doimage() for each layer.
+					fseeko(f, h.layerdatapos, SEEK_SET);
 					processlayers(f, &h);
 
+/* TODO: ignore merged image for now.
 					// position file after 'layer & mask info', i.e. at the
 					// beginning of the merged image data.
 					fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 
 					// process merged (composite) image data
 					doimage(f, NULL, NULL, &h);
-
+*/
+					// Update the layer pointers. We do this in reverse
+					// of the PSD order, since XCF stores layers top to bottom.
 					fseeko(xcf, xcf_layers_pos, SEEK_SET);
-					UNQUIET("xcf layer offset fixup:\n");
-					for(i = 0; i < h.nlayers; ++i){
+					UNQUIET("xcf layer offset fixup (top to bottom):\n");
+					for(i = h.nlayers-1; i >= 0; --i){
 						if(h.linfo[i].right > h.linfo[i].left
 						   && h.linfo[i].bottom > h.linfo[i].top)
 						{
@@ -206,13 +163,15 @@ int main(int argc, char *argv[]){
 	return EXIT_FAILURE;
 }
 
-/* This function must be supplied as a callback. It assumes that the
- * current file position points to the beginning of the image data
- * for the layer, or merged (flattened) image data. */
+/* This function is a callback from processlayers(). It needs the
+ * input file positioned at the beginning of the image data
+ * for the layer, or merged (flattened) image data, whichever is being
+ * processed. */
 
 void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header *h)
 {
 	int ch;
+	psd_bytes_t image_data_end;
 
 	/* li points to layer information. If it is NULL, then
 	 * the merged image is being being processed, not a layer. */
@@ -230,7 +189,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		//   struct layer_mask_info mask    - layer mask info
 		//   char *name                     - layer name
 
-		printf("layer \"%s\"\n", li->name);
+		UNQUIET("layer \"%s\"\n", li->name);
 		for(ch = 0; ch < li->channels; ++ch){
 			// dochannel() initialises the li->chan[ch] struct, including:
 			//   id                    - channel id
@@ -243,15 +202,23 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 			//   unzipdata             - uncompressed data (ZIP ONLY)
 
 			dochannel(f, li, li->chan + ch, 1, h);
-			printf("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
+			UNQUIET("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
 				   ch, li->chan[ch].id, li->chan[ch].rows, li->chan[ch].cols,
 				   li->chan[ch].length);
 		}
 
+		image_data_end = ftello(f);
+		VERBOSE("## layer image data end @ %lld\n", image_data_end);
+
+		// xcf_layer() does alter the input PSD file position!
 		li->xcf_pos = li->right > li->left && li->bottom > li->top
 							? xcf_layer(xcf, f, li, xcf_compr)
 							: 0;
-	}else{
+
+		// caller may be assuming this position
+		fseeko(f, image_data_end, SEEK_SET);
+	}
+	else{
 		// The merged image has the size, mode, depth, and channel count
 		// given by the main PSD header (h).
 
@@ -264,10 +231,10 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - the merged image (1 or 3 channels)
 		// - any remaining alpha or spot channels.
 
-		printf("\nmerged channels:\n");
+		UNQUIET("\nmerged channels:\n");
 		dochannel(f, NULL, merged_chans, h->channels, h);
 		for(ch = 0; ch < h->channels; ++ch){
-			printf("  channel %d  id=%2d  %4ld rows x %4ld cols\n",
+			UNQUIET("  channel %d  id=%2d  %4ld rows x %4ld cols\n",
 				   ch, merged_chans[ch].id, merged_chans[ch].rows, merged_chans[ch].cols);
 		}
 

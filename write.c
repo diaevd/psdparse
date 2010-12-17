@@ -142,6 +142,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 
 		image_data_end = ftello(f);
+		VERBOSE("## layer image data end @ %ld\n", image_data_end);
 
 		if(writepng){
 			nwarns = 0;

@@ -51,7 +51,6 @@ int main(int argc, char *argv[]){
 			printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
 				   h.version == 1 ? 'D' : 'B',
 				   h.rows, h.cols, h.channels, h.depth, h.nlayers);
-			h.layerdatapos = ftello(f);
 
 			// process the layers in 'image data' section.
 			// this will, in turn, call doimage() for each layer.

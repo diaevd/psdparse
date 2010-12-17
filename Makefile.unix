@@ -64,7 +64,7 @@ obj_w32/%.o : %.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 all : psdparse
 
 clean :
-	rm -f psdparse psdparse.exe psd2png.exe \
+	rm -f psdparse example psd2xcf psdparse.exe psd2png.exe \
 		  $(OBJ) $(OBJW32) $(LIBPNG)/*.[oa] $(LIBPNGW32)/*.[oa]
 	-$(MAKE) -C $(ZLIBW32) clean
 	-$(MAKE) -C $(LIBPNG) clean
@@ -96,7 +96,8 @@ fat : psdparse
 
 # Example application using psdparse as a library.
 
-example : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
+example : CPPFLAGS += -DDIRSEP="'/'" -DPSBSUPPORT \
+                      -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
 
 # remove -liconv if building on Linux:
 example : LDFLAGS += -lz -liconv
@@ -105,10 +106,11 @@ example : example.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
 
 
-psd2xcf : CPPFLAGS += -DDIRSEP="'/'" -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
+psd2xcf : CPPFLAGS += -DDIRSEP="'/'" -DPSBSUPPORT \
+                      -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
 
 # remove -liconv if building on Linux:
-psd2xcf : LDFLAGS += -lz -liconv
+psd2xcf : LDFLAGS += -lz 
 # This is the minimum set of prerequisite objects.
 psd2xcf : psd2xcf.o xcf.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
