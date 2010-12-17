@@ -27,7 +27,7 @@ static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *pa
 	get2B(f);
 	get2B(f);
 	vresd = FIXEDPT(vres = get4B(f));
-	fprintf(xml, " <H>%g</H> <V>%g</V> ", hresd, vresd);
+	if(xml) fprintf(xml, " <H>%g</H> <V>%g</V> ", hresd, vresd);
 	UNQUIET("    Resolution %g x %g pixels per inch\n", hresd, vresd);
 }
 
@@ -47,123 +47,140 @@ static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
 }
 
 void ir_string(psd_file_t f, int level, int len, struct dictentry *parent){
-	while(len--)
-		fputcxml(fgetc(f), xml);
+	if(xml)
+		while(len--)
+			fputcxml(fgetc(f), xml);
 }
 
 // this should be used if the content is known to be valid XML.
 // (does not check for invalid characters)
 void ir_cdata(psd_file_t f, int level, int len, struct dictentry *parent){
-	fputs("<![CDATA[", xml);
-	while(len--)
-		fputc(fgetc(f), xml);
-	fputs("]]>\n", xml);
+	if(xml){
+		fputs("<![CDATA[", xml);
+		while(len--)
+			fputc(fgetc(f), xml);
+		fputs("]]>\n", xml);
+	}
 }
 
 static void ir_pstring(psd_file_t f, int level, int len, struct dictentry *parent){
-	fputsxml(getpstr(f), xml);
+	if(xml)
+		fputsxml(getpstr(f), xml);
 }
 
 static void ir_pstrings(psd_file_t f, int level, int len, struct dictentry *parent){
 	char *s;
 
-	for(; len > 1; len -= strlen(s)+1){        // this loop will do the wrong thing
-		fprintf(xml, "%s<NAME>", tabs(level)); // if any string contains NUL byte
+	for(; len > 1; len -= strlen(s)+1){
+		// this loop will do the wrong thing
+		// if any string contains NUL byte
 		s = getpstr(f);
-		fputsxml(s, xml);
-		fputs("</NAME>\n", xml);
+		if(xml){
+			fprintf(xml, "%s<NAME>", tabs(level));
+			fputsxml(s, xml);
+			fputs("</NAME>\n", xml);
+		}
 		VERBOSE("    %s\n", s);
 	}
 }
 
 static void ir_1byte(psd_file_t f, int level, int len, struct dictentry *parent){
-	fprintf(xml, "%d", fgetc(f));
+	if(xml) fprintf(xml, "%d", fgetc(f));
 }
 
 static void ir_2byte(psd_file_t f, int level, int len, struct dictentry *parent){
-	fprintf(xml, "%d", get2B(f));
+	if(xml) fprintf(xml, "%d", get2B(f));
 }
 
 static void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent){
-	fprintf(xml, "%ld", get4B(f));
+	if(xml) fprintf(xml, "%ld", get4B(f));
 }
 
 static void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
-	while(len--)
-		fprintf(xml, "%02x", fgetc(f));
+	if(xml)
+		while(len--)
+			fprintf(xml, "%02x", fgetc(f));
 }
 
 static void ir_pixelaspect(psd_file_t f, int level, int len, struct dictentry *parent){
 	int v = get4B(f);
 	double ratio = getdoubleB(f);
-	fprintf(xml, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
+	if(xml) fprintf(xml, " <VERSION>%d</VERSION> <RATIO>%g</RATIO> ", v, ratio);
 	UNQUIET("    (Version = %d, Ratio = %g)\n", v, ratio);
 }
 
 static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *parent){
-	xml_unicodestr(f, get4B(f));
+	if(xml) xml_unicodestr(f, get4B(f));
 }
 
 static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long v = get4B(f), gv = get4B(f), gh = get4B(f), i, n = get4B(f);
 
-	fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
-	// Note that these quantities are "document coordinates".
-	// This is not documented, but appears to mean fixed point with 5 fraction bits,
-	// so we divide by 32 to obtain pixel position.
-	fprintf(xml, "%s<GRIDCYCLE> <V>%g</V> <H>%g</H> </GRIDCYCLE>\n",
-			indent, gv/32., gh/32.);
-	fprintf(xml, "%s<GUIDES>\n", indent);
-	for(i = n; i--;){
-		long ord = get4B(f);
-		char c = fgetc(f) ? 'H' : 'V';
-		fprintf(xml, "%s\t<%cGUIDE>%g</%cGUIDE>\n", indent, c, ord/32., c);
+	if(xml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
+		// Note that these quantities are "document coordinates".
+		// This is not documented, but appears to mean fixed point with 5 fraction bits,
+		// so we divide by 32 to obtain pixel position.
+		fprintf(xml, "%s<GRIDCYCLE> <V>%g</V> <H>%g</H> </GRIDCYCLE>\n",
+				indent, gv/32., gh/32.);
+		fprintf(xml, "%s<GUIDES>\n", indent);
+		for(i = n; i--;){
+			long ord = get4B(f);
+			char c = fgetc(f) ? 'H' : 'V';
+			fprintf(xml, "%s\t<%cGUIDE>%g</%cGUIDE>\n", indent, c, ord/32., c);
+		}
+		fprintf(xml, "%s</GUIDES>\n", indent);
 	}
-	fprintf(xml, "%s</GUIDES>\n", indent);
 }
 
 static void ir_layersgroup(psd_file_t f, int level, int len, struct dictentry *parent){
-	for(; len >= 2; len -= 2){
-		fprintf(xml, "%s<GROUPID>%d</GROUPID>\n", tabs(level), get2B(f));
-	}
+	if(xml)
+		for(; len >= 2; len -= 2)
+			fprintf(xml, "%s<GROUPID>%d</GROUPID>\n", tabs(level), get2B(f));
 }
 
 static void ir_printflags(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	fprintf(xml, "%s<LABELS>%d</LABELS>\n", indent, fgetc(f));
-	fprintf(xml, "%s<CROPMARKS>%d</CROPMARKS>\n", indent, fgetc(f));
-	fprintf(xml, "%s<COLORBARS>%d</COLORBARS>\n", indent, fgetc(f));
-	fprintf(xml, "%s<REGMARKS>%d</REGMARKS>\n", indent, fgetc(f));
-	fprintf(xml, "%s<NEGATIVE>%d</NEGATIVE>\n", indent, fgetc(f));
-	fprintf(xml, "%s<FLIP>%d</FLIP>\n", indent, fgetc(f));
-	fprintf(xml, "%s<INTERPOLATE>%d</INTERPOLATE>\n", indent, fgetc(f));
-	fprintf(xml, "%s<CAPTION>%d</CAPTION>\n", indent, fgetc(f));
-	fprintf(xml, "%s<PRINTFLAGS>%d</PRINTFLAGS>\n", indent, fgetc(f));
+	if(xml){
+		fprintf(xml, "%s<LABELS>%d</LABELS>\n", indent, fgetc(f));
+		fprintf(xml, "%s<CROPMARKS>%d</CROPMARKS>\n", indent, fgetc(f));
+		fprintf(xml, "%s<COLORBARS>%d</COLORBARS>\n", indent, fgetc(f));
+		fprintf(xml, "%s<REGMARKS>%d</REGMARKS>\n", indent, fgetc(f));
+		fprintf(xml, "%s<NEGATIVE>%d</NEGATIVE>\n", indent, fgetc(f));
+		fprintf(xml, "%s<FLIP>%d</FLIP>\n", indent, fgetc(f));
+		fprintf(xml, "%s<INTERPOLATE>%d</INTERPOLATE>\n", indent, fgetc(f));
+		fprintf(xml, "%s<CAPTION>%d</CAPTION>\n", indent, fgetc(f));
+		fprintf(xml, "%s<PRINTFLAGS>%d</PRINTFLAGS>\n", indent, fgetc(f));
+	}
 }
 
 static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
-	fprintf(xml, "%s<CENTERCROPMARKS>%d</CENTERCROPMARKS>\n", indent, fgetc(f));
-	fgetc(f);
-	fprintf(xml, "%s<BLEEDWIDTH>%ld</BLEEDWIDTH>\n", indent, get4B(f));
-	fprintf(xml, "%s<BLEEDWIDTHSCALE>%d</BLEEDWIDTHSCALE>\n", indent, get2B(f));
+	if(xml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
+		fprintf(xml, "%s<CENTERCROPMARKS>%d</CENTERCROPMARKS>\n", indent, fgetc(f));
+		fgetc(f);
+		fprintf(xml, "%s<BLEEDWIDTH>%ld</BLEEDWIDTH>\n", indent, get4B(f));
+		fprintf(xml, "%s<BLEEDWIDTHSCALE>%d</BLEEDWIDTHSCALE>\n", indent, get2B(f));
+	}
 }
 
 static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long v = get4B(f), n = get4B(f), x, y, space;
 
-	fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
-	while(n--){
-		fprintf(xml, "%s<SAMPLER>\n", indent);
-		y = get4B(f);
-		x = get4B(f);
-		space = get2B(f);
-		fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x/32., y/32.); // undocumented fixed point factor
-		fprintf(xml, "\t%s<COLORSPACE>%s</COLORSPACE>\n", indent, colour_spaces[space+1]);
-		fprintf(xml, "%s</SAMPLER>\n", indent);
+	if(xml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
+		while(n--){
+			fprintf(xml, "%s<SAMPLER>\n", indent);
+			y = get4B(f);
+			x = get4B(f);
+			space = get2B(f);
+			fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x/32., y/32.); // undocumented fixed point factor
+			fprintf(xml, "\t%s<COLORSPACE>%s</COLORSPACE>\n", indent, colour_spaces[space+1]);
+			fprintf(xml, "%s</SAMPLER>\n", indent);
+		}
 	}
 }
 
@@ -173,70 +190,71 @@ static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	int subpath_count = 0;
 
-	for(; len >= 26; len -= 26){
-		int i, sel = get2B(f), skip = 24;
-		double p[6];
+	if(xml)
+		for(; len >= 26; len -= 26){
+			int i, sel = get2B(f), skip = 24;
+			double p[6];
 
-		switch (sel){
-		case 0: // closed subpath length record
-		case 3: // open subpath length record
-			if(!subpath_count){
-				subpath_count = get2B(f);
+			switch (sel){
+			case 0: // closed subpath length record
+			case 3: // open subpath length record
+				if(!subpath_count){
+					subpath_count = get2B(f);
+					skip -= 2;
+					fprintf(xml, "%s<SUBPATH>\n", indent);
+					fprintf(xml, "%s\t<%s/>\n", indent, sel ? "OPEN" : "CLOSED");
+				}else
+					warn_msg("path resource: unexpected subpath record");
+				break;
+			case 1: // closed subpath Bezier knot, linked
+			case 2: //    "      "       "     "   unlinked
+			case 4: // open subpath Bezier knot, linked
+			case 5: //  "      "       "     "   unlinked
+				if(subpath_count){
+					for(i = 0; i < 6; ++i)
+						p[i] = PATHFIX(get4B(f));
+					skip -= 24;
+					fprintf(xml, "%s\t<KNOT>\n", indent);
+					fprintf(xml, "%s\t\t<%sLINKED/>\n", indent,
+							sel == 1 || sel == 4 ? "" : "UN");
+					fprintf(xml, "%s\t\t<IN><V>%.9f</V><H>%.9f</H></IN>\n",
+							indent, p[0], p[1]);
+					fprintf(xml, "%s\t\t<ANCHOR><V>%.9f</V><H>%.9f</H></ANCHOR>\n",
+							indent, p[2], p[3]);
+					fprintf(xml, "%s\t\t<OUT><V>%.9f</V><H>%.9f</H></OUT>\n",
+							indent, p[4], p[5]);
+					fprintf(xml, "%s\t</KNOT>\n", indent);
+					--subpath_count;
+					if(!subpath_count)
+						fprintf(xml, "%s</SUBPATH>\n", indent);
+				}else
+					warn_msg("path resource: unexpected knot record");
+				break;
+			case 6: // path fill rule record
+				fprintf(xml, "%s<PATHFILLRULE/>\n", indent);
+				break;
+			case 7: // clipboard record
+				fprintf(xml, "%s<CLIPBOARD>\n", indent);
+				fprintf(xml, "%s\t<BOUNDS>\n", indent);
+				fprintf(xml, "%s\t\t<TOP>%.9f</TOP>\n", indent, PATHFIX(get4B(f)));
+				fprintf(xml, "%s\t\t<LEFT>%.9f</LEFT>\n", indent, PATHFIX(get4B(f)));
+				fprintf(xml, "%s\t\t<BOTTOM>%.9f</BOTTOM>\n", indent, PATHFIX(get4B(f)));
+				fprintf(xml, "%s\t\t<RIGHT>%.9f</RIGHT>\n", indent, PATHFIX(get4B(f)));
+				fprintf(xml, "%s\t</BOUNDS>\n", indent);
+				fprintf(xml, "%s\t<RESOLUTION>%.9f</RESOLUTION>\n", indent, PATHFIX(get4B(f)));
+				fprintf(xml, "%s</CLIPBOARD>\n", indent);
+				skip -= 20;
+				break;
+			case 8: // initial fill rule record
+				fprintf(xml, "%s<INITIALFILL>%d</INITIALFILL>\n", indent, get2B(f));
 				skip -= 2;
-				fprintf(xml, "%s<SUBPATH>\n", indent);
-				fprintf(xml, "%s\t<%s/>\n", indent, sel ? "OPEN" : "CLOSED");
-			}else
-				warn_msg("path resource: unexpected subpath record");
-			break;
-		case 1: // closed subpath Bezier knot, linked
-		case 2: //    "      "       "     "   unlinked
-		case 4: // open subpath Bezier knot, linked
-		case 5: //  "      "       "     "   unlinked
-			if(subpath_count){
-				for(i = 0; i < 6; ++i)
-					p[i] = PATHFIX(get4B(f));
-				skip -= 24;
-				fprintf(xml, "%s\t<KNOT>\n", indent);
-				fprintf(xml, "%s\t\t<%sLINKED/>\n", indent,
-						sel == 1 || sel == 4 ? "" : "UN");
-				fprintf(xml, "%s\t\t<IN><V>%.9f</V><H>%.9f</H></IN>\n",
-						indent, p[0], p[1]);
-				fprintf(xml, "%s\t\t<ANCHOR><V>%.9f</V><H>%.9f</H></ANCHOR>\n",
-						indent, p[2], p[3]);
-				fprintf(xml, "%s\t\t<OUT><V>%.9f</V><H>%.9f</H></OUT>\n",
-						indent, p[4], p[5]);
-				fprintf(xml, "%s\t</KNOT>\n", indent);
-				--subpath_count;
-				if(!subpath_count)
-					fprintf(xml, "%s</SUBPATH>\n", indent);
-			}else
-				warn_msg("path resource: unexpected knot record");
-			break;
-		case 6: // path fill rule record
-			fprintf(xml, "%s<PATHFILLRULE/>\n", indent);
-			break;
-		case 7: // clipboard record
-			fprintf(xml, "%s<CLIPBOARD>\n", indent);
-			fprintf(xml, "%s\t<BOUNDS>\n", indent);
-			fprintf(xml, "%s\t\t<TOP>%.9f</TOP>\n", indent, PATHFIX(get4B(f)));
-			fprintf(xml, "%s\t\t<LEFT>%.9f</LEFT>\n", indent, PATHFIX(get4B(f)));
-			fprintf(xml, "%s\t\t<BOTTOM>%.9f</BOTTOM>\n", indent, PATHFIX(get4B(f)));
-			fprintf(xml, "%s\t\t<RIGHT>%.9f</RIGHT>\n", indent, PATHFIX(get4B(f)));
-			fprintf(xml, "%s\t</BOUNDS>\n", indent);
-			fprintf(xml, "%s\t<RESOLUTION>%.9f</RESOLUTION>\n", indent, PATHFIX(get4B(f)));
-			fprintf(xml, "%s</CLIPBOARD>\n", indent);
-			skip -= 20;
-			break;
-		case 8: // initial fill rule record
-			fprintf(xml, "%s<INITIALFILL>%d</INITIALFILL>\n", indent, get2B(f));
-			skip -= 2;
-			break;
-		default:
-			warn_msg("path resource: unexpected record selector");
+				break;
+			default:
+				warn_msg("path resource: unexpected record selector");
+			}
+			if(skip)
+				fseek(f, skip, SEEK_CUR);
 		}
-		if(skip)
-			fseek(f, skip, SEEK_CUR);
-	}
 }
 
 // id, key, tag, desc, func
@@ -365,16 +383,21 @@ static long doirb(psd_file_t f){
 		UNQUIET(" [%s]", d->desc);
 	UNQUIET("\n");
 
-	if(xml && d && d->tag){
-		fprintf(xml, "\t<RESOURCE TYPE='%c%c%c%c' ID='%d'",
-				type[0],type[1],type[2],type[3], id);
-		if(namelen)
-			fprintf(xml, " NAME='%s'", name);
+	if(d && d->tag){
+		if(xml){
+			fprintf(xml, "\t<RESOURCE TYPE='%c%c%c%c' ID='%d'",
+					type[0],type[1],type[2],type[3], id);
+			if(namelen)
+				fprintf(xml, " NAME='%s'", name);
+		}
 		if(d->func){
-			fputs(">\n", xml);
+			if(xml) fputs(">\n", xml);
+
 			entertag(f, 2, size, &resource, d, 1);
-			fputs("\t</RESOURCE>\n\n", xml);
-		}else{
+
+			if(xml) fputs("\t</RESOURCE>\n\n", xml);
+		}
+		else if(xml){
 			fputs(" />\n", xml);
 		}
 	}

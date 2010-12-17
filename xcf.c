@@ -102,6 +102,7 @@ void xcf_prop_compression(FILE *xcf, int compr){
 	put4xcf(xcf, PROP_COMPRESSION);
 	put4xcf(xcf, 1);
 	fputc(compr, xcf);
+	UNQUIET("xcf_prop_compression: %d\n", compr);
 }
 
 /*
@@ -116,6 +117,7 @@ void xcf_prop_resolution(FILE *xcf, float x_per_cm, float y_per_cm){
 	put4xcf(xcf, 8);
 	putfxcf(xcf, x_per_cm);
 	putfxcf(xcf, y_per_cm);
+	UNQUIET("xcf_prop_resolution: %g/cm x %g/cm\n", x_per_cm, y_per_cm);
 }
 
 /*
@@ -128,6 +130,7 @@ void xcf_prop_mode(FILE *xcf, int m){
 	put4xcf(xcf, PROP_MODE);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, m);
+	UNQUIET("xcf_prop_mode: %d\n", m);
 }
 
 /*
@@ -147,6 +150,7 @@ void xcf_prop_offsets(FILE *xcf, int dx, int dy){
 	put4xcf(xcf, 8);
 	put4xcf(xcf, dx);
 	put4xcf(xcf, dy);
+	UNQUIET("xcf_prop_offsets: (%d,%d)\n", dx, dy);
 }
 
 /*
@@ -160,6 +164,7 @@ void xcf_prop_opacity(FILE *xcf, int x){
 	put4xcf(xcf, PROP_OPACITY);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, x);
+	UNQUIET("xcf_prop_opacity: %d (%.1f%%)\n", x, x/2.55);
 }
 
 /*
@@ -172,6 +177,7 @@ void xcf_prop_visible(FILE *xcf, int b){
 	put4xcf(xcf, PROP_VISIBLE);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, b);
+	UNQUIET("xcf_prop_visible: %d\n", b);
 }
 
 /*
@@ -225,20 +231,21 @@ void xcf_prop_end(FILE *xcf){
  */
 
 // based on http://telegraphics.com.au/svn/macpaintformat/trunk/packbits.c
-size_t xcf_rle(FILE *xcf, char *src, size_t n){
-	char *p, *run, *end;
+size_t xcf_rle(FILE *xcf, unsigned char *src, size_t n){
+	unsigned char *p, *run, *end;
 	int count, maxrun, out;
 
 	end = src + n;
 	for(run = src, out = 0; n > 0; run = p, n -= count){
 		// longest run possible from here
 		maxrun = n < 0xffff ? n : 0xffff;
+
+		for(p = run; p < (run+maxrun) && *p == run[0];)
+			++p;
+		count = p-run;
+
 		// only a run of 3 equal bytes is worth compressing
-		if(run <= (end-3) && run[1] == run[0] && run[2] == run[0]){
-			// collect more matching bytes
-			for(p = run+3; p < (run+maxrun) && *p == run[0];)
-				++p;
-			count = p-run;
+		if(count >= 3){
 			if(count <= 127){
 				fputc(count-1, xcf);
 				++out;
@@ -261,6 +268,7 @@ size_t xcf_rle(FILE *xcf, char *src, size_t n){
 					++p;
 			count = p-run;
 			if(count > 127){
+				fputc(128, xcf);
 				fputc(count >> 8, xcf);
 				fputc(count, xcf);
 				out += 2;
@@ -289,55 +297,104 @@ size_t xcf_rle(FILE *xcf, char *src, size_t n){
 
 off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct channel_info *chan, int compr){
 	struct channel_info *xcf_chan[4] = {NULL, NULL, NULL, NULL};
-	unsigned char *chan_data[4], *rlebuf;
-	int i, ch, xtile, ytile, tilew, tileh;
-	off_t lptr;
+	unsigned char *chan_data[4], *rlebuf, *tilebuf, *dst, *src;
+	int i, j, ch, xtile, ytile, tilew, tileh, ntiles = 0, tile_idx;
+	off_t lptr, *tile_pos = NULL;
 
-	lptr = ftello(xcf);
-	UNQUIET("xcf_level @ %ld w:%d h:%d channels:%d\n", lptr, w, h, channel_cnt);
-	put4xcf(xcf, w);
-	put4xcf(xcf, h);
 	if(chan){
 		// break data into tiles up to 64x64 wide
+
+		ntiles = ((w+XCF_TILESIZE-1)/XCF_TILESIZE) * ((h+XCF_TILESIZE-1)/XCF_TILESIZE);
+		if( !(tile_pos = malloc(sizeof(off_t)*ntiles)) )
+			fatal("can't get memory for tile offset array");
 
 		// chan is an array of channel_cnt channels. Do not assume the
 		// order of these channels. The interpretation is given by the 'id'
 		// field. 0, 1, 2 are RGB respectively, and -1 is transparency (alpha).
 
 		// Establish the mapping to XCF channels based on ids:
-		for(i = 0; i < channel_cnt; ++i){
-			// space for 64 rows
-			if( !(chan_data[i] = malloc(XCF_TILESIZE*w)) )
+		for(ch = 0; ch < channel_cnt; ++ch){
+			// need space for 64 rows of each channel
+			if( !(chan_data[ch] = malloc(XCF_TILESIZE*w)) )
 				fatal("can't get memory for channel data");
-			if(chan[i].id == TRANS_CHAN_ID)
-				xcf_chan[channel_cnt-1] = chan+i; // transparency/alpha
-			else if(chan[i].id >= 0 && chan[i].id < 4)
-				xcf_chan[chan[i].id] = chan+i;    // image channel
+			if(chan[ch].id == TRANS_CHAN_ID)
+				xcf_chan[channel_cnt-1] = chan+ch; // transparency/alpha
+			else if(chan[ch].id >= 0 && chan[ch].id < 4)
+				xcf_chan[chan[ch].id] = chan+ch;    // image channel
 		}
 
 		// A tile is a planar piece of the image, no more than 64 pixels
-		// wide or high, with each channel stored sequentially and compressed.
+		// wide or high, with each channel stored sequentially
+		// and (optionally) compressed.
 
 		if( !(rlebuf = malloc(2*w)) )
 			fatal("can't get memory for RLE buffer");
+		if( !(tilebuf = malloc(XCF_TILESIZE*XCF_TILESIZE)) )
+			fatal("can't get memory for tile buffer");
 
+		tile_idx = 0;
 		for(ytile = 0; ytile < h; ytile += XCF_TILESIZE){
 			tileh = (h - ytile) > XCF_TILESIZE ? XCF_TILESIZE : h - ytile;
+
 			// read the next 64 rows from each channel
 			for(ch = 0; ch < channel_cnt; ++ch){
+				if(!xcf_chan[ch])
+					fatal("missing mapping for channel");
 				for(i = 0; i < tileh; ++i)
-					readunpackrow(psd, xcf_chan[ch], ytile+i, chan_data[ch]+i*w, rlebuf);
+					readunpackrow(psd, xcf_chan[ch], ytile+i, chan_data[ch] + i*w, rlebuf);
 			}
+
 			for(xtile = 0; xtile < w; xtile += XCF_TILESIZE){
 				tilew = (w - xtile) > XCF_TILESIZE ? XCF_TILESIZE : w - xtile;
-				if(compr){ // RLE compress
+
+				UNQUIET("  xcf tile (%4d,%4d)  w:%2d h:%2d compr:%d\n",
+						xtile, ytile, tilew, tileh, compr);
+
+
+				tile_pos[tile_idx++] = ftello(xcf);
+
+				if(compr){
+					for(ch = 0; ch < channel_cnt; ++ch){
+						// Tile data is concatenation of channels (planar),
+						// but each channel is a separate RLE "stream".
+						for(j = 0, dst = tilebuf, src = chan_data[ch] + xtile;
+							j < tileh;
+							++j, dst += tilew, src += w)
+						{
+							memcpy(dst, src, tilew);
+						}
+						xcf_rle(xcf, tilebuf, tileh*tilew);
+					}
 				}
-				else{ // raw data, without compression
+				else{
+					// raw data, without compression (channels are interleaved)
+					for(j = 0; j < tileh; ++j)
+						for(i = 0; i < tilew; ++i)
+							for(ch = 0; ch < channel_cnt; ++ch)
+								fputc(chan_data[ch][j*w + xtile + i], xcf);
 				}
+
 			}
 		}
+
+		for(ch = 0; ch < channel_cnt; ++ch)
+			free(chan_data[ch]);
+		free(tilebuf);
+		free(rlebuf);
+	}
+
+	lptr = ftello(xcf);
+	UNQUIET("xcf_level @ %ld w:%d h:%d channels:%d\n", lptr, w, h, channel_cnt);
+	put4xcf(xcf, w);
+	put4xcf(xcf, h);
+	for(i = 0; i < ntiles; ++i){
+		put4xcf(xcf, tile_pos[i]);
+		UNQUIET("  xcf_tile @ %d\n", tile_pos[i]);
 	}
 	put4xcf(xcf, 0);
+
+	if(tile_pos)
+		free(tile_pos);
 	return lptr;
 }
 
@@ -357,21 +414,15 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct chan
 
 off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
 					int channel_cnt, struct channel_info *chan, int compr){
-	int i, j;
+	int i, j, hh, ww;
 	off_t hptr, level_ptrs[32];
 
 	/* write levels first, collecting pointers */
-	for(i = 0; h >= 64 || w >= 64; ++i, h /= 2, w /= 2){
-		level_ptrs[i] = ftello(xcf);
-		if(i == 0){
-			// first level - containing tiles
-			xcf_level(xcf, psd, w, h, channel_cnt, chan, compr);
-		}
-		else{
-			// dummy level - no tiles
-			xcf_level(xcf, NULL, w, h, 0, NULL, compr);
-		}
-	}
+	// first level is the image data, in tiles
+	level_ptrs[0] = xcf_level(xcf, psd, w, h, channel_cnt, chan, compr);
+	// remaining levels are dummies, each half the dimension of the preceding
+	for(i = 1, hh = h, ww = w; hh >= 64 || ww >= 64; ++i)
+		level_ptrs[i] = xcf_level(xcf, NULL, ww /= 2, hh /= 2, 0, NULL, compr);
 
 	hptr = ftello(xcf);
 	UNQUIET("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
@@ -433,33 +484,71 @@ off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel
 
 int xcf_mode;
 
+// maps xcf mode indexes to Photoshop blend mode keys;
+// not all Gimp modes have a mapping.
+static const char *xcf_modes[] = {
+	"norm", //"NORMAL"
+	"diss", //"DISSOLVE"
+	"",     // Behind
+	"mul ", //"MULTIPLY"
+	"scrn", //"SCREEN"
+	"over", //"OVERLAY"
+	"diff", //"DIFFERENCE"
+	"",     // Addition
+	"",     // Subtract
+	"dark", //"DARKEN"
+	"lite", //"LIGHTEN"
+	"hue ", //"HUE"
+	"sat ", //"SATURATION"
+	"colr", //"COLOR"
+	"",     // Value
+	"",     // Divide
+	"div ", //"COLOR DODGE"
+	"idiv", //"COLOR BURN"
+	"hLit", //"HARD LIGHT"
+	"sLit", //"SOFT LIGHT"
+	"",     // Grain Extract
+	"",     // Grain Merge
+	NULL
+};
+
 off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 {
 	off_t hptr, lmptr = 0, layerptr;
-	int ch, w = li->right - li->left, h = li->bottom - li->top;
+	int ch, m, ltype, w = li->right - li->left, h = li->bottom - li->top;
+	char **p;
 
 	hptr = xcf_hierarchy(xcf, psd, w, h, li->channels, li->chan, compr);
+
+	// look for the layer mask channel
 	for(ch = 0; ch < li->channels; ++ch){
-		if(li->chan[ch].id == LMASK_CHAN_ID){
+		if(li->chan[ch].id == LMASK_CHAN_ID)
 			lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
 								"layer mask", &li->chan[ch], compr);
-		}
 	}
 
 	layerptr = ftello(xcf);
-	UNQUIET("xcf_layer @ %ld \"%s\"\n", layerptr, li->name);
+	ltype = xcf_mode*2 + !(li->channels & 1); // even # of channels -> alpha exists
+	UNQUIET("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
-	put4xcf(xcf, xcf_mode*2 + !(li->channels & 1)); // even # of channels -> alpha exists
+	put4xcf(xcf, ltype);
 	putsxcf(xcf, li->name);
 
 	// properties...
 	xcf_prop_offsets(xcf, li->left, li->top);
 	xcf_prop_opacity(xcf, li->blend.opacity);
 	xcf_prop_visible(xcf, !(li->blend.flags & 2));
+	// find the Gimp mode index for Photoshop's blend mode key
+	for(p = xcf_modes, m = 0; *p; ++m, ++p)
+		if((*p)[0] && !memcmp(li->blend.key, *p, 4))
+			break;
+	if(*p)
+		xcf_prop_mode(xcf, m);
 	xcf_prop_end(xcf);
 
 	put4xcf(xcf, hptr);
 	put4xcf(xcf, lmptr);
+
 	return layerptr;
 }

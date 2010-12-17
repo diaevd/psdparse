@@ -216,6 +216,9 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	char sig[4];
 	off_t iccpos, pos;
 
+	if(!xml)
+		return;
+
 	iccpos = ftello(f);
 	size = get4B(f);
 	fprintf(xml, "%s<cmmId>%s</cmmId>\n", indent, getkey(f));

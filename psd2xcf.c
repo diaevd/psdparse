@@ -99,7 +99,7 @@ int main(int argc, char *argv[]){
 
 				// properties...
 				xcf_prop_compression(xcf, xcf_compr);
-				// define image resolution in pixels per cm
+				// image resolution in pixels per cm
 				xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
 				if(h.mode == ModeIndexedColor){ // copy palette from psd to xcf
 					pos = ftello(f);

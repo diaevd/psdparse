@@ -65,10 +65,11 @@
   08-Aug-2010: 3.3b4 include fixes suggested by Andreas Jung: bug in ICC XML, remove CDATA sections
   21-Aug-2010: 3.4b1 include path data in XML resource output, suggested by Robert H
   20-Nov-2010: 3.4b2 add option to use Unicode layer name for output filenames
+  16-Dec-2010: 3.4b3 add utility for basic conversion of psd to Gimp xcf
 */
 
-#define VERSION_STR "3.4b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x40,beta,2
+#define VERSION_STR "3.4b3"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x40,beta,3
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
