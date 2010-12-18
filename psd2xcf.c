@@ -33,9 +33,11 @@
 // You WILL get text output unless you set quiet = 1 !
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
-	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1;
+	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
+	use_merged = 0;
 long hres, vres; // set by doresources()
 char *pngdir;
+off_t xcf_merged_pos; // updated by doimage() if merged image is processed
 
 static FILE *xcf;
 static int xcf_compr = 1; // RLE
@@ -47,7 +49,8 @@ void usage(char *prog, int status){
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
   -c, --rle          RLE compression (default)\n\
-  -u, --raw          no compression\n", prog);
+  -u, --raw          no compression\n\
+  -m, --merged       include merged (composite) image, if available\n", prog);
 	exit(status);
 }
 
@@ -59,6 +62,7 @@ int main(int argc, char *argv[]){
 		{"quiet",      no_argument, &quiet, 1},
 		{"rle",        no_argument, &xcf_compr, 1},
 		{"raw",        no_argument, &xcf_compr, 0},
+		{"merged",     no_argument, &use_merged, 1},
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
@@ -66,7 +70,7 @@ int main(int argc, char *argv[]){
 	int i, indexptr, opt;
 	off_t xcf_layers_pos;
 
-	while( (opt = getopt_long(argc, argv, "hVvqcu", longopts, &indexptr)) != -1 )
+	while( (opt = getopt_long(argc, argv, "hVvqcum", longopts, &indexptr)) != -1 )
 		switch(opt){
 		case 0: break; // long option
 		case 'h': help = 1; break;
@@ -78,6 +82,7 @@ int main(int argc, char *argv[]){
 		case 'q': quiet = 1; break;
 		case 'c': xcf_compr = 1; break;
 		case 'u': xcf_compr = 0; break;
+		case 'm': use_merged = 1; break;
 		default:  usage(argv[0], EXIT_FAILURE);
 		}
 
@@ -92,6 +97,10 @@ int main(int argc, char *argv[]){
 			h.layerdatapos = 0;
 
 			if(dopsd(f, argv[i], &h)){
+				if(h.nlayers == 0){
+					alwayswarn("# File has no layers. Using merged image.\n");
+					use_merged = 1;
+				}
 				if( (xcf = xcf_open(argv[i], &h)) ){
 					// xcf_open() has written the XCF header.
 
@@ -106,11 +115,16 @@ int main(int argc, char *argv[]){
 					// layer pointers... write dummies now, fixup later.
 					// Ignore zero-sized layers.
 					xcf_layers_pos = ftello(xcf);
+
+					if(use_merged)
+						put4xcf(xcf, 0); // slot for merged image layer
+
 					for(i = h.nlayers; i--;)
 						if(h.linfo[i].right > h.linfo[i].left
 						&& h.linfo[i].bottom > h.linfo[i].top)
 							put4xcf(xcf, 0);
 					put4xcf(xcf, 0); // end of layer pointers
+
 					// channel pointers here... is this the background image??
 					put4xcf(xcf, 0); // end of channel pointers
 
@@ -119,18 +133,24 @@ int main(int argc, char *argv[]){
 					fseeko(f, h.layerdatapos, SEEK_SET);
 					processlayers(f, &h);
 
-/* TODO: ignore merged image for now.
-					// position file after 'layer & mask info', i.e. at the
-					// beginning of the merged image data.
-					fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
+					if(use_merged){
+						// position file after 'layer & mask info', i.e. at the
+						// beginning of the merged image data.
+						fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
 
-					// process merged (composite) image data
-					doimage(f, NULL, NULL, &h);
-*/
+						// process merged (composite) image data
+						xcf_merged_pos = 0;
+						doimage(f, NULL, NULL, &h);
+					}
+
 					// Update the layer pointers. We do this in reverse
 					// of the PSD order, since XCF stores layers top to bottom.
 					fseeko(xcf, xcf_layers_pos, SEEK_SET);
 					UNQUIET("xcf layer offset fixup (top to bottom):\n");
+
+					if(use_merged)
+						put4xcf(xcf, xcf_merged_pos);
+
 					for(i = h.nlayers-1; i >= 0; --i){
 						if(h.linfo[i].right > h.linfo[i].left
 						   && h.linfo[i].bottom > h.linfo[i].top)
@@ -223,6 +243,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// given by the main PSD header (h).
 
 		struct channel_info *merged_chans = checkmalloc(h->channels*sizeof(struct channel_info));
+		struct layer_info mli;
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
@@ -232,11 +253,44 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - any remaining alpha or spot channels.
 
 		UNQUIET("\nmerged channels:\n");
+
 		dochannel(f, NULL, merged_chans, h->channels, h);
+
 		for(ch = 0; ch < h->channels; ++ch){
 			UNQUIET("  channel %d  id=%2d  %4ld rows x %4ld cols\n",
 				   ch, merged_chans[ch].id, merged_chans[ch].rows, merged_chans[ch].cols);
 		}
+
+		mli.top = mli.left = 0;
+		mli.bottom = h->rows;
+		mli.right = h->cols;
+		mli.channels = h->channels;
+
+		mli.chan = merged_chans;
+		mli.chindex = checkmalloc((h->channels+2)*sizeof(int));
+		mli.chindex += 2;
+
+		// map channel ids to channel indexes
+		for(ch = -2; ch < h->channels; ++ch)
+			mli.chindex[ch] = -1;
+		for(ch = 0; ch < h->channels; ++ch){
+			int chid = merged_chans[ch].id;
+			if(chid >= -2 && chid < h->channels){
+				mli.chindex[chid] = ch;
+			}
+			else{
+				warn_msg("unexpected channel id %d in merged image", chid);
+			}
+		}
+
+		memcpy(mli.blend.key, "norm", 4); // normal blend mode
+		mli.blend.opacity = 255;
+		mli.blend.clipping = 0;
+		mli.blend.flags = h->nlayers ? 2 : 0; // if other layers, then hide merged image
+		mli.mask.size = 0; // no layer mask
+		mli.name = mli. unicode_name = "Photoshop merged image";
+
+		xcf_merged_pos = xcf_layer(xcf, f, &mli, xcf_compr);
 
 		free(merged_chans);
 	}

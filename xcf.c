@@ -228,6 +228,23 @@ void xcf_prop_visible(FILE *xcf, int b){
 }
 
 /*
+624	PROP_PRESERVE_TRANSPARENCY (editing state)
+625	(called PROP_LOCK_ALPHA in Gimp 3.3+)
+626	  uint32  10  The type number for PROP_PRESERVE_TRANSPARENCY is 10
+627	  uint32  4   Four bytes of payload
+628	  uint32  b   1 if the Preserve Transparency flag is set; 0 if not
+629
+630	  The Preserve Transparency flag prevents all drawing tools in the
+631	  Gimp from increasing the alpha of any pixel in the layer.
+ */
+void xcf_prop_preserve_transp(FILE *xcf, int b){
+	put4xcf(xcf, PROP_PRESERVE_TRANSPARENCY);
+	put4xcf(xcf, 4);
+	put4xcf(xcf, b);
+	UNQUIET("xcf_prop_preserve_transp: %d\n", b);
+}
+
+/*
 915	PROP_END
 916	  uint32  0   The type number for PROP_END is 0
 917	  uint32  0   PROP_END has no payload
@@ -605,6 +622,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	xcf_prop_offsets(xcf, li->left, li->top);
 	xcf_prop_opacity(xcf, li->blend.opacity);
 	xcf_prop_visible(xcf, !(li->blend.flags & 2));
+	xcf_prop_preserve_transp(xcf, li->blend.flags & 1);
 
 	// find the Gimp mode index for Photoshop's blend mode key
 	for(p = xcf_modes, m = 0; *p; ++m, ++p)

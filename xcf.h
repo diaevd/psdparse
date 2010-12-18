@@ -33,6 +33,7 @@
 #define PROP_VISIBLE      8
 #define PROP_MODE         7
 #define PROP_OFFSETS     15
+#define PROP_PRESERVE_TRANSPARENCY 10
 
 FILE *xcf_open(char *psd_name, struct psd_header *h);
 
