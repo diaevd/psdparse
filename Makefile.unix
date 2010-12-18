@@ -65,7 +65,7 @@ all : psdparse
 
 clean :
 	rm -f psdparse example psd2xcf psdparse.exe psd2png.exe \
-		  $(OBJ) $(OBJW32) $(LIBPNG)/*.[oa] $(LIBPNGW32)/*.[oa]
+		  *.o $(OBJ) $(OBJW32) $(LIBPNG)/*.[oa] $(LIBPNGW32)/*.[oa]
 	-$(MAKE) -C $(ZLIBW32) clean
 	-$(MAKE) -C $(LIBPNG) clean
 	-$(MAKE) -C $(LIBPNGW32) clean
