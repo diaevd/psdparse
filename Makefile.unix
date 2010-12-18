@@ -110,8 +110,7 @@ psd2xcf : CPPFLAGS += -DDIRSEP="'/'" -DPSBSUPPORT \
                       -DHAVE_SYS_MMAN_H -DHAVE_ICONV_H -DHAVE_ZLIB_H
 
 # remove -liconv if building on Linux:
-psd2xcf : LDFLAGS += -lz 
-# This is the minimum set of prerequisite objects.
+psd2xcf : LDFLAGS += -lz -liconv
 psd2xcf : psd2xcf.o xcf.o psd.o util.o extra.o descriptor.o constants.o \
           pdf.o resources.o icc.o channel.o psd_zip.o unpackbits.o
 
