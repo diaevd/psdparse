@@ -34,7 +34,7 @@
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
-	use_merged = 0;
+	use_merged = 0, merged_only = 0;
 long hres, vres; // set by doresources()
 char *pngdir;
 off_t xcf_merged_pos; // updated by doimage() if merged image is processed
@@ -50,7 +50,8 @@ void usage(char *prog, int status){
   -q, --quiet        work silently\n\
   -c, --rle          RLE compression (default)\n\
   -u, --raw          no compression\n\
-  -m, --merged       include merged (composite) image, if available\n", prog);
+  -m, --merged       include merged (flattened) image as top layer, if available\n\
+      --merged-only  process merged image only, omitting all layers\n", prog);
 	exit(status);
 }
 
@@ -63,6 +64,7 @@ int main(int argc, char *argv[]){
 		{"rle",        no_argument, &xcf_compr, 1},
 		{"raw",        no_argument, &xcf_compr, 0},
 		{"merged",     no_argument, &use_merged, 1},
+		{"merged-only",no_argument, &merged_only, 1},
 		{NULL,0,NULL,0}
 	};
 	FILE *f;
@@ -97,10 +99,11 @@ int main(int argc, char *argv[]){
 			h.layerdatapos = 0;
 
 			if(dopsd(f, argv[arg], &h)){
-				if(h.nlayers == 0){
+				if(h.nlayers == 0 && !use_merged){
 					alwayswarn("# File has no layers. Using merged image.\n");
 					use_merged = 1;
 				}
+
 				if( (xcf = xcf_open(argv[arg], &h)) ){
 					// xcf_open() has written the XCF header.
 
@@ -116,24 +119,28 @@ int main(int argc, char *argv[]){
 					// Ignore zero-sized layers.
 					xcf_layers_pos = ftello(xcf);
 
-					if(use_merged)
+					if(use_merged || merged_only)
 						put4xcf(xcf, 0); // slot for merged image layer
 
-					for(i = h.nlayers; i--;)
-						if(h.linfo[i].right > h.linfo[i].left
-						&& h.linfo[i].bottom > h.linfo[i].top)
-							put4xcf(xcf, 0);
+					if(!merged_only){
+						for(i = h.nlayers; i--;)
+							if(h.linfo[i].right > h.linfo[i].left
+							&& h.linfo[i].bottom > h.linfo[i].top)
+								put4xcf(xcf, 0);
+					}
 					put4xcf(xcf, 0); // end of layer pointers
 
 					// channel pointers here... is this the background image??
 					put4xcf(xcf, 0); // end of channel pointers
 
-					// process the layers in 'image data' section.
-					// this will, in turn, call doimage() for each layer.
-					fseeko(f, h.layerdatapos, SEEK_SET);
-					processlayers(f, &h);
+					if(!merged_only){
+						// process the layers in 'image data' section.
+						// this will, in turn, call doimage() for each layer.
+						fseeko(f, h.layerdatapos, SEEK_SET);
+						processlayers(f, &h);
+					}
 
-					if(use_merged){
+					if(use_merged || merged_only){
 						// position file after 'layer & mask info', i.e. at the
 						// beginning of the merged image data.
 						fseeko(f, h.lmistart + h.lmilen, SEEK_SET);
@@ -146,22 +153,24 @@ int main(int argc, char *argv[]){
 					// Update the layer pointers. We do this in reverse
 					// of the PSD order, since XCF stores layers top to bottom.
 					fseeko(xcf, xcf_layers_pos, SEEK_SET);
-					UNQUIET("xcf layer offset fixup (top to bottom):\n");
 
-					if(use_merged)
+					if(use_merged || merged_only)
 						put4xcf(xcf, xcf_merged_pos);
 
-					for(i = h.nlayers-1; i >= 0; --i){
-						if(h.linfo[i].right > h.linfo[i].left
-						   && h.linfo[i].bottom > h.linfo[i].top)
-						{
-							UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
-									i, h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
-							put4xcf(xcf, h.linfo[i].xcf_pos);
-						}
-						else{
-							UNQUIET("  layer %3d       skipped  \"%s\"\n",
-									i, h.linfo[i].unicode_name);
+					if(!merged_only && h.nlayers){
+						UNQUIET("xcf layer offset fixup (top to bottom):\n");
+						for(i = h.nlayers-1; i >= 0; --i){
+							if(h.linfo[i].right > h.linfo[i].left
+							   && h.linfo[i].bottom > h.linfo[i].top)
+							{
+								UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
+										i, h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
+								put4xcf(xcf, h.linfo[i].xcf_pos);
+							}
+							else{
+								UNQUIET("  layer %3d       skipped  \"%s\"\n",
+										i, h.linfo[i].unicode_name);
+							}
 						}
 					}
 
@@ -286,9 +295,9 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		memcpy(mli.blend.key, "norm", 4); // normal blend mode
 		mli.blend.opacity = 255;
 		mli.blend.clipping = 0;
-		mli.blend.flags = h->nlayers ? 2 : 0; // if other layers, then hide merged image
+		mli.blend.flags = !merged_only && h->nlayers ? 2 : 0; // if other layers, then hide merged image
 		mli.mask.size = 0; // no layer mask
-		mli.name = mli. unicode_name = "Photoshop merged image";
+		mli.name = mli.unicode_name = "Photoshop merged image";
 
 		xcf_merged_pos = xcf_layer(xcf, f, &mli, xcf_compr);
 
