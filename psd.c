@@ -244,6 +244,7 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 			fseeko(f, savepos, SEEK_SET); // restore file position
 		}
+		li->unicode_name = last_layer_name;
 
 		doimage(f, li, unicode_filenames && last_layer_name ? last_layer_name : (numbered ? li->nameno : li->name), h);
 

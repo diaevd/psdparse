@@ -599,7 +599,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);
-	putsxcf(xcf, li->name);
+	putsxcf(xcf, li->unicode_name);
 
 	// properties...
 	xcf_prop_offsets(xcf, li->left, li->top);

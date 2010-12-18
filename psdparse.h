@@ -251,6 +251,7 @@ struct layer_info{
 	struct blend_mode_info blend;
 	struct layer_mask_info mask;
 	char *name;
+	char *unicode_name; // utf8. will be NULL unless unicode_filenames or extra flags set
 	char *nameno; // "layerNN"
 	psd_bytes_t additionalpos;
 	psd_bytes_t additionallen;
