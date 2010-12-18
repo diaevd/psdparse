@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
 	};
 	FILE *f;
 	struct psd_header h;
-	int i, indexptr, opt;
+	int arg, i, indexptr, opt;
 	off_t xcf_layers_pos;
 
 	while( (opt = getopt_long(argc, argv, "hVvqcum", longopts, &indexptr)) != -1 )
@@ -91,17 +91,17 @@ int main(int argc, char *argv[]){
 	else if(help)
 		usage(argv[0], EXIT_SUCCESS);
 
-	for(i = optind; i < argc; ++i){
-		if( (f = fopen(argv[i], "rb")) ){
+	for(arg = optind; arg < argc; ++arg){
+		if( (f = fopen(argv[arg], "rb")) ){
 			h.version = h.nlayers = 0;
 			h.layerdatapos = 0;
 
-			if(dopsd(f, argv[i], &h)){
+			if(dopsd(f, argv[arg], &h)){
 				if(h.nlayers == 0){
 					alwayswarn("# File has no layers. Using merged image.\n");
 					use_merged = 1;
 				}
-				if( (xcf = xcf_open(argv[i], &h)) ){
+				if( (xcf = xcf_open(argv[arg], &h)) ){
 					// xcf_open() has written the XCF header.
 
 					// properties...
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]){
 						}
 					}
 
-					return EXIT_SUCCESS;
+					fclose(xcf);
 				}
 				else{
 					fatal("could not open xcf file for writing\n");
@@ -176,11 +176,11 @@ int main(int argc, char *argv[]){
 
 			fclose(f);
 		}else{
-			fprintf(stderr, "Could not open: %s\n", argv[i]);
+			fprintf(stderr, "Could not open: %s\n", argv[arg]);
 		}
 	}
 
-	return EXIT_FAILURE;
+	return EXIT_SUCCESS;
 }
 
 /* This function is a callback from processlayers(). It needs the
