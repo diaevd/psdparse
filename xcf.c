@@ -24,7 +24,7 @@
 #include "xcf.h"
 
 static int xcf_mode;
-static int img_channels;
+static int xcf_img_chans;
 
 FILE *xcf_open(char *psd_name, struct psd_header *h){
 	char *ext, fname[PATH_MAX];
@@ -37,20 +37,18 @@ FILE *xcf_open(char *psd_name, struct psd_header *h){
 	switch(h->mode){
 	case ModeGrayScale:
 		xcf_mode = 1; // Grayscale
-		img_channels = 1;
 		break;
 	case ModeIndexedColor:
 		xcf_mode = 2; // Indexed color
-		img_channels = 1;
 		break;
 	case ModeRGBColor:
 		xcf_mode = 0; // RGB color
-		img_channels = 3;
 		break;
 	//case ModeCMYKColor:
 	default:
 		fatal("can only convert grey scale, indexed, and RGB mode images\n");
 	}
+	xcf_img_chans = mode_channel_count[h->mode];
 
 	strcpy(fname, psd_name);
 	if( (ext = strrchr(fname, '.')) ) // FIXME: won't work correctly if '.' is in directory names and not filename
@@ -574,35 +572,37 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 {
 	struct channel_info *xcf_chan[4] = {NULL, NULL, NULL, NULL};
 	off_t hptr, lmptr = 0, layerptr;
-	int ch, m, ltype, chan_cnt, w = li->right - li->left, h = li->bottom - li->top;
+	int ch, m, ltype, has_alpha = 0, layer_mask_idx = -1,
+		w = li->right - li->left, h = li->bottom - li->top;
 	const char **p;
 
 	// Establish the mapping to XCF channels. Do not assume any
 	// order of channels. Interpretation is given by the 'id' field.
-	for(ch = chan_cnt = 0; ch < li->channels; ++ch){
-		if(li->chan[ch].id == TRANS_CHAN_ID){
-			++chan_cnt;
-			xcf_chan[img_channels] = li->chan+ch; // transparency/alpha: always last in XCF
+	for(ch = 0; ch < li->channels; ++ch){
+		int chid = li->chan[ch].id;
+		if(chid == TRANS_CHAN_ID){
+			has_alpha = 1;
+			xcf_chan[xcf_img_chans] = li->chan+ch; // transparency/alpha: always last in XCF
 			VERBOSE(" channel %d (%2d) -> xcf channel %d (alpha)\n",
-					ch, li->chan[ch].id, img_channels);
+					ch, chid, xcf_img_chans);
 		}
-		else if(li->chan[ch].id >= 0 && li->chan[ch].id < img_channels){
-			++chan_cnt;
-			xcf_chan[li->chan[ch].id] = li->chan+ch; // positive id: index of image channel
-			VERBOSE(" channel %d (%2d) -> xcf channel %d\n",
-					ch, li->chan[ch].id, li->chan[ch].id);
+		else if(chid == LMASK_CHAN_ID){
+			layer_mask_idx = ch;
+		}
+		else if(chid >= 0 && chid < xcf_img_chans){
+			xcf_chan[chid] = li->chan+ch; // positive id: index of image channel
+			VERBOSE(" channel %d (%2d) -> xcf channel %d\n", ch, chid, chid);
 		}
 		else{
-			VERBOSE(" channel %d (%2d) skipped\n", ch, li->chan[ch].id);
-			alwayswarn("# missing mapping for PS channel %d (id = %d)\n",
-					   ch, li->chan[ch].id);
+			VERBOSE(" channel %d (%2d) skipped\n", ch, chid);
+			alwayswarn("# can't map PS channel %d (id = %d)\n", ch, chid);
 		}
 	}
 
-	hptr = xcf_hierarchy(xcf, psd, w, h, chan_cnt, xcf_chan, compr);
+	hptr = xcf_hierarchy(xcf, psd, w, h, xcf_img_chans + has_alpha, xcf_chan, compr);
 
 	// look for the layer mask channel
-	if(li->chindex[LMASK_CHAN_ID] != -1){
+	if(layer_mask_idx != -1){
 		alwayswarn("## layer mask not yet supported\n");
 		// TODO: one complication is that Photoshop layer mask dimensions
 		//       are not the same as the layer's, but xcf requires same.
@@ -612,7 +612,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	}
 
 	layerptr = ftello(xcf);
-	ltype = xcf_mode*2 + (li->chindex[TRANS_CHAN_ID] != -1); // even # of channels -> alpha exists
+	ltype = xcf_mode*2 + has_alpha; // even # of channels -> alpha exists
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);

@@ -34,7 +34,7 @@
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
-	use_merged = 0, merged_only = 0;
+	use_merged = 0, merged_only = 0, extra_chan;
 long hres, vres; // set by doresources()
 char *pngdir;
 off_t xcf_merged_pos; // updated by doimage() if merged image is processed
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
 	FILE *f;
 	struct psd_header h;
 	int arg, i, indexptr, opt;
-	off_t xcf_layers_pos;
+	off_t xcf_layers_pos, xcf_channels_pos;
 
 	while( (opt = getopt_long(argc, argv, "hVvqcum", longopts, &indexptr)) != -1 )
 		switch(opt){
@@ -126,11 +126,21 @@ int main(int argc, char *argv[]){
 						for(i = h.nlayers; i--;)
 							if(h.linfo[i].right > h.linfo[i].left
 							&& h.linfo[i].bottom > h.linfo[i].top)
-								put4xcf(xcf, 0);
+								put4xcf(xcf, 0); // placeholder only
 					}
 					put4xcf(xcf, 0); // end of layer pointers
 
-					// channel pointers here... is this the background image??
+					// Extra (non-layer) channel pointers. We will only
+					// process these if merged image has been requested.
+					extra_chan = 0;
+					if(use_merged || merged_only){
+						xcf_channels_pos = ftello(xcf);
+						extra_chan = h.channels - mode_channel_count[h.mode] - h.mergedalpha;
+						for(i = extra_chan; i--;)
+							put4xcf(xcf, 0); // placeholder only
+						if(extra_chan)
+							UNQUIET("# %d non-image channels in merged data", extra_chan);
+					}
 					put4xcf(xcf, 0); // end of channel pointers
 
 					if(!merged_only){
@@ -261,41 +271,25 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - the merged image (1 or 3 channels)
 		// - any remaining alpha or spot channels.
 
-		UNQUIET("\nmerged channels:\n");
+		UNQUIET("\nmerged image  %4ld rows x %4ld cols\n",
+				merged_chans[ch].rows, merged_chans[ch].cols);
 
 		dochannel(f, NULL, merged_chans, h->channels, h);
 
-		for(ch = 0; ch < h->channels; ++ch){
-			UNQUIET("  channel %d  id=%2d  %4ld rows x %4ld cols\n",
-				   ch, merged_chans[ch].id, merged_chans[ch].rows, merged_chans[ch].cols);
-		}
+		for(ch = 0; ch < h->channels; ++ch)
+			UNQUIET("  channel %d  id=%2d\n", ch, merged_chans[ch].id);
 
 		mli.top = mli.left = 0;
 		mli.bottom = h->rows;
 		mli.right = h->cols;
 		mli.channels = h->channels;
-
 		mli.chan = merged_chans;
-		mli.chindex = checkmalloc((h->channels+2)*sizeof(int));
-		mli.chindex += 2;
-
-		// map channel ids to channel indexes
-		for(ch = -2; ch < h->channels; ++ch)
-			mli.chindex[ch] = -1;
-		for(ch = 0; ch < h->channels; ++ch){
-			int chid = merged_chans[ch].id;
-			if(chid >= -2 && chid < h->channels){
-				mli.chindex[chid] = ch;
-			}
-			else{
-				warn_msg("unexpected channel id %d in merged image", chid);
-			}
-		}
-
+		mli.chindex = NULL; // xcf.c doesn't use this
 		memcpy(mli.blend.key, "norm", 4); // normal blend mode
 		mli.blend.opacity = 255;
 		mli.blend.clipping = 0;
-		mli.blend.flags = !merged_only && h->nlayers ? 2 : 0; // if other layers, then hide merged image
+		// if there are other layers, then hide merged image
+		mli.blend.flags = !merged_only && h->nlayers ? 2 : 0;
 		mli.mask.size = 0; // no layer mask
 		mli.name = mli.unicode_name = "Photoshop merged image";
 

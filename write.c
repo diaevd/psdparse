@@ -94,43 +94,37 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 	// map channel count to a suitable PNG mode (when scavenging and actual mode is not known)
 	static int png_mode[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
 								PNG_COLOR_TYPE_RGB,  PNG_COLOR_TYPE_RGB_ALPHA};
-	int ch, pngchan, color_type, channels = li ? li->channels : h->channels;
+	int ch, pngchan = 0, color_type = 0, has_alpha = 0,
+		channels = li ? li->channels : h->channels;
 	psd_bytes_t image_data_end;
 
-	pngchan = color_type = 0;
-	switch(h->mode){
-	default: // multichannel, cmyk, lab etc
-		split = 1;
-	case ModeBitmap:
-	case ModeGrayScale:
-	case ModeGray16:
-	case ModeDuotone:
-	case ModeDuotone16:
-		color_type = PNG_COLOR_TYPE_GRAY;
-		pngchan = 1;
-		// check if there is an alpha channel, or if merged data has alpha
-		if( li ? li->chindex[-1] != -1 : channels > 1 && h->mergedalpha ){
-			color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
-			pngchan = 2;
-		}
-		break;
-	case ModeIndexedColor:
-		color_type = PNG_COLOR_TYPE_PALETTE;
-		pngchan = 1;
-		break;
-	case ModeRGBColor:
-	case ModeRGB48:
-		color_type = PNG_COLOR_TYPE_RGB;
-		pngchan = 3;
-		if( li ? li->chindex[-1] != -1 : channels > 3 && h->mergedalpha ){
-			color_type = PNG_COLOR_TYPE_RGB_ALPHA;
-			pngchan = 4;
-		}
-		break;
-	case SCAVENGE_MODE:
+	if(h->mode == SCAVENGE_MODE){
 		pngchan = channels;
 		color_type = png_mode[pngchan];
-		break;
+	}
+	else{
+		has_alpha = li ? li->chindex[TRANS_CHAN_ID] != -1
+					   : h->mergedalpha && channels > mode_channel_count[h->mode];
+		pngchan = mode_channel_count[h->mode] + has_alpha;
+
+		switch(h->mode){
+		default: // multichannel, cmyk, lab etc
+			split = 1;
+		case ModeBitmap:
+		case ModeGrayScale:
+		case ModeGray16:
+		case ModeDuotone:
+		case ModeDuotone16:
+			color_type = has_alpha ? PNG_COLOR_TYPE_GRAY_ALPHA : PNG_COLOR_TYPE_GRAY;
+			break;
+		case ModeIndexedColor:
+			color_type = PNG_COLOR_TYPE_PALETTE;
+			break;
+		case ModeRGBColor:
+		case ModeRGB48:
+			color_type = has_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB;
+			break;
+		}
 	}
 
 	if(li){
@@ -153,24 +147,26 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 						   h, color_type);
 
 				if(h->depth < 32){
-					// spit out any 'extra' channels (e.g. layer transparency)
+					// spit out any 'extra' channels (e.g. layer mask)
 					for(ch = 0; ch < channels; ++ch)
 						if(li->chan[ch].id < -1 || li->chan[ch].id >= pngchan)
 							writechannels(f, pngdir, name, li, li->chan + ch, 1, h);
 				}
-			}else{
+			}
+			else{
 				UNQUIET("# writing layer as split channels...\n");
 				writechannels(f, pngdir, name, li, li->chan, channels, h);
 			}
 		}
-	}else{
+	}
+	else{
 		struct channel_info *merged_chans = checkmalloc(channels*sizeof(struct channel_info));
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
 		// It consists of:
-		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - the merged image (1 or 3 channels)
+		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - any remaining alpha or spot channels.
 		// For an identifiable image mode (Bitmap, GreyScale, Duotone, Indexed or RGB),
 		// we should ideally
@@ -179,7 +175,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// (For multichannel (and maybe other?) modes, we should just write all
 		// channels per step 2)
 
-		VERBOSE("\n  merged channels:\n");
+		VERBOSE("\n  merged image:\n");
 		dochannel(f, NULL, merged_chans, channels, h);
 
 		image_data_end = ftello(f);

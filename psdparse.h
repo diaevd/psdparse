@@ -267,7 +267,10 @@ struct dictentry{
 	void (*func)(psd_file_t f, int level, int len, struct dictentry *dict);
 };
 
+// constants.c:
 extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
+extern const int mode_channel_count[];
+
 extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, resdump, extra, makedirs, numbered,
 		   help, split, nwarns, writepng, writelist, writexml, xmlout,

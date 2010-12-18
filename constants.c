@@ -32,3 +32,8 @@ const char *channelsuffixes[] = {
 	"", "Lab", "", "RGB",
 	"Lab", "CMYK", "", ""
 };
+
+// The number of channels in each mode that contain image data.
+const int mode_channel_count[] = {
+	1, 1, 1, 3, 4, 3, 3, 0, 1, 3, 1, 3, 3, 4, 0, 1
+};

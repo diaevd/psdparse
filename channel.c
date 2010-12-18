@@ -128,8 +128,11 @@ void dochannel(psd_file_t f,
 		pos += (channels*chan->rows) << h->version;
 
 	for(ch = 0; ch < channels; ++ch){
-		if(!li)
-			chan[ch].id = ch;
+		if(!li){
+			// if required, identify first alpha channel as merged data transparency
+			chan[ch].id = h->mergedalpha && ch == mode_channel_count[h->mode]
+			                  ? TRANS_CHAN_ID : ch;
+		}
 		chan[ch].rowbytes = rb;
 		chan[ch].comptype = compr;
 		chan[ch].rows = chan->rows;
