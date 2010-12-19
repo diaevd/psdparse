@@ -617,19 +617,18 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 
 	hptr = xcf_hierarchy(xcf, psd, w, h, xcf_img_chans + has_alpha, xcf_chan, compr);
 
-	// look for the layer mask channel
 	if(layer_mask_idx != -1){
 		alwayswarn("## layer mask not yet supported\n");
 		// TODO: one complication is that Photoshop layer mask dimensions
 		//       are not the same as the layer's, but xcf requires same.
 
 		//lmptr = xcf_channel(xcf, psd, li->mask.cols, li->mask.rows,
-		//					"layer mask", &li->chan[ch], compr);
+		//					"Layer mask", &li->chan[ch], compr);
 	}
 
 	layerptr = ftello(xcf);
 	VERBOSE("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
-	ltype = xcf_mode*2 + has_alpha; // even # of channels -> alpha exists
+	ltype = xcf_mode*2 + has_alpha;
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);

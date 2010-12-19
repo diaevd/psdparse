@@ -261,8 +261,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 				= checkmalloc(h->channels*sizeof(struct channel_info));
 		struct layer_info mli;
 
-		// The 'merged' or 'composite' image is where the flattened image is stored
-		// when 'Maximise Compatibility' is used.
+		// The 'merged' or 'composite' image is where the flattened
+		// image is stored when 'Maximise Compatibility' is used.
 		// It consists of:
 		// - the merged image (1 or 3 channels)
 		// - the alpha channel for merged image (if mergedalpha is TRUE)
@@ -271,9 +271,6 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		UNQUIET("\nmerged image, %4ld rows x %4ld cols\n", h->rows, h->cols);
 
 		dochannel(f, NULL, merged_chans, h->channels, h);
-
-		//for(ch = 0; ch < h->channels; ++ch)
-		//	UNQUIET("  channel %d  id=%2d\n", ch, merged_chans[ch].id);
 
 		mli.top = mli.left = 0;
 		mli.bottom = h->rows;
