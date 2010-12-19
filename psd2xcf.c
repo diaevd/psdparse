@@ -27,6 +27,10 @@
  *
  * build:
  *     make psd2xcf -f Makefile.unix
+ *
+ * This file is the main program and driver, which calls upon routines
+ * in psd.c (and other parts of psdparse) to interpret PSD input,
+ * and then writes the XCF using routines in xcf.c
  */
 
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
@@ -106,22 +110,23 @@ int main(int argc, char *argv[]){
 				if( (xcf = xcf_open(argv[arg], &h)) ){
 					// xcf_open() has written the XCF header.
 
-					// properties...
+					// -------------- Image properties --------------
 					xcf_prop_compression(xcf, xcf_compr);
 					// image resolution in pixels per cm
 					xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
 					if(h.mode == ModeIndexedColor) // copy palette from psd to xcf
 						xcf_prop_colormap(xcf, f, &h);
-					xcf_prop_end(xcf);
+					xcf_prop_end(xcf); // End properties --------------
 
-					// layer pointers... write dummies now, fixup later.
-					// Ignore zero-sized layers.
+					// -------------- Layer pointers --------------
+					// write dummies now, fixup later.
 					xcf_layers_pos = ftello(xcf);
 
 					if(use_merged || merged_only)
 						put4xcf(xcf, 0); // slot for merged image layer
 
 					if(!merged_only){
+						// Ignore zero-sized layers.
 						for(i = h.nlayers; i--;)
 							if(h.linfo[i].right > h.linfo[i].left
 							&& h.linfo[i].bottom > h.linfo[i].top)
@@ -129,17 +134,20 @@ int main(int argc, char *argv[]){
 					}
 					put4xcf(xcf, 0); // end of layer pointers
 
-					// Extra (non-layer) channel pointers. We will only
-					// process these if merged image has been requested.
+					// -------------- Channel pointers --------------
+					// Only process these if merged image has been requested.
 					extra_chan = 0;
 					if(use_merged || merged_only){
 						xcf_channels_pos = ftello(xcf);
+						// count how many channels exist in the merged data
+						// beyond the image channels and any alpha channel
 						extra_chan = h.channels - mode_channel_count[h.mode] - h.mergedalpha;
 						for(i = extra_chan; i--;)
 							put4xcf(xcf, 0); // placeholder only
 					}
 					put4xcf(xcf, 0); // end of channel pointers
 
+					// -------------- Layers --------------
 					if(!merged_only){
 						// process the layers in 'image data' section.
 						// this will, in turn, call doimage() for each layer.
@@ -147,6 +155,7 @@ int main(int argc, char *argv[]){
 						processlayers(f, &h);
 					}
 
+					// -------------- Merged image --------------
 					if(use_merged || merged_only){
 						// position file after 'layer & mask info', i.e. at the
 						// beginning of the merged image data.
@@ -157,8 +166,9 @@ int main(int argc, char *argv[]){
 						doimage(f, NULL, NULL, &h);
 					}
 
-					// Update the layer pointers. We do this in reverse
-					// of the PSD order, since XCF stores layers top to bottom.
+					// -------------- Fixup layer pointers --------------
+					// In reverse of the PSD order, since XCF stores
+					// layers top to bottom.
 					fseeko(xcf, xcf_layers_pos, SEEK_SET);
 
 					if(use_merged || merged_only)
@@ -182,11 +192,12 @@ int main(int argc, char *argv[]){
 					}
 					put4xcf(xcf, 0); // end of layer pointers
 
-					// Fixup channel pointers.
+					// -------------- Fixup channel pointers --------------
 					for(i = 0; i < extra_chan; ++i)
 						put4xcf(xcf, xcf_chan_pos[i]);
 					//put4xcf(xcf, 0); // end of channel pointers
 
+					// -------------- XCF file is complete --------------
 					fclose(xcf);
 				}
 				else{
