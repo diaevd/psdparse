@@ -23,14 +23,12 @@
 #include "xcf.h"
 #include "version.h"
 
-/* This program outputs a GIMP XCF file converted from PSD layer data.
+/* This program outputs a layered GIMP XCF file converted from PSD data.
  *
  * build:
  *     make psd2xcf -f Makefile.unix
  */
 
-// These flags control psdparse behaviour.
-// You WILL get text output unless you set quiet = 1 !
 int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
@@ -282,7 +280,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		xcf_merged_pos = xcf_layer(xcf, f, &mli, xcf_compr);
 
 		if(extra_chan){
-			char ch_name[0x100];
+			char ch_name[16];
 			xcf_chan_pos = checkmalloc(extra_chan*sizeof(off_t));
 
 			UNQUIET("\nextra channels (%d)\n", extra_chan);
