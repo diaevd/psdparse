@@ -290,8 +290,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 				ch < h->channels;
 				++ch, ++i)
 			{
-				VERBOSE("  channel %d\n", ch);
-				sprintf(ch_name, "Channel %d", ch);
+				sprintf(ch_name, "Channel %d", i+1);
+				VERBOSE("  storing channel index %d as \"%s\"\n", ch, ch_name);
 				xcf_chan_pos[i] = xcf_channel(xcf, f, h->cols, h->rows,
 											  ch_name, 0, /* visible */
 											  merged_chans+ch, xcf_compr);
