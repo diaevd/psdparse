@@ -116,7 +116,7 @@ int main(int argc, char *argv[]){
 					xcf_prop_resolution(xcf, FIXEDPT(hres)/2.54, FIXEDPT(vres)/2.54);
 					if(h.mode == ModeIndexedColor) // copy palette from psd to xcf
 						xcf_prop_colormap(xcf, f, &h);
-					xcf_prop_end(xcf); // End properties --------------
+					xcf_prop_end(xcf); // end image properties
 
 					// -------------- Layer pointers --------------
 					// write dummies now, fixup later.
@@ -257,7 +257,8 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// The merged image has the size, mode, depth, and channel count
 		// given by the main PSD header (h).
 
-		struct channel_info *merged_chans = checkmalloc(h->channels*sizeof(struct channel_info));
+		struct channel_info *merged_chans
+				= checkmalloc(h->channels*sizeof(struct channel_info));
 		struct layer_info mli;
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
