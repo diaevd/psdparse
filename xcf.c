@@ -17,6 +17,17 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+/* Gimp XCF writing routines
+ * -------------------------
+ * Based on documentation at:
+ * http://svn.gnome.org/viewvc/gimp/trunk/devel-docs/xcf.txt?view=markup
+ *
+ * This documentation, in contrast to any PSD "specification" from Adobe,
+ * is excellent. It allowed me to write and debug XCF writing in just
+ * two nights of work (compared to several hundred hours to get a working
+ * PSD parser).
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -110,7 +121,7 @@ size_t putsxcf(FILE *f, char *s){
 // FIXME: add proper return results
 void xcf_prop_colormap(FILE *xcf, FILE *psd, struct psd_header *h){
 	size_t len;
-	int i;
+	int i, entries = CTABSIZE/3;
 	unsigned char ctab[CTABSIZE];
 
 	fseeko(psd, h->colormodepos, SEEK_SET);
@@ -118,8 +129,8 @@ void xcf_prop_colormap(FILE *xcf, FILE *psd, struct psd_header *h){
 	if(len == CTABSIZE && fread(ctab, 1, CTABSIZE, psd) == CTABSIZE){
 		put4xcf(xcf, PROP_COLORMAP);
 		put4xcf(xcf, 4 + CTABSIZE);
-		put4xcf(xcf, 0x100);
-		for(i = 0; i < 0x100; ++i){
+		put4xcf(xcf, entries);
+		for(i = 0; i < entries; ++i){
 			fputc(ctab[i], xcf);
 			fputc(ctab[i+0x100], xcf);
 			fputc(ctab[i+0x200], xcf);
@@ -127,6 +138,8 @@ void xcf_prop_colormap(FILE *xcf, FILE *psd, struct psd_header *h){
 	}else{
 		fatal("indexed color mode data wrong size\n");
 	}
+
+	VERBOSE("xcf_prop_colormap, %d entries\n", entries);
 }
 
 /*
@@ -147,7 +160,7 @@ void xcf_prop_compression(FILE *xcf, int compr){
 	put4xcf(xcf, PROP_COMPRESSION);
 	put4xcf(xcf, 1);
 	fputc(compr, xcf);
-	UNQUIET("xcf_prop_compression: %d\n", compr);
+	VERBOSE("xcf_prop_compression: %d\n", compr);
 }
 
 /*
@@ -162,7 +175,7 @@ void xcf_prop_resolution(FILE *xcf, float x_per_cm, float y_per_cm){
 	put4xcf(xcf, 8);
 	putfxcf(xcf, x_per_cm);
 	putfxcf(xcf, y_per_cm);
-	UNQUIET("xcf_prop_resolution: %g/cm x %g/cm\n", x_per_cm, y_per_cm);
+	VERBOSE("xcf_prop_resolution: %g/cm x %g/cm\n", x_per_cm, y_per_cm);
 }
 
 /*
@@ -175,7 +188,7 @@ void xcf_prop_mode(FILE *xcf, int m){
 	put4xcf(xcf, PROP_MODE);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, m);
-	UNQUIET("xcf_prop_mode: %d\n", m);
+	VERBOSE("xcf_prop_mode: %d\n", m);
 }
 
 /*
@@ -195,7 +208,7 @@ void xcf_prop_offsets(FILE *xcf, int dx, int dy){
 	put4xcf(xcf, 8);
 	put4xcf(xcf, dx);
 	put4xcf(xcf, dy);
-	UNQUIET("xcf_prop_offsets: (%d,%d)\n", dx, dy);
+	VERBOSE("xcf_prop_offsets: (%d,%d)\n", dx, dy);
 }
 
 /*
@@ -209,7 +222,7 @@ void xcf_prop_opacity(FILE *xcf, int x){
 	put4xcf(xcf, PROP_OPACITY);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, x);
-	UNQUIET("xcf_prop_opacity: %d (%.1f%%)\n", x, x/2.55);
+	VERBOSE("xcf_prop_opacity: %d (%.1f%%)\n", x, x/2.55);
 }
 
 /*
@@ -222,7 +235,7 @@ void xcf_prop_visible(FILE *xcf, int b){
 	put4xcf(xcf, PROP_VISIBLE);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, b);
-	UNQUIET("xcf_prop_visible: %d\n", b);
+	VERBOSE("xcf_prop_visible: %d\n", b);
 }
 
 /*
@@ -239,7 +252,7 @@ void xcf_prop_preserve_transp(FILE *xcf, int b){
 	put4xcf(xcf, PROP_PRESERVE_TRANSPARENCY);
 	put4xcf(xcf, 4);
 	put4xcf(xcf, b);
-	UNQUIET("xcf_prop_preserve_transp: %d\n", b);
+	VERBOSE("xcf_prop_preserve_transp: %d\n", b);
 }
 
 /*
@@ -437,16 +450,17 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
 	}
 
 	lptr = ftello(xcf);
+
+	VERBOSE("xcf_level @ %ld w:%4d h:%4d channels:%d compr:%d\n",
+			lptr, w, h, channel_cnt, compr);
+
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	for(i = 0; i < ntiles; ++i){
 		put4xcf(xcf, tile_pos[i]);
-		VERBOSE("  xcf_tile @ %ld\n", tile_pos[i]);
+		//VERBOSE("  xcf_tile @ %ld\n", tile_pos[i]);
 	}
 	put4xcf(xcf, 0);
-
-	UNQUIET("xcf_level @ %ld w:%4d h:%4d channels:%d compr:%d\n",
-			lptr, w, h, channel_cnt, compr);
 
 	if(tile_pos)
 		free(tile_pos);
@@ -480,16 +494,16 @@ off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
 		level_ptrs[n_levels] = xcf_level(xcf, NULL, ww /= 2, hh /= 2, 0, NULL, compr);
 
 	hptr = ftello(xcf);
+	VERBOSE("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, channel_cnt);
 	for(j = 0; j < n_levels; ++j){
-		VERBOSE("  level @ %ld\n", level_ptrs[j]);
+		//VERBOSE("  level @ %ld\n", level_ptrs[j]);
 		put4xcf(xcf, level_ptrs[j]);
 	}
 	put4xcf(xcf, 0);
 
-	UNQUIET("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
 	return hptr;
 }
 
@@ -505,21 +519,23 @@ off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
 707	  uint32  hptr   Pointer to the hierarchy structure containing the pixels
  */
 
-off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name,
+off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, int visible,
 				  struct channel_info *chan, int compr){
 	off_t hptr = xcf_hierarchy(xcf, psd, w, h, 1, &chan, compr), chptr;
 
 	chptr = ftello(xcf);
+	VERBOSE("xcf_channel @ %ld w:%d h:%d visible:%d \"%s\"\n",
+			chptr, w, h, visible, name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	putsxcf(xcf, name);
 
 	// properties...
+	xcf_prop_visible(xcf, visible);
 	xcf_prop_end(xcf);
 
 	put4xcf(xcf, hptr);
 
-	UNQUIET("xcf_channel @ %ld w:%d h:%d \"%s\"\n", chptr, w, h, name);
 	return chptr;
 }
 
@@ -595,7 +611,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 		}
 		else{
 			VERBOSE(" channel %d (%2d) skipped\n", ch, chid);
-			alwayswarn("# can't map PS channel %d (id = %d)\n", ch, chid);
+			//alwayswarn("# can't map PS channel %d (id = %d)\n", ch, chid);
 		}
 	}
 
@@ -612,6 +628,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	}
 
 	layerptr = ftello(xcf);
+	VERBOSE("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
 	ltype = xcf_mode*2 + has_alpha; // even # of channels -> alpha exists
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
@@ -636,6 +653,5 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	put4xcf(xcf, hptr);
 	put4xcf(xcf, lmptr);
 
-	UNQUIET("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
 	return layerptr;
 }

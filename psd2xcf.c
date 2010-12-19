@@ -37,7 +37,7 @@ int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
 	use_merged = 0, merged_only = 0, extra_chan;
 long hres, vres; // set by doresources()
 char *pngdir;
-off_t xcf_merged_pos; // updated by doimage() if merged image is processed
+off_t xcf_merged_pos, *xcf_chan_pos; // updated by doimage() if merged image is processed
 
 static FILE *xcf;
 static int xcf_compr = 1; // RLE
@@ -50,8 +50,9 @@ void usage(char *prog, int status){
   -q, --quiet        work silently\n\
   -c, --rle          RLE compression (default)\n\
   -u, --raw          no compression\n\
-  -m, --merged       include merged (flattened) image as top layer, if available\n\
-      --merged-only  process merged image only, omitting all layers\n", prog);
+  -m, --merged       include merged (flattened) image as top layer, if available,\n\
+                     and all additional non-layer channels\n\
+      --merged-only  process merged image & extra channels, but omit all layers\n", prog);
 	exit(status);
 }
 
@@ -138,8 +139,6 @@ int main(int argc, char *argv[]){
 						extra_chan = h.channels - mode_channel_count[h.mode] - h.mergedalpha;
 						for(i = extra_chan; i--;)
 							put4xcf(xcf, 0); // placeholder only
-						if(extra_chan)
-							UNQUIET("# %d non-image channels in merged data", extra_chan);
 					}
 					put4xcf(xcf, 0); // end of channel pointers
 
@@ -168,21 +167,27 @@ int main(int argc, char *argv[]){
 						put4xcf(xcf, xcf_merged_pos);
 
 					if(!merged_only && h.nlayers){
-						UNQUIET("xcf layer offset fixup (top to bottom):\n");
+						VERBOSE("xcf layer offset fixup (top to bottom):\n");
 						for(i = h.nlayers-1; i >= 0; --i){
 							if(h.linfo[i].right > h.linfo[i].left
 							   && h.linfo[i].bottom > h.linfo[i].top)
 							{
-								UNQUIET("  layer %3d xcf @ %7lld  \"%s\"\n",
+								VERBOSE("  layer %3d xcf @ %7lld  \"%s\"\n",
 										i, h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
 								put4xcf(xcf, h.linfo[i].xcf_pos);
 							}
 							else{
-								UNQUIET("  layer %3d       skipped  \"%s\"\n",
+								VERBOSE("  layer %3d       skipped  \"%s\"\n",
 										i, h.linfo[i].unicode_name);
 							}
 						}
 					}
+					put4xcf(xcf, 0); // end of layer pointers
+
+					// Fixup channel pointers.
+					for(i = 0; i < extra_chan; ++i)
+						put4xcf(xcf, xcf_chan_pos[i]);
+					//put4xcf(xcf, 0); // end of channel pointers
 
 					fclose(xcf);
 				}
@@ -209,41 +214,23 @@ int main(int argc, char *argv[]){
 
 void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header *h)
 {
-	int ch;
+	int ch, i;
 	psd_bytes_t image_data_end;
 
 	/* li points to layer information. If it is NULL, then
 	 * the merged image is being being processed, not a layer. */
 
 	if(li){
-		// Process layer, described by struct layer_info pointed to by li
-
-		// The following members of this struct may be useful:
-		//   top, left, bottom, right       - position/size of layer in document
-		//     (the layer may lie partly or wholly outside the document bounds,
-		//      as defined by PSD header)
-		//   channels                       - channel count
-		//   struct channel_info *chan      - array of channel_info
-		//   struct blend_mode_info blend   - blending information
-		//   struct layer_mask_info mask    - layer mask info
-		//   char *name                     - layer name
+		// Process layer.
 
 		UNQUIET("layer \"%s\"\n", li->name);
 		for(ch = 0; ch < li->channels; ++ch){
-			// dochannel() initialises the li->chan[ch] struct, including:
-			//   id                    - channel id
-			//   comptype              - channel's compression type
-			//   rows, cols, rowbytes  - set by dochannel()
-			//   length                - channel byte count in file
-			// how to find image data, depending on compression type:
-			//   rawpos                - file offset of RAW channel data (AFTER compression type)
-			//   rowpos                - row data file positions (RLE ONLY)
-			//   unzipdata             - uncompressed data (ZIP ONLY)
+			// dochannel() initialises the li->chan[ch] struct
 
 			dochannel(f, li, li->chan + ch, 1, h);
-			UNQUIET("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
-				   ch, li->chan[ch].id, li->chan[ch].rows, li->chan[ch].cols,
-				   li->chan[ch].length);
+			VERBOSE("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
+				    ch, li->chan[ch].id, li->chan[ch].rows, li->chan[ch].cols,
+				    li->chan[ch].length);
 		}
 
 		image_data_end = ftello(f);
@@ -267,17 +254,16 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
 		// It consists of:
-		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - the merged image (1 or 3 channels)
+		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - any remaining alpha or spot channels.
 
-		UNQUIET("\nmerged image  %4ld rows x %4ld cols\n",
-				merged_chans[ch].rows, merged_chans[ch].cols);
+		UNQUIET("\nmerged image, %4ld rows x %4ld cols\n", h->rows, h->cols);
 
 		dochannel(f, NULL, merged_chans, h->channels, h);
 
-		for(ch = 0; ch < h->channels; ++ch)
-			UNQUIET("  channel %d  id=%2d\n", ch, merged_chans[ch].id);
+		//for(ch = 0; ch < h->channels; ++ch)
+		//	UNQUIET("  channel %d  id=%2d\n", ch, merged_chans[ch].id);
 
 		mli.top = mli.left = 0;
 		mli.bottom = h->rows;
@@ -291,9 +277,26 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// if there are other layers, then hide merged image
 		mli.blend.flags = !merged_only && h->nlayers ? 2 : 0;
 		mli.mask.size = 0; // no layer mask
-		mli.name = mli.unicode_name = "Photoshop merged image";
+		mli.name = mli.unicode_name = "Merged image";
 
 		xcf_merged_pos = xcf_layer(xcf, f, &mli, xcf_compr);
+
+		if(extra_chan){
+			char ch_name[0x100];
+			xcf_chan_pos = checkmalloc(extra_chan*sizeof(off_t));
+
+			UNQUIET("\nextra channels (%d)\n", extra_chan);
+			for(ch = mode_channel_count[h->mode] + h->mergedalpha, i = 0;
+				ch < h->channels;
+				++ch, ++i)
+			{
+				VERBOSE("  channel %d\n", ch);
+				sprintf(ch_name, "Channel %d", ch);
+				xcf_chan_pos[i] = xcf_channel(xcf, f, h->cols, h->rows,
+											  ch_name, 0, /* visible */
+											  merged_chans+ch, xcf_compr);
+			}
+		}
 
 		free(merged_chans);
 	}

@@ -50,7 +50,10 @@ void xcf_prop_opacity(FILE *xcf, int op);
 void xcf_prop_end(FILE *xcf);
 
 size_t xcf_rle(FILE *xcf, unsigned char *input, size_t n);
-off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct channel_info *xcf_chan[], int compr);
-off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h, int channel_cnt, struct channel_info *xcf_chan[], int compr);
-off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, struct channel_info *chan, int compr);
+off_t xcf_level(FILE *xcf, FILE *psd, int w, int h, int channel_cnt,
+				struct channel_info *xcf_chan[], int compr);
+off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h, int channel_cnt,
+					struct channel_info *xcf_chan[], int compr);
+off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, int visible,
+				  struct channel_info *chan, int compr);
 off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr);
