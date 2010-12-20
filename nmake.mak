@@ -90,7 +90,7 @@ PSD2XCF_OBJ = psd2xcf.obj xcf.obj \
 all : psdparse.exe
 
 clean :
-	-del psdparse.exe $(OBJ) version.res
+	-del psdparse.exe psd2xcf.exe $(OBJ) $(PSD2XCF_OBJ) version.res
 
 psdparse.exe : $(OBJ)
 	$(CC) /Fe$@ $(**F) $(LIBICONV)\lib\*
