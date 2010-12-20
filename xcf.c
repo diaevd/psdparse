@@ -452,13 +452,13 @@ off_t xcf_level(FILE *xcf, FILE *psd, int w, int h,
 	lptr = ftello(xcf);
 
 	VERBOSE("xcf_level @ %ld w:%4d h:%4d channels:%d compr:%d\n",
-			lptr, w, h, channel_cnt, compr);
+			(long)lptr, w, h, channel_cnt, compr);
 
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	for(i = 0; i < ntiles; ++i){
 		put4xcf(xcf, tile_pos[i]);
-		//VERBOSE("  xcf_tile @ %ld\n", tile_pos[i]);
+		//VERBOSE("  xcf_tile @ %ld\n", (long)tile_pos[i]);
 	}
 	put4xcf(xcf, 0);
 
@@ -494,12 +494,12 @@ off_t xcf_hierarchy(FILE *xcf, FILE *psd, int w, int h,
 		level_ptrs[n_levels] = xcf_level(xcf, NULL, ww /= 2, hh /= 2, 0, NULL, compr);
 
 	hptr = ftello(xcf);
-	VERBOSE("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", hptr, w, h, channel_cnt);
+	VERBOSE("xcf_hierarchy @ %ld w:%d h:%d channels:%d\n", (long)hptr, w, h, channel_cnt);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, channel_cnt);
 	for(j = 0; j < n_levels; ++j){
-		//VERBOSE("  level @ %ld\n", level_ptrs[j]);
+		//VERBOSE("  level @ %ld\n", (long)level_ptrs[j]);
 		put4xcf(xcf, level_ptrs[j]);
 	}
 	put4xcf(xcf, 0);
@@ -525,7 +525,7 @@ off_t xcf_channel(FILE *xcf, FILE *psd, int w, int h, char *name, int visible,
 
 	chptr = ftello(xcf);
 	VERBOSE("xcf_channel @ %ld w:%d h:%d visible:%d \"%s\"\n",
-			chptr, w, h, visible, name);
+			(long)chptr, w, h, visible, name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	putsxcf(xcf, name);
@@ -627,8 +627,8 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	}
 
 	layerptr = ftello(xcf);
-	VERBOSE("xcf_layer @ %ld type:%d \"%s\"\n", layerptr, ltype, li->name);
 	ltype = xcf_mode*2 + has_alpha;
+	VERBOSE("xcf_layer @ %ld type:%d \"%s\"\n", (long)layerptr, ltype, li->name);
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);

@@ -185,8 +185,8 @@ int main(int argc, char *argv[]){
 							if(h.linfo[i].right > h.linfo[i].left
 							   && h.linfo[i].bottom > h.linfo[i].top)
 							{
-								VERBOSE("  layer %3d xcf @ %7lld  \"%s\"\n",
-										i, h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
+								VERBOSE("  layer %3d xcf @ %7ld  \"%s\"\n",
+										i, (long)h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
 								put4xcf(xcf, h.linfo[i].xcf_pos);
 							}
 							else{
