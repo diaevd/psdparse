@@ -67,10 +67,11 @@
   20-Nov-2010: 3.4b2 add option to use Unicode layer name for output filenames
   16-Dec-2010: 3.4b3 add utility for basic conversion of psd to Gimp xcf
   19-Dec-2010: 3.4b4 add Windows build for psd2xcf
+  20-Dec-2010: 3.4b5 fix faulty XML issue for text layers, reported by Richard Ross
 */
 
-#define VERSION_STR "3.4b4"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x40,beta,4
+#define VERSION_STR "3.4b5"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x40,beta,5
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -79,7 +80,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,4,0x60,4
+#define VI_VERS_NUM 3,4,0x60,5
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

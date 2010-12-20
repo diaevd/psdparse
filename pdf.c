@@ -17,6 +17,10 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+/* This parser is just a hack to process the subset of PDF found
+ * in text descriptors. It's not written for elegance or generality!
+ */
+
 #include "psdparse.h"
 
 #define MAX_NAMES 32
@@ -47,6 +51,14 @@ size_t pdf_string(char **p, char *outbuf, size_t n){
 		char c = *(*p)++;
 		--n;
 		switch(c){
+		case 015:
+			if(n && (*p)[0] == 012){ // eat the linefeed in a cr/lf pair
+				++(*p);
+				--n;
+			}
+			c = 012; // single end-of-line (lf)
+		case 012:
+			break;
 		case '(':
 			++paren;
 			break;
@@ -59,6 +71,13 @@ size_t pdf_string(char **p, char *outbuf, size_t n){
 				return cnt; // ran out of data
 			--n;
 			switch(*(*p)++){
+			case 015: // line continuation; skip newline
+				if(n && (*p)[0] == 012){ // eat the linefeed in a cr/lf pair
+					++(*p);
+					--n;
+				}
+			case 012:
+				continue;
 			case 'n': c = 012; break; // LF
 			case 'r': c = 015; break; // CR
 			case 't': c = 011; break; // HT
@@ -69,12 +88,26 @@ size_t pdf_string(char **p, char *outbuf, size_t n){
 			case '\\': c = (*p)[-1]; break;
 			default:
 				// octal escape?
-				if(n >= 2 && isdigit((*p)[-1]) && isdigit((*p)[0]) && isdigit((*p)[1])){
-					c = (((*p)[-1]-'0') << 6) | (((*p)[0]-'0') << 3) | ((*p)[1]-'0');
-					*p += 2;
-					n -= 2;
-				}else
+				if(isdigit((*p)[-1])){
+					c = (*p)[-1]-'0';
+					if(n >= 1 && isdigit((*p)[0])){
+						c = (c << 3) | ((*p)[0] - '0');
+						++p;
+						--n;
+						if(n >= 1 && isdigit((*p)[0])){
+							c = (c << 3) | ((*p)[0] - '0');
+							++p;
+							--n;
+						}
+					}
+				}else{
+					// did not recognise the escape; ignore backslash
+					if(c != 012 && c != 015){
+						--(*p);
+						++n;
+					}
 					continue;
+				}
 			}
 		}
 		if(outbuf)
@@ -247,6 +280,9 @@ static void pdf_data(char *buf, size_t n, int level){
 		--n;
 		switch(c){
 		case '(':
+			// String literal. Copy the string content to XML
+			// as element content.
+
 			// check parsed string length
 			q = p;
 			cnt = pdf_string(&q, NULL, n);
@@ -264,7 +300,7 @@ static void pdf_data(char *buf, size_t n, int level){
 			break;
 
 		case '<':
-			if(n && *p == '<'){
+			if(n && *p == '<'){ // dictionary literal
 				++p;
 				--n;
 				// if beginning a dictionary inside an array, there is
@@ -306,7 +342,9 @@ static void pdf_data(char *buf, size_t n, int level){
 				else
 					warn_msg("dict stack underflow");
 				in_array = dict_tos && is_array[dict_tos-1];
-				pop_name(tabs(--level));
+
+				if(name_tos)
+					pop_name(tabs(--level));
 			}
 			break;
 
@@ -338,7 +376,9 @@ static void pdf_data(char *buf, size_t n, int level){
 
 		default:
 			if(!is_pdf_white(c)){
-				// probably numeric or boolean literal
+				// numeric or boolean literal, or null
+				// FIXME: If a dictionary key has value null, the key
+				//        should not be created. (7.3.7)
 				begin_value(tabs(level));
 
 				// copy characters until whitespace or delimiter
