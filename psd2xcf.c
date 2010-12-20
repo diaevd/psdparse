@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
 
 	for(arg = optind; arg < argc; ++arg){
 		if( (f = fopen(argv[arg], "rb")) ){
-			h.version = h.nlayers = 0;
+			h.version = h.nlayers = h.mergedalpha = 0;
 			h.layerdatapos = 0;
 
 			if(dopsd(f, argv[arg], &h)){
@@ -142,6 +142,11 @@ int main(int argc, char *argv[]){
 						// count how many channels exist in the merged data
 						// beyond the image channels and any alpha channel
 						extra_chan = h.channels - mode_channel_count[h.mode] - h.mergedalpha;
+						if(extra_chan < 0){
+							alwayswarn("# unexpected psd channel count: %d  (expected mode channels: %d + merged alpha: %d)\n",
+									h.channels, mode_channel_count[h.mode], h.mergedalpha);
+							extra_chan = 0;
+						}
 						for(i = extra_chan; i--;)
 							put4xcf(xcf, 0); // placeholder only
 					}
