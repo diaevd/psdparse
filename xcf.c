@@ -46,22 +46,11 @@ FILE *xcf_open(char *psd_name, struct psd_header *h){
 	const char *xcf_ext = ".xcf";
 	FILE *xcf;
 
-	if(h->depth != 8)
-		fatal("input file must be 8 bits/channel\n");
-
 	switch(h->mode){
-	case ModeGrayScale:
-		xcf_mode = 1; // Grayscale
-		break;
-	case ModeIndexedColor:
-		xcf_mode = 2; // Indexed color
-		break;
-	case ModeRGBColor:
-		xcf_mode = 0; // RGB color
-		break;
-	//case ModeCMYKColor:
-	default:
-		fatal("can only convert grey scale, indexed, and RGB mode images\n");
+	case ModeGrayScale:    xcf_mode = 1; break;
+	case ModeIndexedColor: xcf_mode = 2; break;
+	case ModeRGBColor:     xcf_mode = 0; break;
+	default: fatal("can only convert grey scale, indexed, and RGB mode images\n");
 	}
 	xcf_img_chans = mode_channel_count[h->mode];
 
@@ -636,7 +625,7 @@ off_t xcf_layer(FILE *xcf, FILE *psd, struct layer_info *li, int compr)
 	put4xcf(xcf, w);
 	put4xcf(xcf, h);
 	put4xcf(xcf, ltype);
-	putsxcf(xcf, li->unicode_name);
+	putsxcf(xcf, li->unicode_name ? li->unicode_name : li->name);
 
 	// properties...
 	xcf_prop_offsets(xcf, li->left, li->top);

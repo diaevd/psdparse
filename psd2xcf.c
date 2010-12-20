@@ -102,8 +102,20 @@ int main(int argc, char *argv[]){
 			h.layerdatapos = 0;
 
 			if(dopsd(f, argv[arg], &h)){
+				if(h.depth != 8){
+					alwayswarn("# input file must be 8 bits/channel; skipping %s\n", argv[arg]);
+					continue;
+				}
+				else if(h.mode != ModeGrayScale
+					 && h.mode != ModeIndexedColor
+					 && h.mode != ModeRGBColor)
+				{
+					alwayswarn("# input file must be Grey Scale, Indexed or RGB mode; skipping %s\n", argv[arg]);
+					continue;
+				}
+
 				if(h.nlayers == 0 && !use_merged){
-					alwayswarn("# File has no layers. Using merged image.\n");
+					alwayswarn("# %s has no layers. Using merged image.\n", argv[arg]);
 					use_merged = 1;
 				}
 
@@ -186,12 +198,15 @@ int main(int argc, char *argv[]){
 							   && h.linfo[i].bottom > h.linfo[i].top)
 							{
 								VERBOSE("  layer %3d xcf @ %7ld  \"%s\"\n",
-										i, (long)h.linfo[i].xcf_pos, h.linfo[i].unicode_name);
+										i,
+										(long)h.linfo[i].xcf_pos,
+										h.linfo[i].unicode_name ? h.linfo[i].unicode_name : h.linfo[i].name);
 								put4xcf(xcf, h.linfo[i].xcf_pos);
 							}
 							else{
 								VERBOSE("  layer %3d       skipped  \"%s\"\n",
-										i, h.linfo[i].unicode_name);
+										i,
+										h.linfo[i].unicode_name ? h.linfo[i].unicode_name : h.linfo[i].name);
 							}
 						}
 					}
@@ -204,6 +219,8 @@ int main(int argc, char *argv[]){
 
 					// -------------- XCF file is complete --------------
 					fclose(xcf);
+
+					UNQUIET("Done: %s\n\n", argv[arg]);
 				}
 				else{
 					fatal("could not open xcf file for writing\n");
@@ -273,7 +290,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - any remaining alpha or spot channels.
 
-		UNQUIET("\nmerged image, %4ld rows x %4ld cols\n", h->rows, h->cols);
+		UNQUIET("merged image, %4ld rows x %4ld cols\n", h->rows, h->cols);
 
 		dochannel(f, NULL, merged_chans, h->channels, h);
 
@@ -297,7 +314,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 			char ch_name[16];
 			xcf_chan_pos = checkmalloc(extra_chan*sizeof(off_t));
 
-			UNQUIET("\nextra channels (%d)\n", extra_chan);
+			UNQUIET("extra channels (%d)\n", extra_chan);
 			for(ch = mode_channel_count[h->mode] + h->mergedalpha, i = 0;
 				ch < h->channels;
 				++ch, ++i)
