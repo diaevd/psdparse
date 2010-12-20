@@ -377,11 +377,14 @@ static long doirb(psd_file_t f){
 	size = get4B(f);
 	padded_size = PAD2(size);
 
-	UNQUIET("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
-			type[0],type[1],type[2],type[3], id, name, size);
-	if( (d = findbyid(id)) )
-		UNQUIET(" [%s]", d->desc);
-	UNQUIET("\n");
+	d = findbyid(id);
+	if(verbose || print_rsrc){
+		printf("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
+			   type[0],type[1],type[2],type[3], id, name, size);
+		if(d)
+			printf(" [%s]", d->desc);
+		putchar('\n');
+	}
 
 	if(d && d->tag){
 		if(xml){

@@ -272,9 +272,9 @@ extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
 extern const int mode_channel_count[];
 
 extern char dirsep[], *pngdir;
-extern int verbose, quiet, rsrc, resdump, extra, makedirs, numbered,
-		   help, split, nwarns, writepng, writelist, writexml, xmlout,
-		   unicode_filenames;
+extern int verbose, quiet, rsrc, print_rsrc, resdump, extra, makedirs,
+		   numbered, help, split, nwarns, writepng, writelist,
+		   writexml, xmlout, unicode_filenames;
 
 extern FILE *xml, *listfile;
 

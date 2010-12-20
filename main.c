@@ -25,7 +25,7 @@ extern int nwarns;
 extern char indir[];
 
 char *pngdir = indir;
-int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, resdump = 0, extra = 0,
+int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, print_rsrc = 0, resdump = 0, extra = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
 	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0, unicode_filenames = 0;
@@ -45,8 +45,8 @@ void usage(char *prog, int status){
   -V, --version      show version\n\
   -v, --verbose      print more information\n\
   -q, --quiet        work silently\n\
-  -r, --resources    process 'image resources' metadata\n\
-      --resdump      show hex dump of resource contents (implies --resources)\n\
+  -r, --resources    process and print 'image resources' metadata\n\
+      --resdump      print hex dump of resource contents (implies --resources)\n\
   -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]){
 		{"version",    no_argument, NULL, 'V'},
 		{"verbose",    no_argument, &verbose, 1},
 		{"quiet",      no_argument, &quiet, 1},
-		{"resources",  no_argument, &rsrc, 1},
+		{"resources",  no_argument, NULL, 'r'},
 		{"resdump",    no_argument, &resdump, 1},
 		{"extra",      no_argument, &extra, 1},
 		{"writepng",   no_argument, &writepng, 1},
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]){
 			return EXIT_SUCCESS;
 		case 'v': verbose = 1; break;
 		case 'q': quiet = 1; break;
-		case 'r': rsrc = 1; break;
+		case 'r': rsrc = print_rsrc = 1; break;
 		case 'e': extra = 1; break;
 		case 'd': pngdir = optarg; // fall through
 		case 'w': writepng = 1; break;

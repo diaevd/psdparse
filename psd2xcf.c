@@ -33,7 +33,7 @@
  * and then writes the XCF using routines in xcf.c
  */
 
-int verbose = 0, quiet = 0, rsrc = 1, resdump = 0, extra = 0,
+int verbose = 0, quiet = 0, rsrc = 1, print_rsrc = 0, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
 	use_merged = 0, merged_only = 0, extra_chan;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]){
 						extra_chan = h.channels - mode_channel_count[h.mode] - h.mergedalpha;
 						if(extra_chan < 0){
 							alwayswarn("# unexpected psd channel count: %d  (expected mode channels: %d + merged alpha: %d)\n",
-									h.channels, mode_channel_count[h.mode], h.mergedalpha);
+									   h.channels, mode_channel_count[h.mode], h.mergedalpha);
 							extra_chan = 0;
 						}
 						for(i = extra_chan; i--;)
