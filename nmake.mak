@@ -81,6 +81,12 @@ OBJ = main.obj writepng.obj writeraw.obj unpackbits.obj write.obj \
       version.res \
       $(ZLIBOBJ) $(PNGOBJ)
 
+PSD2XCF_OBJ = psd2xcf.obj xcf.obj \
+	  unpackbits.obj resources.obj icc.obj extra.obj constants.obj \
+	  util.obj descriptor.obj channel.obj psd.obj pdf.obj psd_zip.obj \
+      getopt.obj getopt1.obj \
+      version.res
+
 all : psdparse.exe
 
 clean :
@@ -88,3 +94,6 @@ clean :
 
 psdparse.exe : $(OBJ)
 	$(CC) /Fe$@ $(**F) $(LIBICONV)\lib\*
+
+psd2xcf.exe : $(PSD2XCF_OBJ)
+	$(CC) /Fe$@ $(**F) $(LIBICONV)\lib\* /MT Ws2_32.lib
