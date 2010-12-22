@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2010 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +22,9 @@
  */
 
 #include "psdparse.h"
+
+#define ASCII_LF 012
+#define ASCII_CR 015
 
 #define MAX_NAMES 32
 #define MAX_DICTS 32 // dict/array nesting limit
@@ -46,18 +49,18 @@ int is_pdf_delim(char c){
 size_t pdf_string(char **p, char *outbuf, size_t n){
 	int paren = 1;
 	size_t cnt;
+	char c;
 
 	for(cnt = 0; n;){
-		char c = *(*p)++;
 		--n;
-		switch(c){
-		case 015:
-			if(n && (*p)[0] == 012){ // eat the linefeed in a cr/lf pair
+		switch(c = *(*p)++){
+		case ASCII_CR:
+			if(n && (*p)[0] == ASCII_LF){ // eat the linefeed in a cr/lf pair
 				++(*p);
 				--n;
 			}
-			c = 012; // single end-of-line (lf)
-		case 012:
+			c = ASCII_LF;
+		case ASCII_LF:
 			break;
 		case '(':
 			++paren;
@@ -70,44 +73,37 @@ size_t pdf_string(char **p, char *outbuf, size_t n){
 			if(!n)
 				return cnt; // ran out of data
 			--n;
-			switch(*(*p)++){
-			case 015: // line continuation; skip newline
-				if(n && (*p)[0] == 012){ // eat the linefeed in a cr/lf pair
+			switch(c = *(*p)++){
+			case ASCII_CR: // line continuation; skip newline
+				if(n && (*p)[0] == ASCII_LF){ // eat the linefeed in a cr/lf pair
 					++(*p);
 					--n;
 				}
-			case 012:
+			case ASCII_LF:
 				continue;
-			case 'n': c = 012; break; // LF
-			case 'r': c = 015; break; // CR
-			case 't': c = 011; break; // HT
-			case 'b': c = 010; break; // BS
-			case 'f': c = 014; break; // FF
+			case 'n': c = ASCII_LF; break;
+			case 'r': c = ASCII_CR; break;
+			case 't': c = 011; break; // horizontal tab
+			case 'b': c = 010; break; // backspace
+			case 'f': c = 014; break; // formfeed
 			case '(':
 			case ')':
 			case '\\': c = (*p)[-1]; break;
-			default:
-				// octal escape?
-				if(isdigit((*p)[-1])){
-					c = (*p)[-1]-'0';
+			case '0': case '1': case '2': case '3':
+			case '4': case '5': case '6': case '7':
+				// octal escape
+				c = (*p)[-1] - '0';
+				if(n >= 1 && isdigit((*p)[0])){
+					c = (c << 3) | ((*p)[0] - '0');
+					++p;
+					--n;
 					if(n >= 1 && isdigit((*p)[0])){
 						c = (c << 3) | ((*p)[0] - '0');
 						++p;
 						--n;
-						if(n >= 1 && isdigit((*p)[0])){
-							c = (c << 3) | ((*p)[0] - '0');
-							++p;
-							--n;
-						}
 					}
-				}else{
-					// did not recognise the escape; ignore backslash
-					if(c != 012 && c != 015){
-						--(*p);
-						++n;
-					}
-					continue;
 				}
+				break;
 			}
 		}
 		if(outbuf)
@@ -178,33 +174,17 @@ size_t pdf_name(char **p, char *outbuf, size_t n){
 static char *name_stack[MAX_NAMES];
 static unsigned name_tos, in_array;
 
-void push_name(const char *indent, char *tag){
+void push_name(char *tag){
 	if(name_tos == MAX_NAMES)
 		fatal("name stack overflow");
 	name_stack[name_tos++] = tag;
-
-	fprintf(xml, "%s<%s>", indent, tag);
 }
 
-void pop_name(const char *indent){
-	if(name_tos){
-		fprintf(xml, "%s</%s>\n", indent, name_stack[--name_tos]);
-		free(name_stack[name_tos]);
-	}
+void pop_name(){
+	if(name_tos)
+		free(name_stack[--name_tos]);
 	else
 		warn_msg("pop_name(): underflow");
-}
-
-void begin_value(const char *indent){
-	if(in_array)
-		fprintf(xml, "%s<e>", indent);
-}
-
-void end_value(){
-	if(in_array)
-		fputs("</e>\n", xml);
-	else
-		pop_name("");
 }
 
 // Write a string representation to XML. Either convert to UTF-8
@@ -227,10 +207,8 @@ should be prepared to handle supplementary characters;
 that is, characters requiring more than two bytes to represent.
 */
 
-void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
-	begin_value(indent);
-
-	if(cnt >= 2 && strbuf[0] == 0xfe && strbuf[1] == 0xff){
+void stringxml(char *strbuf, size_t cnt){
+	if(cnt >= 2 && (strbuf[0] & 0xff) == 0xfe && (strbuf[1] & 0xff) == 0xff){
 #ifdef HAVE_ICONV_H
 		size_t inb, outb;
 		char *inbuf, *outbuf, *utf8;
@@ -240,7 +218,7 @@ void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
 		outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
 		if( (utf8 = malloc(outb)) ){
 			// skip the meaningless BOM
-			inbuf = (char*)strbuf + 2;
+			inbuf = strbuf + 2;
 			inb = cnt - 2;
 			outbuf = utf8;
 			if(ic != (iconv_t)-1){
@@ -252,10 +230,26 @@ void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
 			free(utf8);
 		}
 #endif
-	}else
+	}
+	else
 		fputsxml((char*)strbuf, xml); // not UTF; should be PDFDocEncoded
+}
 
-	end_value();
+void begin_element(const char *indent){
+	if(in_array)
+		fprintf(xml, "%s<e>", indent);
+	else if(name_tos)
+		fprintf(xml, "%s<%s>", indent, name_stack[name_tos-1]);
+}
+
+void end_element(const char *indent){
+	if(in_array){
+		fprintf(xml, "%s</e>\n", indent);
+	}
+	else if(name_tos){
+		fprintf(xml, "%s</%s>\n", indent, name_stack[name_tos-1]);
+		pop_name();
+	}
 }
 
 // Implements a "ghetto" PDF syntax parser - just the minimum needed
@@ -265,9 +259,6 @@ void stringxml(const char *indent, unsigned char *strbuf, size_t cnt){
 // to emulate proper behaviour here but rather keep a 'stack' of names
 // only in order to generate correct closing tags,
 // and remember whether the 'current' object is a dictionary or array.
-
-// I've arbitrarily chosen to represent 'anonymous' dictionaries
-// <d></d> and array elements by <e></e>
 
 static void pdf_data(char *buf, size_t n, int level){
 	char *p, *q, *strbuf, c;
@@ -294,7 +285,9 @@ static void pdf_data(char *buf, size_t n, int level){
 			n -= p - q;
 			strbuf[cnt] = 0;
 
-			stringxml(tabs(level), (unsigned char*)strbuf, cnt);
+			begin_element(tabs(level));
+			stringxml(strbuf, cnt);
+			end_element("");
 
 			free(strbuf);
 			break;
@@ -303,15 +296,13 @@ static void pdf_data(char *buf, size_t n, int level){
 			if(n && *p == '<'){ // dictionary literal
 				++p;
 				--n;
-				// if beginning a dictionary inside an array, there is
-				// no name to use.
-				if(in_array)
-					push_name(tabs(level), strdup("d"));
 		case '[':
-				if(name_tos){ // only if a name has opened an element
-					++level;
+				begin_element(tabs(level));
+				if(name_tos){
 					fputc('\n', xml);
+					++level;
 				}
+
 				if(dict_tos == MAX_DICTS)
 					fatal("dict stack overflow");
 				is_array[dict_tos++] = in_array = c == '[';
@@ -326,7 +317,9 @@ static void pdf_data(char *buf, size_t n, int level){
 				n -= p - q;
 				strbuf[cnt] = 0;
 
-				stringxml(tabs(level), (unsigned char*)strbuf, cnt);
+				begin_element(tabs(level));
+				stringxml(strbuf, cnt);
+				end_element("");
 
 				free(strbuf);
 			}
@@ -343,8 +336,7 @@ static void pdf_data(char *buf, size_t n, int level){
 					warn_msg("dict stack underflow");
 				in_array = dict_tos && is_array[dict_tos-1];
 
-				if(name_tos)
-					pop_name(tabs(--level));
+				end_element(tabs(--level));
 			}
 			break;
 
@@ -360,15 +352,22 @@ static void pdf_data(char *buf, size_t n, int level){
 			strbuf[cnt] = 0;
 			n -= p - q;
 
-			// if a name occurs inside an array, emit a single empty element
-			if(in_array)
-				fprintf(xml, "%s<%s/>\n", tabs(level), strbuf);
-			else // otherwise it's a dictionary key; open an element
-				push_name(tabs(level), (char*)strbuf);
+			// FIXME: This won't work correctly if a name is given as a
+			//        value for a dictionary key (we need to track of
+			//        whether name is key or value)
+			if(in_array){
+				begin_element(tabs(level));
+				stringxml(strbuf, cnt);
+				end_element("");
+				free(strbuf);
+			}
+			else{ // it's a dictionary key
+				push_name(strbuf);
+			}
 			break;
 
 		case '%': // skip comment
-			while(n && *p != '\012' && *p != '\015'){
+			while(n && *p != ASCII_CR && *p != ASCII_LF){
 				++p;
 				--n;
 			}
@@ -377,18 +376,23 @@ static void pdf_data(char *buf, size_t n, int level){
 		default:
 			if(!is_pdf_white(c)){
 				// numeric or boolean literal, or null
-				// FIXME: If a dictionary key has value null, the key
-				//        should not be created. (7.3.7)
-				begin_value(tabs(level));
-
-				// copy characters until whitespace or delimiter
-				fputcxml(c, xml);
+				// use characters until whitespace or delimiter
+				q = p-1;
 				while(n && !is_pdf_white(*p) && !is_pdf_delim(*p)){
-					fputcxml(*p++, xml);
+					++p;
 					--n;
 				}
 
-				end_value();
+				c = *p;
+				*p = 0;
+				// If a dictionary value has value null, the key
+				// should not be created. (7.3.7)
+				if(in_array || strcmp(q, "null")){
+					begin_element(tabs(level));
+					fputs(q, xml);
+					end_element("");
+				}
+				*p = c;
 			}
 			break;
 		}
@@ -397,7 +401,7 @@ static void pdf_data(char *buf, size_t n, int level){
 	// close any open elements (should not happen)
 	while(name_tos){
 		warn_msg("unclosed element %s", name_stack[name_tos-1]);
-		pop_name(tabs(--level));
+		pop_name();
 	}
 }
 
@@ -406,11 +410,6 @@ void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	char *buf = malloc(count);
 
 	if(buf){
-		/* The raw PDF data is not valid UTF-8 and may break XML parse.
-		fprintf(xml, "%s<RAW><![CDATA[", tabs(level));
-		fwrite(buf, 1, count, xml);
-		fputs("]]></RAW>\n", xml); */
-
 		pdf_data(buf, fread(buf, 1, count, f), level);
 
 		free(buf);
