@@ -329,15 +329,19 @@ static void pdf_data(char *buf, size_t n, int level){
 			if(n && *p == '>'){
 				++p;
 				--n;
-		case ']':
-				if(dict_tos)
-					--dict_tos;
-				else
-					warn_msg("dict stack underflow");
-				in_array = dict_tos && is_array[dict_tos-1];
-
-				end_element(tabs(--level));
 			}
+			else{
+				warn_msg("misplaced >");
+				continue;
+			}
+		case ']':
+			if(dict_tos)
+				--dict_tos;
+			else
+				warn_msg("dict stack underflow");
+			in_array = dict_tos && is_array[dict_tos-1];
+
+			end_element(tabs(--level));
 			break;
 
 		case '/':
@@ -362,6 +366,8 @@ static void pdf_data(char *buf, size_t n, int level){
 				free(strbuf);
 			}
 			else{ // it's a dictionary key
+				// FIXME: we need to deal with zero-length key, and
+				//        characters unsuitable for XML element name.
 				push_name(strbuf);
 			}
 			break;
