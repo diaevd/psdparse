@@ -222,9 +222,9 @@ int main(int argc, char *argv[]){
 				// this is found immediately after the 'image data' section
 				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra){
+					VERBOSE("## global additional info @ %ld (%ld bytes)\n", (long)ftello(f), (long)k);
 					if(xml)
 						fputs("\t<GLOBALINFO>\n", xml);
-printf("global @ %ld ... supposed length = %ld\n", ftello(f), k);
 					doadditional(f, &h, 2, k); // write description to XML
 
 					if(xml)

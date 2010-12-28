@@ -186,21 +186,22 @@ void colorspace(int level, int space, unsigned char data[]){
 		memcpy(str, data, 8);
 		str[8] = 0;
 
+		fprintf(xml, "%s<COLOR>\n", indent);
 		if(!sp){ // did not find the matching colour space id
 			// There's not much point in parsing this, but spit out
 			// the component values and a possible string anyway.
-			fprintf(xml, "%s<UNKNOWNCOLORSPACE>\n", indent);
-			fprintf(xml, "\t%s<ID>%d</ID>\n", indent, space);
-			fprintf(xml, "\t%s<STRING>%s</STRING>\n", indent, str);
+			fprintf(xml, "\t%s<UNKNOWNCOLORSPACE>\n", indent);
+			fprintf(xml, "\t\t%s<ID>%d</ID>\n", indent, space);
+			fprintf(xml, "\t\t%s<STRING>%s</STRING>\n", indent, str);
 			for(i = 0; i < 4; ++i)
-				fprintf(xml, "\t%s<COMPONENT>%u</COMPONENT>\n",
+				fprintf(xml, "\t\t%s<COMPONENT>%u</COMPONENT>\n",
 						indent, (data[i*2]<<8) | data[i*2+1]);
-			fprintf(xml, "%s</UNKNOWNCOLORSPACE>\n", indent);
+			fprintf(xml, "\t%s</UNKNOWNCOLORSPACE>\n", indent);
 		}
 		else if(sp->components && sp->components[0] == '*'){
 			// In some spaces, this is a readable string value
 			// (though this isn't endorsed by documentation).
-			fprintf(xml, "%s<%s>", indent, sp->name);
+			fprintf(xml, "\t%s<%s>", indent, sp->name);
 			fputsxml((char*)str, xml);
 			fprintf(xml, "</%s>\n", sp->name);
 		}
@@ -208,19 +209,20 @@ void colorspace(int level, int space, unsigned char data[]){
 			// This is a recognised colour space, so we can label
 			// the component elements.
 			int n = strlen(sp->components);
-			fprintf(xml, "%s<%s>\n", indent, sp->name);
+			fprintf(xml, "\t%s<%s>", indent, sp->name);
 			for(i = 0; i < 4; ++i){
 				unsigned value = (data[i*2]<<8) | data[i*2+1];
 				// use initials for each component's element
 				if(i < n)
-					fprintf(xml, "\t%s<%c>%u</%c>\n", indent,
+					fprintf(xml, " <%c>%u</%c>",
 							sp->components[i], value, sp->components[i]);
 			}
-			fprintf(xml, "%s</%s>\n", indent, sp->name);
+			fprintf(xml, " </%s>\n", sp->name);
 		}
 		else{
-			fprintf(xml, "%s<%s/>\n", indent, sp->name);
+			fprintf(xml, "\t%s<%s/>\n", indent, sp->name);
 		}
+		fprintf(xml, "%s</COLOR>\n", indent);
 	}
 }
 
