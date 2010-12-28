@@ -123,7 +123,7 @@ int main(int argc, char *argv[]){
 				   " - Copyright (C) 1995-2005 Jean-loup Gailly and Mark Adler"
 				   "%s", png_get_copyright(NULL));
 			return EXIT_SUCCESS;
-		case 'v': verbose = 1; break;
+		case 'v': ++verbose; break;
 		case 'q': quiet = 1; break;
 		case 'r': rsrc = print_rsrc = 1; break;
 		case 'e': extra = 1; break;
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]){
 				if(extra){
 					if(xml)
 						fputs("\t<GLOBALINFO>\n", xml);
-
+printf("global @ %ld ... supposed length = %ld\n", ftello(f), k);
 					doadditional(f, &h, 2, k); // write description to XML
 
 					if(xml)

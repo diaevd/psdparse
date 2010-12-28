@@ -33,17 +33,35 @@ static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *pa
 
 #define BYTESPERLINE 16
 
-static void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
-	unsigned char row[BYTESPERLINE];
-	int i, n;
+void dumphex(unsigned char *data, long size){
+	unsigned char *p;
+	long j, n;
 
-	for(; len; len -= n){
-		n = len < BYTESPERLINE ? len : BYTESPERLINE;
-		fread(row, 1, n, f);
-		for(i = 0; i < n; ++i)
-			VERBOSE("%02x ", row[i]);
+	for(p = data; size; p += BYTESPERLINE, size -= n){
+		fputs("    ", stdout);
+		n = size > BYTESPERLINE ? BYTESPERLINE : size;
+		for(j = 0; j < n; ++j)
+			printf("%02x ", p[j]);
+		for(; j < BYTESPERLINE+1; ++j)
+			fputs("   ", stdout);
+		for(j = 0; j < n; ++j)
+			printf("%c", isprint(p[j]) ? p[j] : '.');
 		putchar('\n');
 	}
+}
+
+void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent){
+	unsigned char row[BYTESPERLINE];
+	int n;
+
+	if(verbose)
+		for(; len; len -= n){
+			n = len < BYTESPERLINE ? len : BYTESPERLINE;
+			fread(row, 1, n, f);
+			dumphex(row, n);
+		}
+	else
+		fseeko(f, len, SEEK_CUR);
 }
 
 void ir_string(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -168,7 +186,9 @@ static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry 
 
 static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	long v = get4B(f), n = get4B(f), x, y, space;
+	long v = get4B(f), n = get4B(f), x, y;
+	int space;
+	struct colour_space *sp;
 
 	if(xml){
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
@@ -177,9 +197,87 @@ static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry 
 			y = get4B(f);
 			x = get4B(f);
 			space = get2B(f);
+			sp = find_colour_space(space);
 			fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x/32., y/32.); // undocumented fixed point factor
-			fprintf(xml, "\t%s<COLORSPACE>%s</COLORSPACE>\n", indent, colour_spaces[space+1]);
+			if(sp)
+				fprintf(xml, "\t%s<COLORSPACE> <%s/> </COLORSPACE>\n", indent, sp->name);
+			else
+				fprintf(xml, "\t%s<COLORSPACE>%d</COLORSPACE>\n", indent, space);
 			fprintf(xml, "%s</SAMPLER>\n", indent);
+		}
+	}
+}
+
+// Print XML for a DisplayInfo structure (see Photoshop API doc, Appendix A).
+
+static void displayinfo(int level, unsigned char data[]){
+	static const char *kind[] = {"ALPHACOLORSELECTED", "ALPHACOLORMASKED", "SPOTCHANNEL"};
+	const char *indent = tabs(level);
+
+	if(xml){
+		fprintf(xml, "%s<%s>\n", indent, kind[data[12]]);
+		colorspace(level+1, (data[0]<<8) | data[1], data+2);
+		fprintf(xml, "\t%s<OPACITY>%d</OPACITY>\n", indent,(data[10]<<8) | data[11]);
+		// kind values seem to be:
+		// 0 = alpha channel, colour indicates selected areas
+		// 1 = alpha channel, colour indicates masked areas
+		// 2 = spot colour channel
+		//fprintf(xml, "\t%s<KIND>%d</KIND>\n", indent, data[12]);
+		fprintf(xml, "%s</%s>\n", indent, kind[data[12]]);
+	}
+}
+
+static void ir_displayinfo(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		for(; len >= 14; len -= 14){
+			unsigned char data[14];
+			fread(data, 1, 14, f);
+			displayinfo(level, data);
+		}
+	}
+}
+
+static void ir_displayinfocs3(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		len -= 4;
+		for(; len >= 13; len -= 13){
+			unsigned char data[13];
+			// it seems as if this resource doesn't use DisplayInfo padding
+			// (this divergence from API description isn't mentioned in File Format doc)
+			fread(data, 1, 13, f);
+			displayinfo(level, data);
+		}
+	}
+}
+
+static void ir_altduotonecolors(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	unsigned i;
+
+	if(xml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
+		for(i = get2B(f); i--;)
+			ed_colorspace(f, level);
+		for(i = get2B(f); i--;){
+			int L = fgetc(f), a = fgetc(f), b = fgetc(f);
+			fprintf(xml, "%s<kLabSpace> <L>%d</L> <a>%d</a> <b>%d</b> </kLabSpace>\n",
+					indent, L, a, b);
+		}
+	}
+}
+
+static void ir_altspotcolors(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	unsigned i;
+
+	if(xml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
+		for(i = get2B(f); i--;){
+			fprintf(xml, "%s<CHANNEL>\n", indent);
+			fprintf(xml, "\t%s<ID>%ld</ID>\n", indent, get4B(f));
+			ed_colorspace(f, level+1);
+			fprintf(xml, "%s</CHANNEL>\n", indent);
 		}
 	}
 }
@@ -264,7 +362,7 @@ static struct dictentry rdesc[] = {
 	{1003, NULL, NULL, "PS2.0 indexed color table", NULL},
 	{1005, NULL, "-RESOLUTION", "ResolutionInfo", ir_resolution},
 	{1006, NULL, "ALPHA", "Alpha names", ir_pstrings},
-	{1007, NULL, NULL, "DisplayInfo", NULL},
+	{1007, NULL, "DISPLAYINFO", "DisplayInfo", ir_displayinfo},
 	{1008, NULL, "-CAPTION", "Caption", ir_pstring},
 	{1009, NULL, NULL, "Border information", NULL},
 	{1010, NULL, NULL, "Background color", NULL},
@@ -320,8 +418,36 @@ static struct dictentry rdesc[] = {
 	// CS
 	{1064, NULL, "-PIXELASPECTRATIO", "Pixel aspect ratio", ir_pixelaspect},
 	{1065, NULL, "LAYERCOMPS", "Layer comps", ed_versdesc},
-	{1066, NULL, NULL, "Alternate duotone colors", NULL},
-	{1067, NULL, NULL, "Alternate spot colors", NULL},
+	{1066, NULL, "ALTDUOTONECOLORS", "Alternate duotone colors", ir_altduotonecolors},
+	{1067, NULL, "ALTSPOTCOLORS", "Alternate spot colors", ir_altspotcolors},
+
+	// CS2 - July 2010 document
+	{1069, NULL, NULL, "Layer Selection ID(s)", NULL},
+	{1070, NULL, NULL, "HDR Toning information", NULL},
+	{1071, NULL, NULL, "Print info", NULL},
+	{1072, NULL, NULL, "Layer Group(s) Enabled ID", NULL},
+
+	// CS3 - July 2010 document
+	{1073, NULL, NULL, "Colour samplers resource", NULL},
+	{1074, NULL, "MEASUREMENTSCALE", "Measurement Scale", ed_versdesc},
+	{1075, NULL, "TIMELINE", "Timeline Information", ed_versdesc},
+	{1076, NULL, "SHEETDISCLOSURE", "Sheet Disclosure", ed_versdesc},
+	{1077, NULL, "DISPLAYINFOCS3", "DisplayInfo (CS3)", ir_displayinfocs3},
+	{1078, NULL, "ONIONSKINS", "Onion Skins", ed_versdesc},
+
+	// CS4 - July 2010 document
+	{1080, NULL, "COUNT", "Count Information", ed_versdesc},
+
+	// CS5 - July 2010 document
+	{1082, NULL, "PRINTSETTINGS", "Print Information", ed_versdesc},
+	{1083, NULL, "PRINTSTYLE", "Print Style", ed_versdesc},
+	{1084, NULL, NULL, "Macintosh NSPrintInfo", NULL},
+	{1085, NULL, NULL, "Windows DEVMODE", NULL},
+
+	{7000, NULL, NULL, "ImageReady variables", ir_cdata},
+	{7001, NULL, NULL, "ImageReady data sets", NULL},
+
+	{8000, NULL, NULL, "Lightroom workflow", NULL}, // CS3 per July 2010 document
 
 	{2999, NULL, "-CLIPPINGPATH", "Name of clipping path", ir_pstring},
 	{10000,NULL, "PRINTFLAGS10K", "Print flags info", ir_printflags10k},
@@ -342,31 +468,12 @@ static struct dictentry *findbyid(int id){
 	return NULL;
 }
 
-#define BYTES_LINE 16
-void dumphex(unsigned char *data, long size){
-	unsigned char *p;
-	long j, n;
-
-	for(p = data; size; p += BYTES_LINE, size -= n){
-		fputs("    ", stdout);
-		n = size > BYTES_LINE ? BYTES_LINE : size;
-		for(j = 0; j < n; ++j)
-			printf("%02x ", p[j]);
-		for(; j < BYTES_LINE+1; ++j)
-			fputs("   ", stdout);
-		for(j = 0; j < n; ++j)
-			printf("%c", isprint(p[j]) ? p[j] : '.');
-		putchar('\n');
-	}
-	putchar('\n');
-}
-
 static long doirb(psd_file_t f){
 	static struct dictentry resource = {0, NULL, "RESOURCE", "dummy", NULL};
 	char type[4], name[0x100];
 	int id, namelen;
 	long size;
-	off_t padded_size;
+	size_t padded_size;
 	struct dictentry *d;
 
 	fread(type, 1, 4, f);
@@ -378,7 +485,7 @@ static long doirb(psd_file_t f){
 	padded_size = PAD2(size);
 
 	d = findbyid(id);
-	if(verbose || print_rsrc){
+	if((verbose || print_rsrc || resdump) && !xmlout){
 		printf("  resource '%c%c%c%c' (%5d,\"%s\"):%5ld bytes",
 			   type[0],type[1],type[2],type[3], id, name, size);
 		if(d)
@@ -401,7 +508,7 @@ static long doirb(psd_file_t f){
 			if(xml) fputs("\t</RESOURCE>\n\n", xml);
 		}
 		else if(xml){
-			fputs(" />\n", xml);
+			fputs(" /> <!-- not parsed -->\n", xml);
 		}
 	}
 	if(resdump){

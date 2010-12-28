@@ -53,14 +53,27 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 		strcpy(pngname, name);
 
 		if(chan[ch].id == LMASK_CHAN_ID){
+					if(xml){
+						fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
+								li->mask.top, li->mask.left, li->mask.bottom, li->mask.right,
+								li->mask.bottom - li->mask.top, li->mask.right - li->mask.left,
+								li->mask.default_colour);
+						if(li->mask.flags & 1) fputs("\t\t\t<POSITIONRELATIVE />\n", xml);
+						if(li->mask.flags & 2) fputs("\t\t\t<DISABLED />\n", xml);
+						if(li->mask.flags & 4) fputs("\t\t\t<INVERT />\n", xml);
+					}
+					strcat(pngname, ".lmask");
+		}else if(chan[ch].id == UMASK_CHAN_ID){
 			if(xml){
-				fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
-						li->mask.top, li->mask.left, li->mask.bottom, li->mask.right, li->mask.rows, li->mask.cols, li->mask.default_colour);
-				if(li->mask.flags & 1) fputs("\t\t\t<POSITIONRELATIVE />\n", xml);
-				if(li->mask.flags & 2) fputs("\t\t\t<DISABLED />\n", xml);
-				if(li->mask.flags & 4) fputs("\t\t\t<INVERT />\n", xml);
+				fprintf(xml, "\t\t<USERLAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
+						li->mask.real_top, li->mask.real_left, li->mask.real_bottom, li->mask.real_right,
+						li->mask.real_bottom - li->mask.real_top, li->mask.real_right - li->mask.real_left,
+						li->mask.real_default_colour);
+				if(li->mask.real_flags & 1) fputs("\t\t\t<POSITIONRELATIVE />\n", xml);
+				if(li->mask.real_flags & 2) fputs("\t\t\t<DISABLED />\n", xml);
+				if(li->mask.real_flags & 4) fputs("\t\t\t<INVERT />\n", xml);
 			}
-			strcat(pngname, ".lmask");
+			strcat(pngname, ".umask");
 		}else if(chan[ch].id == TRANS_CHAN_ID){
 			if(xml) fputs("\t\t<TRANSPARENCY>\n", xml);
 			strcat(pngname, li ? ".trans" : ".alpha");
@@ -136,7 +149,6 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 
 		image_data_end = ftello(f);
-		VERBOSE("## layer image data end @ %ld\n", image_data_end);
 
 		if(writepng){
 			nwarns = 0;

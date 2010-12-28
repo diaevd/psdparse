@@ -560,14 +560,14 @@ static const char *xcf_modes[] = {
 	"over", //"OVERLAY"
 	"diff", //"DIFFERENCE"
 	"",     // Addition
-	"",     // Subtract
+	"fsub", // Subtract
 	"dark", //"DARKEN"
 	"lite", //"LIGHTEN"
 	"hue ", //"HUE"
 	"sat ", //"SATURATION"
 	"colr", //"COLOR"
 	"",     // Value
-	"",     // Divide
+	"fdiv", // Divide
 	"div ", //"COLOR DODGE"
 	"idiv", //"COLOR BURN"
 	"hLit", //"HARD LIGHT"

@@ -23,10 +23,17 @@ char dirsep[] = {DIRSEP,0};
 FILE *listfile = NULL, *xml = NULL;
 
 void skipblock(psd_file_t f, char *desc){
+	extern void ir_dump(psd_file_t f, int level, int len, struct dictentry *parent);
 	psd_bytes_t n = get4B(f);
 	if(n){
-		fseeko(f, n, SEEK_CUR);
-		VERBOSE("  ...skipped %s (" LL_L("%lld","%ld") " bytes)\n", desc, n);
+		if(verbose > 1){
+			VERBOSE("%s:\n", desc);
+			ir_dump(f, 0, n, NULL);
+		}
+		else{
+			fseeko(f, n, SEEK_CUR);
+			VERBOSE("  ...skipped %s (" LL_L("%lld","%ld") " bytes)\n", desc, n);
+		}
 	}else
 		VERBOSE("  (%s is empty)\n", desc);
 }
@@ -69,10 +76,10 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 	else
 	{
 		li->chan = checkmalloc(li->channels*sizeof(struct channel_info));
-		li->chindex = checkmalloc((li->channels+2)*sizeof(int));
-		li->chindex += 2; // so we can index array from [-2] (hackish)
+		li->chindex = checkmalloc((li->channels+3)*sizeof(int));
+		li->chindex += 3; // so we can index array from [-3] (hackish)
 
-		for(j = -2; j < li->channels; ++j)
+		for(j = -3; j < li->channels; ++j)
 			li->chindex[j] = -1;
 
 		// fetch info on each of the layer's channels
@@ -81,12 +88,13 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 			chid = li->chan[j].id = get2B(f);
 			chlen = li->chan[j].length = GETPSDBYTES(f);
 
-			if(chid >= -2 && chid < li->channels)
+			if(chid >= -3 && chid < li->channels)
 				li->chindex[chid] = j;
 			else
 				warn_msg("unexpected channel id %d", chid);
 
 			switch(chid){
+			case UMASK_CHAN_ID: chidstr = " (user layer mask)"; break;
 			case LMASK_CHAN_ID: chidstr = " (layer mask)"; break;
 			case TRANS_CHAN_ID: chidstr = " (transparency mask)"; break;
 			default:
@@ -114,17 +122,28 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 				LL_L("%lld","%ld") ")\n", extralen, extrastart);
 
 		// fetch layer mask data
-		if( (li->mask.size = get4B(f)) ){
+		li->mask.size = get4B(f);
+		if(li->mask.size >= 20){
+			off_t skip = li->mask.size;
+			VERBOSE("  (has layer mask)\n");
 			li->mask.top = get4B(f);
 			li->mask.left = get4B(f);
 			li->mask.bottom = get4B(f);
 			li->mask.right = get4B(f);
 			li->mask.default_colour = fgetc(f);
 			li->mask.flags = fgetc(f);
-			fseeko(f, li->mask.size-18, SEEK_CUR); // skip remainder
-			li->mask.rows = li->mask.bottom - li->mask.top;
-			li->mask.cols = li->mask.right - li->mask.left;
-			VERBOSE("  (has layer mask)\n");
+			skip -= 18;
+			if(li->mask.size >= 36){
+				VERBOSE("  (has user layer mask)\n");
+				li->mask.real_flags = fgetc(f);
+				li->mask.real_default_colour = fgetc(f);
+				li->mask.real_top = get4B(f);
+				li->mask.real_left = get4B(f);
+				li->mask.real_bottom = get4B(f);
+				li->mask.real_right = get4B(f);
+				skip -= 18;
+			}
+			fseeko(f, skip, SEEK_CUR); // skip remainder
 		}else
 			VERBOSE("  (no layer mask)\n");
 
@@ -304,7 +323,10 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				alwayswarn("### something isn't right about that header, giving up now.\n");
 			else{
 				h->colormodepos = ftello(f);
-				skipblock(f, "color mode data");
+				if(h->mode == ModeDuotone)
+					duotone_data(f, 1);
+				else
+					skipblock(f, "color mode data");
 
 				if(rsrc || resdump)
 					doimageresources(f);

@@ -93,10 +93,18 @@ void dochannel(psd_file_t f,
 
 		// If this is a layer mask, the pixel size is a special case
 		if(chan->id == LMASK_CHAN_ID){
-			chan->rows = li->mask.rows;
-			chan->cols = li->mask.cols;
+			chan->rows = li->mask.bottom - li->mask.top;
+			chan->cols = li->mask.right - li->mask.left;
 			VERBOSE("# layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",
-					li->mask.top,li->mask.left,li->mask.bottom,li->mask.right,chan->rows,chan->cols);
+					li->mask.top, li->mask.left,
+					li->mask.bottom, li->mask.right, chan->rows, chan->cols);
+		}else if(chan->id == UMASK_CHAN_ID){
+			chan->rows = li->mask.real_bottom - li->mask.real_top;
+			chan->cols = li->mask.real_right - li->mask.real_left;
+			VERBOSE("# user layer mask (%4ld,%4ld,%4ld,%4ld) (%4ld rows x %4ld cols)\n",
+					li->mask.real_top, li->mask.real_left,
+					li->mask.real_bottom, li->mask.real_right,
+					chan->rows, chan->cols);
 		}else{
 			// channel has dimensions of the layer
 			chan->rows = li->bottom - li->top;

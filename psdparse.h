@@ -184,6 +184,7 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 
 #define TRANS_CHAN_ID (-1)
 #define LMASK_CHAN_ID (-2)
+#define UMASK_CHAN_ID (-3)
 
 struct psd_header{
 	char sig[4];
@@ -204,17 +205,23 @@ struct psd_header{
 };
 
 struct layer_mask_info{
-	psd_bytes_t size;
+	psd_bytes_t size; // 36, 20, or zero
+
+	// if size == 20:
 	long top;
 	long left;
 	long bottom;
 	long right;
 	char default_colour;
 	char flags;
-	//char reserved[2]
 
-	// runtime data
-	psd_pixels_t rows,cols;
+	// if size == 36:
+	char real_flags;
+	char real_default_colour;
+	long real_top;
+	long real_left;
+	long real_bottom;
+	long real_right;
 };
 
 struct blend_mode_info{
@@ -267,9 +274,18 @@ struct dictentry{
 	void (*func)(psd_file_t f, int level, int len, struct dictentry *dict);
 };
 
+struct colour_space{
+	const unsigned short id; // colour space ID as defined in, e.g., DisplayInfo structure
+	const char *name,        // colour space name, used for element name in XML
+			   *components;  // points to a string of initials of each colour component, in order
+							 // or "*" if the colour data may be a readable string (e.g. Pantone)
+};
+
 // constants.c:
-extern const char *channelsuffixes[], *mode_names[], *colour_spaces[];
+extern const char *channelsuffixes[], *mode_names[];
+extern struct colour_space colour_spaces[];
 extern const int mode_channel_count[];
+extern const int mode_colour_space[];
 
 extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, print_rsrc, resdump, extra, makedirs,
@@ -306,12 +322,15 @@ void entertag(psd_file_t f, int level, int len, struct dictentry *parent, struct
 struct dictentry *findbykey(psd_file_t f, int level, struct dictentry *dict, char *key, int len, int resetpos);
 void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t length);
 void layerblendmode(psd_file_t f, int level, int len, struct blend_mode_info *bm);
+void colorspace(int level, int space, unsigned char data[]);
+void ed_colorspace(psd_file_t f, int level);
 
 char *conv_unicodestr(psd_file_t f, long count);
 void xml_unicodestr(psd_file_t f, long count);
 void descriptor(psd_file_t f, int level, int len, struct dictentry *dict);
 
 void ed_versdesc(psd_file_t f, int level, int len, struct dictentry *parent);
+struct colour_space *find_colour_space(int space);
 
 void ir_raw(psd_file_t f, int level, int len, struct dictentry *parent);
 
@@ -374,5 +393,7 @@ psd_status psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
 psd_status psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
 	psd_uchar *dst_buf, psd_int dst_len,
 	psd_int row_size, psd_int color_depth);
+
+void duotone_data(psd_file_t f, int level);
 
 #endif

@@ -265,7 +265,6 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 
 		image_data_end = ftello(f);
-		VERBOSE("## layer image data end @ %lld\n", image_data_end);
 
 		// xcf_layer() does alter the input PSD file position!
 		li->xcf_pos = li->right > li->left && li->bottom > li->top
