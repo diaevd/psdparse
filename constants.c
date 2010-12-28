@@ -64,6 +64,7 @@ struct colour_space colour_spaces[] = {
 	{13, "MonitorRGB", "RGB"},
 	{14, "Duotone", "D"},
 	{15, "Opacity", "O"},
+	// following are spaces used by Photoshop's default Colour Libraries
 	{3000, "ANPAColor", "*"},
 	{3031, "PantoneColorBridgeCMYKEC", "*"},
 	{3030, "PantoneColorBridgeCMYKPC", "*"},
@@ -75,5 +76,18 @@ struct colour_space colour_spaces[] = {
 	{3013, "PantoneSolidMatte", "*"},
 	{3028, "PantoneSolidToProcessCoatedEuro", "*"},
 	{3032, "ToyoColorFinder", "*"},
+	// following are from Color Books list (File Formats doc)
+	{3001, "Focoltone", "*"},
+	{3002, "PantoneCoated", "*"},
+	{3003, "PantoneProcess", "*"},
+	{3004, "PantoneProSlim", "*"},
+	{3005, "PantoneUncoated", "*"},
+	{3006, "Toyo", "*"},
+	{3007, "Trumatch", "*"},
+	{3008, "HKSE", "*"},
+	{3009, "HKSK", "*"},
+	{3010, "HKSN", "*"},
+	{3011, "HKSZ", "*"},
+	{3012, "DIC", "*"},
 	{0, NULL, NULL}
 };
