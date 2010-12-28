@@ -598,14 +598,19 @@ static void ed_objecteffects(psd_file_t f, int level, int len, struct dictentry 
 
 // CS doc
 static void ed_vectormask(psd_file_t f, int level, int len, struct dictentry *parent){
+	extern void ir_path(psd_file_t f, int level, int len, struct dictentry *parent);
+	const char *indent = tabs(level);
+	int flags;
+
 	if(xml){
-		int flags;
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
-		flags = fgetc(f);
-		if(flags & 2) fprintf(xml, "%s<INVERT/>\n", tabs(level));
-		if(flags & 4) fprintf(xml, "%s<NOTLINK/>\n", tabs(level));
-		if(flags & 8) fprintf(xml, "%s<DISABLE/>\n", tabs(level));
-		// TODO: path components follow
+		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		flags = get4B(f);
+		if(flags & 2) fprintf(xml, "%s<INVERT/>\n", indent);
+		if(flags & 4) fprintf(xml, "%s<NOTLINK/>\n", indent);
+		if(flags & 8) fprintf(xml, "%s<DISABLE/>\n", indent);
+		fprintf(xml, "%s<PATH>\n", indent);
+		ir_path(f, level+1, len-8, parent);
+		fprintf(xml, "%s</PATH>\n", indent);
 	}
 }
 

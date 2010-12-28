@@ -284,7 +284,7 @@ static void ir_altspotcolors(psd_file_t f, int level, int len, struct dictentry 
 
 #define PATHFIX(f) ((double)(f)/0x1000000)
 
-static void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
+void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	int subpath_count = 0;
 
