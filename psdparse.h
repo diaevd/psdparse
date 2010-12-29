@@ -352,6 +352,7 @@ void dochannel(psd_file_t f,
 void doimage(psd_file_t f,struct layer_info *li,char *name,struct psd_header *h);
 void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
+void globallayermaskinfo(psd_file_t f);
 void doimageresources(psd_file_t f);
 
 unsigned scavenge_psd(void *addr, size_t st_size, struct psd_header *h);

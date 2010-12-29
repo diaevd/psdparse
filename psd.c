@@ -213,6 +213,28 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	}else VERBOSE("  (layer & mask info section is empty)\n");
 }
 
+void globallayermaskinfo(psd_file_t f){
+	psd_bytes_t n = get4B(f);
+	int kind;
+
+	if(n){
+		if(xml){
+			fputs("\t<GLOBALLAYERMASK>\n", xml);
+			ed_colorspace(f, 2);
+			fprintf(xml, "\t\t<OPACITY>%d</OPACITY>\n", get2B(f));
+			kind = fgetc(f);
+			switch(kind){
+			case 0:   fputs("\t\t<COLORSELECTED/>\n", xml); break;
+			case 1:   fputs("\t\t<COLORPROTECTED/>\n", xml); break;
+			case 128: fputs("\t\t<PERLAYER/>\n", xml); break;
+			default:  fprintf(xml, "\t\t<KIND>%d</KIND>\n", kind);
+			}
+			fputs("\t</GLOBALLAYERMASK>\n", xml);
+			fseeko(f, n - 13, SEEK_CUR);
+		}
+	}else VERBOSE("  (global layer mask info section is empty)\n");
+}
+
 /**
  * Loop over all layers described by layer info section,
  * spit out a line in asset list if requested, and call

@@ -216,7 +216,8 @@ int main(int argc, char *argv[]){
 				// creating PNG/raw files if requested
 
 				processlayers(f, &h);
-				skipblock(f, "global layer mask info");
+
+				globallayermaskinfo(f);
 
 				// global 'additional info' (not really documented)
 				// this is found immediately after the 'image data' section
