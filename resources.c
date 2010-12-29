@@ -114,6 +114,15 @@ static void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent)
 	if(xml) fprintf(xml, "%d", get4B(f));
 }
 
+static void ir_alphaids(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		fprintf(xml, "%s<LENGTH>%d</LENGTH>\n", tabs(level), get4B(f));
+		len -= 4;
+		for(; len >= 4; len -= 4)
+			fprintf(xml, "%s<ID>%d</ID>\n", tabs(level), get4B(f));
+	}
+}
+
 static void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
 	if(xml)
 		while(len--)
@@ -133,12 +142,12 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 
 static void ir_unicodestrings(psd_file_t f, int level, int len, struct dictentry *parent){
 	if(xml){
-		while(len >= 4){
-			int count = get4B(f);
+		int count;
+		for(; len >= 4; len -= 4 + 2*count){
+			count = get4B(f);
 			fprintf(xml, "%s<NAME>", tabs(level));
 			xml_unicodestr(f, count);
 			fputs("</NAME>\n", xml);
-			len -= 4 + 2*count;
 		}
 	}
 }
@@ -168,6 +177,13 @@ static void ir_layersgroup(psd_file_t f, int level, int len, struct dictentry *p
 	if(xml)
 		for(; len >= 2; len -= 2)
 			fprintf(xml, "%s<GROUPID>%d</GROUPID>\n", tabs(level), get2B(f));
+}
+
+static void ir_layerselectionids(psd_file_t f, int level, int len, struct dictentry *parent){
+	int count = get2B(f);
+	if(xml)
+		while(count--)
+			fprintf(xml, "%s<ID>%d</ID>\n", tabs(level), get4B(f));
 }
 
 static void ir_printflags(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -481,7 +497,7 @@ static struct dictentry rdesc[] = {
 	{1050, NULL, "SLICES", "Slices", ir_slices},
 	{1051, NULL, "-WORKFLOWURL", "Workflow URL", ir_unicodestr},
 	{1052, NULL, NULL, "Jump To XPEP", NULL},
-	{1053, NULL, NULL, "Alpha Identifiers", NULL},
+	{1053, NULL, "ALPHAIDS", "Alpha Identifiers", ir_alphaids},
 	{1054, NULL, NULL, "URL List", NULL},
 	{1057, NULL, NULL, "Version Info", NULL},
 	// v7.0 - from CS doc
@@ -497,7 +513,7 @@ static struct dictentry rdesc[] = {
 	{1067, NULL, "ALTSPOTCOLORS", "Alternate spot colors", ir_altspotcolors},
 
 	// CS2 - July 2010 document
-	{1069, NULL, NULL, "Layer Selection ID(s)", NULL},
+	{1069, NULL, "LAYERSELECTIONIDS", "Layer Selection ID(s)", ir_layerselectionids},
 	{1070, NULL, NULL, "HDR Toning information", NULL},
 	{1071, NULL, NULL, "Print info", NULL},
 	{1072, NULL, NULL, "Layer Group(s) Enabled ID", NULL},
