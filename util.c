@@ -187,7 +187,7 @@ double getdoubleB(psd_file_t f){
 
 // Read a 4-byte signed binary value in BigEndian format.
 // Assumes sizeof(long) == 4 (and two's complement CPU :)
-long get4B(psd_file_t f){
+int32_t get4B(psd_file_t f){
 	long n = fgetc(f)<<24;
 	n |= fgetc(f)<<16;
 	n |= fgetc(f)<<8;

@@ -40,7 +40,7 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 			fprintf(f, "# %s.raw\nmode = %d  # %s\ndepth = %d\n",
 					name, h->mode, mode_names[h->mode], h->depth);
 			if(li) fprintf(f, "layer = \"%s\"\n", li->name);
-			fprintf(f, "width = %ld\nheight = %ld\nchannels = %d  # not interleaved\n",
+			fprintf(f, "width = %u\nheight = %u\nchannels = %d  # not interleaved\n",
 					width, height, channels);
 			fclose(f);
 		}else alwayswarn("### can't open \"%s\" for writing\n", txtname);
@@ -55,7 +55,7 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 				fputsxml(dir, xml);
 				fputs("' FILE='", xml);
 				fputsxml(rawname, xml);
-				fprintf(xml, "' ROWS='%ld' COLS='%ld' CHANNELS='%d' />\n", height, width, channels);
+				fprintf(xml, "' ROWS='%u' COLS='%u' CHANNELS='%d' />\n", height, width, channels);
 			}
 			UNQUIET("# writing raw \"%s\"\n# metadata in \"%s\"\n", rawname, txtname);
 		}else alwayswarn("### can't open \"%s\" for writing\n", rawname);

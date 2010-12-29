@@ -211,7 +211,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	};
 
 	long size, offset, count, tagsize;
-	unsigned long hi, lo;
+	uint32_t hi, lo;
 	const char *indent = tabs(level);
 	char sig[4];
 	off_t iccpos, pos;
@@ -222,7 +222,7 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	iccpos = ftello(f);
 	size = get4B(f);
 	fprintf(xml, "%s<cmmId>%s</cmmId>\n", indent, getkey(f));
-	fprintf(xml, "%s<version>%08lx</version>\n", indent, get4B(f));
+	fprintf(xml, "%s<version>%08x</version>\n", indent, get4B(f));
 	fprintf(xml, "%s<deviceClass>\n", indent);
 	findbykey(f, level+1, classdict, getkey(f), 1, 1);
 	fprintf(xml, "%s</deviceClass>\n", indent);
@@ -239,13 +239,13 @@ void ir_icc34profile(psd_file_t f, int level, int len, struct dictentry *parent)
 	fprintf(xml, "%s<platform>\n", indent);
 	findbykey(f, level+1, platdict, getkey(f), 1, 1);
 	fprintf(xml, "%s</platform>\n", indent);
-	fprintf(xml, "%s<flags>%08lx</flags>\n", indent, get4B(f));
+	fprintf(xml, "%s<flags>%08x</flags>\n", indent, get4B(f));
 	fprintf(xml, "%s<manufacturer>%s</manufacturer>\n", indent, getkey(f));
 	fprintf(xml, "%s<model>%s</model>\n", indent, getkey(f));
 	hi = get4B(f);
 	lo = get4B(f);
-	fprintf(xml, "%s<attributes>%08lx%08lx</attributes>\n", indent, hi, lo);
-	fprintf(xml, "%s<renderingIntent>%08lx</renderingIntent>\n", indent, get4B(f));
+	fprintf(xml, "%s<attributes>%08x%08x</attributes>\n", indent, hi, lo);
+	fprintf(xml, "%s<renderingIntent>%08x</renderingIntent>\n", indent, get4B(f));
 	fprintf(xml, "%s<illuminant>", indent);
 	icc_xyz(f, level, 12, parent);
 	fputs("</illuminant>\n", xml);

@@ -101,7 +101,7 @@ unsigned scan(unsigned char *addr, size_t len, int psd_version, struct layer_inf
 										++li;
 									}
 									else
-										VERBOSE("scavenge @ %8d : key: %c%c%c%c  could be %d channel layer: t = %ld, l = %ld, b = %ld, r = %ld\n",
+										VERBOSE("scavenge @ %8td : key: %c%c%c%c  could be %d channel layer: t = %ld, l = %ld, b = %ld, r = %ld\n",
 											   q - p - 16,
 											   de->key[0], de->key[1], de->key[2], de->key[3],
 											   j,
@@ -227,9 +227,9 @@ size_t try_inflate(unsigned char *src_buf, size_t src_len,
 
 void scan_channels(unsigned char *addr, size_t len, struct psd_header *h)
 {
-	int i, j, n, c, rows, cols, comp, nextcomp, countbytes = 1 << h->version;
+	int i, j, c, rows, cols, comp, nextcomp, countbytes = 1 << h->version;
 	struct layer_info *li = h->linfo;
-	size_t lastpos = h->layerdatapos, pos, p, count, uncompsize;
+	size_t n, lastpos = h->layerdatapos, pos, p, count, uncompsize;
 	unsigned char *buf;
 
 	UNQUIET("scan_channels(): starting @ %lu\n", (unsigned long)lastpos);

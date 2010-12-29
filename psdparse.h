@@ -77,21 +77,22 @@
 	#define _FILE_OFFSET_BITS 64
 	// #define _LARGEFILE_SOURCE // defined in Makefile
 
-	typedef int64_t psd_bytes_t;
+	typedef uint64_t psd_bytes_t;
 	#define GETPSDBYTES(f) (h->version==1 ? get4B(f) : get8B(f))
 
 	// macro chooses the '%ll' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) llfmt
 #else
-	typedef long psd_bytes_t;
-	//typedef int psd_pixels_t;
+	typedef uint32_t psd_bytes_t;
 	#define GETPSDBYTES get4B
 
 	// macro chooses the '%l' version of format strings involving psd_bytes_t type
 	#define LL_L(llfmt,lfmt) lfmt
 #endif
 
-typedef long psd_pixels_t;
+// this is paired with %u format specifications so may break
+// if not same size as 'unsigned'.
+typedef uint32_t psd_pixels_t;
 
 // libpsd types (used only by psd_zip.c)
 typedef int psd_status, psd_int, psd_bool;
@@ -188,13 +189,13 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 
 struct psd_header{
 	char sig[4];
-	short version;
+	unsigned short version;
 	char reserved[6];
-	short channels;
-	long rows;
-	long cols;
-	short depth;
-	short mode;
+	unsigned short channels;
+	uint32_t rows;
+	uint32_t cols;
+	unsigned short depth;
+	short mode; // we use -1 as flag for 'scavenging' where actual mode is not known
 
 	// following fields are for our purposes, not actual header fields
 	psd_bytes_t colormodepos; // set by dopsd()
@@ -208,20 +209,20 @@ struct layer_mask_info{
 	psd_bytes_t size; // 36, 20, or zero
 
 	// if size == 20:
-	long top;
-	long left;
-	long bottom;
-	long right;
+	int32_t top;
+	int32_t left;
+	int32_t bottom;
+	int32_t right;
 	char default_colour;
 	char flags;
 
 	// if size == 36:
 	char real_flags;
 	char real_default_colour;
-	long real_top;
-	long real_left;
-	long real_bottom;
-	long real_right;
+	int32_t real_top;
+	int32_t real_left;
+	int32_t real_bottom;
+	int32_t real_right;
 };
 
 struct blend_mode_info{
@@ -246,10 +247,10 @@ struct channel_info{
 };
 
 struct layer_info{
-	long top;
-	long left;
-	long bottom;
-	long right;
+	int32_t top;
+	int32_t left;
+	int32_t bottom;
+	int32_t right;
 	short channels;
 
 	// runtime data (not in file)
@@ -306,7 +307,7 @@ char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
 char *getkey(psd_file_t f);
 double getdoubleB(psd_file_t f);
-long get4B(psd_file_t f);
+int32_t get4B(psd_file_t f);
 int64_t get8B(psd_file_t f);
 int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
@@ -352,7 +353,7 @@ void dochannel(psd_file_t f,
 void doimage(psd_file_t f,struct layer_info *li,char *name,struct psd_header *h);
 void readlayerinfo(FILE *f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
-void globallayermaskinfo(psd_file_t f);
+psd_bytes_t globallayermaskinfo(psd_file_t f);
 void doimageresources(psd_file_t f);
 
 unsigned scavenge_psd(void *addr, size_t st_size, struct psd_header *h);

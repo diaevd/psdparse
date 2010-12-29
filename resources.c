@@ -111,7 +111,7 @@ static void ir_2byte(psd_file_t f, int level, int len, struct dictentry *parent)
 }
 
 static void ir_4byte(psd_file_t f, int level, int len, struct dictentry *parent){
-	if(xml) fprintf(xml, "%ld", get4B(f));
+	if(xml) fprintf(xml, "%d", get4B(f));
 }
 
 static void ir_digest(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -179,7 +179,7 @@ static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry 
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
 		fprintf(xml, "%s<CENTERCROPMARKS>%d</CENTERCROPMARKS>\n", indent, fgetc(f));
 		fgetc(f);
-		fprintf(xml, "%s<BLEEDWIDTH>%ld</BLEEDWIDTH>\n", indent, get4B(f));
+		fprintf(xml, "%s<BLEEDWIDTH>%d</BLEEDWIDTH>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLEEDWIDTHSCALE>%d</BLEEDWIDTHSCALE>\n", indent, get2B(f));
 	}
 }
@@ -239,7 +239,7 @@ static void ir_displayinfo(psd_file_t f, int level, int len, struct dictentry *p
 
 static void ir_displayinfocs3(psd_file_t f, int level, int len, struct dictentry *parent){
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get4B(f));
 		len -= 4;
 		for(; len >= 13; len -= 13){
 			unsigned char data[13];
@@ -275,7 +275,7 @@ static void ir_altspotcolors(psd_file_t f, int level, int len, struct dictentry 
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
 		for(i = get2B(f); i--;){
 			fprintf(xml, "%s<CHANNEL>\n", indent);
-			fprintf(xml, "\t%s<ID>%ld</ID>\n", indent, get4B(f));
+			fprintf(xml, "\t%s<ID>%d</ID>\n", indent, get4B(f));
 			ed_colorspace(f, level+1);
 			fprintf(xml, "%s</CHANNEL>\n", indent);
 		}

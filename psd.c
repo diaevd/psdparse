@@ -62,7 +62,7 @@ void readlayerinfo(FILE *f, struct psd_header *h, int i)
 	li->channels = get2Bu(f);
 
 	VERBOSE("\n");
-	UNQUIET("  layer %d: (%4ld,%4ld,%4ld,%4ld), %d channels (%4ld rows x %4ld cols)\n",
+	UNQUIET("  layer %d: (%4d,%4d,%4d,%4d), %d channels (%4d rows x %4d cols)\n",
 			i, li->top, li->left, li->bottom, li->right, li->channels,
 			li->bottom-li->top, li->right-li->left);
 
@@ -213,26 +213,34 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	}else VERBOSE("  (layer & mask info section is empty)\n");
 }
 
-void globallayermaskinfo(psd_file_t f){
+psd_bytes_t globallayermaskinfo(psd_file_t f){
 	psd_bytes_t n = get4B(f);
 	int kind;
 
 	if(n){
 		if(xml){
-			fputs("\t<GLOBALLAYERMASK>\n", xml);
-			ed_colorspace(f, 2);
-			fprintf(xml, "\t\t<OPACITY>%d</OPACITY>\n", get2B(f));
-			kind = fgetc(f);
-			switch(kind){
-			case 0:   fputs("\t\t<COLORSELECTED/>\n", xml); break;
-			case 1:   fputs("\t\t<COLORPROTECTED/>\n", xml); break;
-			case 128: fputs("\t\t<PERLAYER/>\n", xml); break;
-			default:  fprintf(xml, "\t\t<KIND>%d</KIND>\n", kind);
+			if(n >= 13){
+				fputs("\t<GLOBALLAYERMASK>\n", xml);
+				ed_colorspace(f, 2);
+				fprintf(xml, "\t\t<OPACITY>%d</OPACITY>\n", get2B(f));
+				kind = fgetc(f);
+				switch(kind){
+				case 0:   fputs("\t\t<COLORSELECTED/>\n", xml); break;
+				case 1:   fputs("\t\t<COLORPROTECTED/>\n", xml); break;
+				case 128: fputs("\t\t<PERLAYER/>\n", xml); break;
+				default:  fprintf(xml, "\t\t<KIND>%d</KIND>\n", kind);
+				}
+				fputs("\t</GLOBALLAYERMASK>\n", xml);
+				n -= 13;
 			}
-			fputs("\t</GLOBALLAYERMASK>\n", xml);
-			fseeko(f, n - 13, SEEK_CUR);
+			else{
+				alwayswarn("# global layer mask info only %d bytes, expected at least 13\n", n);
+			}
 		}
+		fseeko(f, n, SEEK_CUR);
 	}else VERBOSE("  (global layer mask info section is empty)\n");
+
+	return n;
 }
 
 /**
@@ -257,16 +265,16 @@ void processlayers(psd_file_t f, struct psd_header *h)
 
 		if(listfile && cols && rows){
 			if(numbered)
-				fprintf(listfile, "\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} }, -- %s\n",
+				fprintf(listfile, "\t\"%s\" = { pos={%4d,%4d}, size={%4u,%4u} }, -- %s\n",
 						li->nameno, li->left, li->top, cols, rows, li->name);
 			else
-				fprintf(listfile, "\t\"%s\" = { pos={%4ld,%4ld}, size={%4ld,%4ld} },\n",
+				fprintf(listfile, "\t\"%s\" = { pos={%4d,%4d}, size={%4u,%4u} },\n",
 						li->name, li->left, li->top, cols, rows);
 		}
 		if(xml){
 			fputs("\t<LAYER NAME='", xml);
 			fputsxml(li->name, xml); // FIXME: what encoding is this in? maybe PDF Latin?
-			fprintf(xml, "' TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' WIDTH='%ld' HEIGHT='%ld'>\n",
+			fprintf(xml, "' TOP='%d' LEFT='%d' BOTTOM='%d' RIGHT='%d' WIDTH='%u' HEIGHT='%u'>\n",
 					li->top, li->left, li->bottom, li->right, cols, rows);
 		}
 
@@ -330,19 +338,21 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 			if(xml){
 				fputs("<PSD FILE='", xml);
 				fputsxml(psdpath, xml);
-				fprintf(xml, "' VERSION='%d' CHANNELS='%d' ROWS='%ld' COLUMNS='%ld' DEPTH='%d' MODE='%d'",
+				fprintf(xml, "' VERSION='%u' CHANNELS='%u' ROWS='%u' COLUMNS='%u' DEPTH='%u' MODE='%u'",
 						h->version, h->channels, h->rows, h->cols, h->depth, h->mode);
 				if(h->mode >= 0 && h->mode < 16)
 					fprintf(xml, " MODENAME='%s'", mode_names[h->mode]);
 				fputs(">\n", xml);
 			}
-			UNQUIET("  PS%c (version %d), %d channels, %ld rows x %ld cols, %d bit %s\n",
+			UNQUIET("  PS%c (version %u), %u channels, %u rows x %u cols, %u bit %s\n",
 					h->version == 1 ? 'D' : 'B', h->version, h->channels, h->rows, h->cols, h->depth,
 					h->mode >= 0 && h->mode < 16 ? mode_names[h->mode] : "???");
 
-			if(h->channels <= 0 || h->channels > 64 || h->rows <= 0 ||
-				 h->cols <= 0 || h->depth < 0 || h->depth > 32 || h->mode < 0)
+			if(h->channels <= 0 || h->channels > 64 || h->rows <= 0
+			   || h->cols <= 0 || h->depth <= 0 || h->depth > 32 || h->mode < 0)
+			{
 				alwayswarn("### something isn't right about that header, giving up now.\n");
+			}
 			else{
 				h->colormodepos = ftello(f);
 				if(h->mode == ModeDuotone)

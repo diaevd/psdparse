@@ -210,6 +210,8 @@ int main(int argc, char *argv[]){
 #endif
 
 			if(dopsd(f, argv[i], &h)){
+				psd_bytes_t n;
+
 				VERBOSE("## layer image data begins @ " LL_L("%lld","%ld") "\n", h.layerdatapos);
 
 				// process the layers in 'image data' section,
@@ -217,10 +219,11 @@ int main(int argc, char *argv[]){
 
 				processlayers(f, &h);
 
-				globallayermaskinfo(f);
+				n = globallayermaskinfo(f);
 
 				// global 'additional info' (not really documented)
 				// this is found immediately after the 'image data' section
+
 				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra){
 					VERBOSE("## global additional info @ %ld (%ld bytes)\n", (long)ftello(f), (long)k);

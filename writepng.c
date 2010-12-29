@@ -89,11 +89,11 @@ FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 				fputsxml(dir, xml);
 				fputs("' FILE='", xml);
 				fputsxml(pngname, xml);
-				fprintf(xml, "' WIDTH='%ld' HEIGHT='%ld' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
+				fprintf(xml, "' WIDTH='%u' HEIGHT='%u' CHANNELS='%d' COLORTYPE='%d' COLORTYPENAME='%s' DEPTH='%d'",
 						width, height, channels, color_type, pngtype, h->depth);
 			}
 			UNQUIET("# writing PNG \"%s\"\n", pngname);
-			VERBOSE("#             %3ldx%3ld, depth=%d, channels=%d, type=%d(%s)\n", 
+			VERBOSE("#             %3ux%3u, depth=%d, channels=%d, type=%d(%s)\n",
 					width, height, h->depth, channels, color_type, pngtype);
 
 			if( !(info_ptr = png_create_info_struct(png_ptr)) || setjmp(png_jmpbuf(png_ptr)) )

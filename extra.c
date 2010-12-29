@@ -331,7 +331,7 @@ static void ed_typetool(psd_file_t f, int level, int len, struct dictentry *pare
 				// doc is unclear, but this may work:
 				fprintf(xml, "%s\t<DESIGNVECTOR>", indent);
 				for(j = get4B(f); j--;)
-					fprintf(xml, " <AXIS>%ld</AXIS>", get4B(f));
+					fprintf(xml, " <AXIS>%d</AXIS>", get4B(f));
 				fputs(" </DESIGNVECTOR>\n", xml);
 
 				fprintf(xml, "%s</FACE>\n", indent);
@@ -382,10 +382,10 @@ static void ed_typetool(psd_file_t f, int level, int len, struct dictentry *pare
 			fprintf(xml, "%s<WARPVERSION>%d</WARPVERSION>\n", indent, get2B(f));
 			ed_versdesc(f, level, len, parent); // warp
 
-			fprintf(xml, "%s<LEFT>%ld</LEFT>\n", indent, get4B(f));
-			fprintf(xml, "%s<TOP>%ld</TOP>\n", indent, get4B(f));
-			fprintf(xml, "%s<RIGHT>%ld</RIGHT>\n", indent, get4B(f));
-			fprintf(xml, "%s<BOTTOM>%ld</BOTTOM>\n", indent, get4B(f));
+			fprintf(xml, "%s<LEFT>%d</LEFT>\n", indent, get4B(f));
+			fprintf(xml, "%s<TOP>%d</TOP>\n", indent, get4B(f));
+			fprintf(xml, "%s<RIGHT>%d</RIGHT>\n", indent, get4B(f));
+			fprintf(xml, "%s<BOTTOM>%d</BOTTOM>\n", indent, get4B(f));
 		}else
 			fprintf(xml, "%s<!-- don't know how to parse version %d -->\n", indent, v);
 	}else
@@ -440,7 +440,7 @@ static void ed_blendingrestrictions(psd_file_t f, int level, int len, struct dic
 	int i = len/4;
 	if(len && xml)
 		while(i--)
-			fprintf(xml, "%s<CHANNEL>%ld</CHANNEL>\n", tabs(level), get4B(f));
+			fprintf(xml, "%s<CHANNEL>%d</CHANNEL>\n", tabs(level), get4B(f));
 }
 
 static void ed_gradient(psd_file_t f, int level, int len, struct dictentry *parent){
@@ -475,10 +475,10 @@ static void ed_gradient(psd_file_t f, int level, int len, struct dictentry *pare
 			length = get2B(f);
 			if(length >= 32){
 				fprintf(xml, "%s<MODE>%d</MODE>\n", indent, get2B(f));
-				fprintf(xml, "%s<RANDOMSEED>%lu</RANDOMSEED>\n", indent, get4B(f));
+				fprintf(xml, "%s<RANDOMSEED>%u</RANDOMSEED>\n", indent, get4B(f));
 				fprintf(xml, "%s<SHOWTRANSPARENCY>%d</SHOWTRANSPARENCY>\n", indent, get2B(f));
 				fprintf(xml, "%s<VECTORCOLOR>%d</VECTORCOLOR>\n", indent, get2B(f));
-				fprintf(xml, "%s<ROUGHNESS>%ld</ROUGHNESS>\n", indent, get4B(f));
+				fprintf(xml, "%s<ROUGHNESS>%d</ROUGHNESS>\n", indent, get4B(f));
 				fprintf(xml, "%s<COLORSPACE>%d</COLORSPACE>\n", indent, space = get2B(f));
 				fprintf(xml, "%s<MINIMUM>\n", indent);
 				color(f, level+1, space);
@@ -591,7 +591,7 @@ void ed_versdesc(psd_file_t f, int level, int len, struct dictentry *parent){
 // CS doc
 static void ed_objecteffects(psd_file_t f, int level, int len, struct dictentry *parent){
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get4B(f));
 		ed_versdesc(f, level, len, parent);
 	}
 }
@@ -603,7 +603,7 @@ static void ed_vectormask(psd_file_t f, int level, int len, struct dictentry *pa
 	int flags;
 
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get4B(f));
 		flags = get4B(f);
 		if(flags & 2) fprintf(xml, "%s<INVERT/>\n", indent);
 		if(flags & 4) fprintf(xml, "%s<NOTLINK/>\n", indent);
@@ -666,7 +666,7 @@ static void dumpblock(psd_file_t f, int level, int len, struct dictentry *dict){
 // CS doc
 static void fx_commonstate(psd_file_t f, int level, int len, struct dictentry *parent){
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", tabs(level), get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", tabs(level), get4B(f));
 		fprintf(xml, "%s<VISIBLE>%d</VISIBLE>\n", tabs(level), fgetc(f));
 	}
 }
@@ -676,7 +676,7 @@ static void fx_shadow(psd_file_t f, int level, int len, struct dictentry *parent
 	const char *indent = tabs(level);
 
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f))); // this is fixed point, but you wouldn't know it from the doc
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f))); // they're trying to make it more interesting for
 		fprintf(xml, "%s<ANGLE>%g</ANGLE>\n", indent, FIXEDPT(get4B(f)));         // implementors, I guess, by setting little puzzles
@@ -695,7 +695,7 @@ static void fx_outerglow(psd_file_t f, int level, int len, struct dictentry *par
 	const char *indent = tabs(level);
 
 	if(xml){
-		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, get4B(f));
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get4B(f));
 		fprintf(xml, "%s<BLUR>%g</BLUR>\n", indent, FIXEDPT(get4B(f)));
 		fprintf(xml, "%s<INTENSITY>%g</INTENSITY>\n", indent, FIXEDPT(get4B(f)));
 		ed_colorspace(f, level);

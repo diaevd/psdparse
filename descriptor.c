@@ -218,7 +218,7 @@ static void desc_enumerated(psd_file_t f, int level, int len, struct dictentry *
 }
 
 static void desc_integer(psd_file_t f, int level, int len, struct dictentry *parent){
-	fprintf(xml, "%ld", get4B(f));
+	fprintf(xml, "%d", get4B(f));
 }
 
 static void desc_boolean(psd_file_t f, int level, int len, struct dictentry *parent){

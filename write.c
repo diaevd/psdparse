@@ -54,7 +54,7 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 
 		if(chan[ch].id == LMASK_CHAN_ID){
 					if(xml){
-						fprintf(xml, "\t\t<LAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
+						fprintf(xml, "\t\t<LAYERMASK TOP='%d' LEFT='%d' BOTTOM='%d' RIGHT='%d' ROWS='%d' COLUMNS='%d' DEFAULTCOLOR='%d'>\n",
 								li->mask.top, li->mask.left, li->mask.bottom, li->mask.right,
 								li->mask.bottom - li->mask.top, li->mask.right - li->mask.left,
 								li->mask.default_colour);
@@ -65,7 +65,7 @@ static void writechannels(psd_file_t f, char *dir, char *name,
 					strcat(pngname, ".lmask");
 		}else if(chan[ch].id == UMASK_CHAN_ID){
 			if(xml){
-				fprintf(xml, "\t\t<USERLAYERMASK TOP='%ld' LEFT='%ld' BOTTOM='%ld' RIGHT='%ld' ROWS='%ld' COLUMNS='%ld' DEFAULTCOLOR='%d'>\n",
+				fprintf(xml, "\t\t<USERLAYERMASK TOP='%d' LEFT='%d' BOTTOM='%d' RIGHT='%d' ROWS='%d' COLUMNS='%d' DEFAULTCOLOR='%d'>\n",
 						li->mask.real_top, li->mask.real_left, li->mask.real_bottom, li->mask.real_right,
 						li->mask.real_bottom - li->mask.real_top, li->mask.real_right - li->mask.real_left,
 						li->mask.real_default_colour);
@@ -193,7 +193,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		image_data_end = ftello(f);
 
 		if(xml)
-			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%ld' WIDTH='%ld'>\n",
+			fprintf(xml, "\t<COMPOSITE CHANNELS='%d' HEIGHT='%d' WIDTH='%d'>\n",
 					channels, h->rows, h->cols);
 
 		nwarns = 0;
