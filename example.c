@@ -31,7 +31,7 @@
 
 // These flags control psdparse behaviour.
 // You WILL get text output unless you set quiet = 1 !
-int verbose = 0, quiet = 1, rsrc = 0, resdump = 0, extra = 0,
+int verbose = 0, quiet = 1, rsrc = 0, print_rsrc = 0, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1;
 long hres, vres; // we don't use these, but they're set within doresources()
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
 		if(dopsd(f, argv[1], &h)){
 			/* The following members of psd_header struct h are initialised:
 			 * sig, version, channels, rows, cols, depth, mode */
-			printf("PS%c file, %ld rows x %ld cols, %d channels, %d bit depth, %d layers\n",
+			printf("PS%c file, %u rows x %u cols, %u channels, %u bit depth, %u layers\n",
 				   h.version == 1 ? 'D' : 'B',
 				   h.rows, h.cols, h.channels, h.depth, h.nlayers);
 
@@ -131,9 +131,9 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 			//   unzipdata             - uncompressed data (ZIP ONLY)
 
 			dochannel(f, li, li->chan + ch, 1, h);
-			printf("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
+			printf("  channel %d  id=%2d  %4u rows x %4u cols  %6ld bytes\n",
 				   ch, li->chan[ch].id, li->chan[ch].rows, li->chan[ch].cols,
-				   li->chan[ch].length);
+				   (long)li->chan[ch].length);
 		}
 	}else{
 		// The merged image has the size, mode, depth, and channel count
@@ -151,7 +151,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		printf("\nmerged channels:\n");
 		dochannel(f, NULL, merged_chans, h->channels, h);
 		for(ch = 0; ch < h->channels; ++ch){
-			printf("  channel %d  id=%2d  %4ld rows x %4ld cols\n",
+			printf("  channel %d  id=%2d  %4u rows x %4u cols\n",
 				   ch, merged_chans[ch].id, merged_chans[ch].rows, merged_chans[ch].cols);
 		}
 

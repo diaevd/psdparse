@@ -259,9 +259,9 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 			// dochannel() initialises the li->chan[ch] struct
 
 			dochannel(f, li, li->chan + ch, 1, h);
-			VERBOSE("  channel %d  id=%2d  %4ld rows x %4ld cols  %6lld bytes\n",
+			VERBOSE("  channel %d  id=%2d  %4u rows x %4u cols  %6ld bytes\n",
 				    ch, li->chan[ch].id, li->chan[ch].rows, li->chan[ch].cols,
-				    li->chan[ch].length);
+				    (long)li->chan[ch].length);
 		}
 
 		image_data_end = ftello(f);
@@ -289,7 +289,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - the alpha channel for merged image (if mergedalpha is TRUE)
 		// - any remaining alpha or spot channels.
 
-		UNQUIET("merged image, %4ld rows x %4ld cols\n", h->rows, h->cols);
+		UNQUIET("merged image, %4u rows x %4u cols\n", h->rows, h->cols);
 
 		dochannel(f, NULL, merged_chans, h->channels, h);
 
