@@ -219,6 +219,10 @@ int main(int argc, char *argv[]){
 
 				processlayers(f, &h);
 
+				// skip 1 byte of padding if we are not at an even position
+				if(ftello(f) & 1)
+					fgetc(f);
+
 				n = globallayermaskinfo(f);
 
 				// global 'additional info' (not really documented)
@@ -226,13 +230,14 @@ int main(int argc, char *argv[]){
 
 				k = h.lmistart + h.lmilen - ftello(f);
 				if(extra){
-					VERBOSE("## global additional info @ %ld (%ld bytes)\n", (long)ftello(f), (long)k);
-					if(xml)
-						fputs("\t<GLOBALINFO>\n", xml);
-					doadditional(f, &h, 2, k); // write description to XML
+					VERBOSE("## global additional info @ %ld (%ld bytes)\n",
+							(long)ftello(f), (long)k);
 
-					if(xml)
+					if(xml){
+						fputs("\t<GLOBALINFO>\n", xml);
+						doadditional(f, &h, 2, k); // write description to XML
 						fputs("\t</GLOBALINFO>\n", xml);
+					}
 				}
 
 				// position file after 'layer & mask info'

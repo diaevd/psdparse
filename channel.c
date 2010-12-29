@@ -162,12 +162,12 @@ void dochannel(psd_file_t f,
 			chan[ch].rowpos = checkmalloc((chan[ch].rows+1)*sizeof(psd_bytes_t));
 			last = chan[ch].rowbytes;
 			for(j = 0; j < chan[ch].rows && !feof(f); ++j){
-				count = h->version==1 ? get2Bu(f) : (unsigned long)get4B(f);
+				count = h->version==1 ? get2Bu(f) : (psd_pixels_t)get4B(f);
 
 				if(count < 2 || count > 2*chan[ch].rowbytes)  // this would be impossible
 					count = last; // make a guess, to help recover
-				last = count;
 
+				last = count;
 				chan[ch].rowpos[j] = pos;
 				pos += count;
 			}
@@ -211,6 +211,5 @@ void dochannel(psd_file_t f,
 		alwayswarn("# channel data is %lu bytes, but length = %lu\n",
 				   (unsigned long)(pos - chpos), (unsigned long)chan->length);
 
-	// the file pointer must be left at the end of the channel's data
 	fseeko(f, pos, SEEK_SET);
 }

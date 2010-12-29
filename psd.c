@@ -218,6 +218,7 @@ psd_bytes_t globallayermaskinfo(psd_file_t f){
 	int kind;
 
 	if(n){
+		VERBOSE("  (global layer mask info section: %u bytes)\n", (unsigned)n);
 		if(xml){
 			if(n >= 13){
 				fputs("\t<GLOBALLAYERMASK>\n", xml);
