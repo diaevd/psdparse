@@ -222,7 +222,7 @@ psd_bytes_t globallayermaskinfo(psd_file_t f){
 		if(xml){
 			if(n >= 13){
 				fputs("\t<GLOBALLAYERMASK>\n", xml);
-				ed_colorspace(f, 2);
+				ed_colorspace(f, 2, 0, NULL);
 				fprintf(xml, "\t\t<OPACITY>%d</OPACITY>\n", get2B(f));
 				kind = fgetc(f);
 				switch(kind){
