@@ -131,6 +131,18 @@ static void ir_unicodestr(psd_file_t f, int level, int len, struct dictentry *pa
 	if(xml) xml_unicodestr(f, get4B(f));
 }
 
+static void ir_unicodestrings(psd_file_t f, int level, int len, struct dictentry *parent){
+	if(xml){
+		while(len >= 4){
+			int count = get4B(f);
+			fprintf(xml, "%s<NAME>", tabs(level));
+			xml_unicodestr(f, count);
+			fputs("</NAME>\n", xml);
+			len -= 4 + 2*count;
+		}
+	}
+}
+
 static void ir_gridguides(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
 	long v = get4B(f), gv = get4B(f), gh = get4B(f), i, n = get4B(f);
@@ -159,17 +171,13 @@ static void ir_layersgroup(psd_file_t f, int level, int len, struct dictentry *p
 }
 
 static void ir_printflags(psd_file_t f, int level, int len, struct dictentry *parent){
-	const char *indent = tabs(level);
+	const char *indent = tabs(level), **p, *flags[] = {
+		"LABELS", "CROPMARKS", "COLORBARS", "REGMARKS", "NEGATIVE",
+		"FLIP", "INTERPOLATE", "CAPTION", "PRINTFLAGS", NULL
+	};
 	if(xml){
-		fprintf(xml, "%s<LABELS>%d</LABELS>\n", indent, fgetc(f));
-		fprintf(xml, "%s<CROPMARKS>%d</CROPMARKS>\n", indent, fgetc(f));
-		fprintf(xml, "%s<COLORBARS>%d</COLORBARS>\n", indent, fgetc(f));
-		fprintf(xml, "%s<REGMARKS>%d</REGMARKS>\n", indent, fgetc(f));
-		fprintf(xml, "%s<NEGATIVE>%d</NEGATIVE>\n", indent, fgetc(f));
-		fprintf(xml, "%s<FLIP>%d</FLIP>\n", indent, fgetc(f));
-		fprintf(xml, "%s<INTERPOLATE>%d</INTERPOLATE>\n", indent, fgetc(f));
-		fprintf(xml, "%s<CAPTION>%d</CAPTION>\n", indent, fgetc(f));
-		fprintf(xml, "%s<PRINTFLAGS>%d</PRINTFLAGS>\n", indent, fgetc(f));
+		for(p = flags; *p; ++p)
+			fprintf(xml, "%s<%s>%d</%s>\n", indent, *p, fgetc(f), *p);
 	}
 }
 
@@ -258,7 +266,7 @@ static void ir_altduotonecolors(psd_file_t f, int level, int len, struct dictent
 	if(xml){
 		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, get2B(f));
 		for(i = get2B(f); i--;)
-			ed_colorspace(f, level);
+			ed_colorspace(f, level, len, parent);
 		for(i = get2B(f); i--;){
 			int L = fgetc(f), a = fgetc(f), b = fgetc(f);
 			fprintf(xml, "%s<kLabSpace> <L>%d</L> <a>%d</a> <b>%d</b> </kLabSpace>\n",
@@ -276,8 +284,75 @@ static void ir_altspotcolors(psd_file_t f, int level, int len, struct dictentry 
 		for(i = get2B(f); i--;){
 			fprintf(xml, "%s<CHANNEL>\n", indent);
 			fprintf(xml, "\t%s<ID>%d</ID>\n", indent, get4B(f));
-			ed_colorspace(f, level+1);
+			ed_colorspace(f, level+1, len, parent);
 			fprintf(xml, "%s</CHANNEL>\n", indent);
+		}
+	}
+}
+
+static void ir_slices(psd_file_t f, int level, int len, struct dictentry *parent){
+	const char *indent = tabs(level);
+	unsigned i, origin, version;
+
+	if(xml){
+		fprintf(xml, "%s<VERSION>%d</VERSION>\n", indent, version = get4B(f));
+
+		if(version == 6){
+			// TODO: Not tested, needs PS6...
+			fprintf(xml, "%s<BOUNDS>\n", indent);
+			fprintf(xml, "\t%s<TOP>%d</TOP>\n", indent, get4B(f));
+			fprintf(xml, "\t%s<LEFT>%d</LEFT>\n", indent, get4B(f));
+			fprintf(xml, "\t%s<BOTTOM>%d</BOTTOM>\n", indent, get4B(f));
+			fprintf(xml, "\t%s<RIGHT>%d</RIGHT>\n", indent, get4B(f));
+			fprintf(xml, "%s</BOUNDS>\n", indent);
+
+			fprintf(xml, "%s<NAME>", indent);
+			xml_unicodestr(f, get4B(f));
+			fputs("</NAME>\n", xml);
+
+			for(i = get4B(f); i--;){
+				fprintf(xml, "%s<SLICE>\n", indent);
+				fprintf(xml, "\t%s<ID>%d</ID>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<GROUPID>%d</GROUPID>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<ORIGIN>%d</ORIGIN>\n", indent, origin = get4B(f));
+				if(origin == 1)
+					fprintf(xml, "\t%s<ASSOCLAYERID>%d</ASSOCLAYERID>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<NAME>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</NAME>\n", xml);
+				fprintf(xml, "\t%s<TYPE>%d</TYPE>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<LEFT>%d</LEFT>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<TOP>%d</TOP>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<RIGHT>%d</RIGHT>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<BOTTOM>%d</BOTTOM>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<URL>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</URL>\n", xml);
+				fprintf(xml, "\t%s<TARGET>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</TARGET>\n", xml);
+				fprintf(xml, "\t%s<MESSAGE>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</MESSAGE>\n", xml);
+				fprintf(xml, "\t%s<ALT>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</ALT>\n", xml);
+				fprintf(xml, "\t%s<CELLTEXTISHTML>%d</CELLTEXTISHTML>\n", indent, fgetc(f));
+				fprintf(xml, "\t%s<CELLTEXT>", indent);
+				xml_unicodestr(f, get4B(f));
+				fputs("</CELLTEXT>\n", xml);
+				fprintf(xml, "\t%s<HALIGN>%d</HALIGN>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<VALIGN>%d</VALIGN>\n", indent, get4B(f));
+				fprintf(xml, "\t%s<ALPHACOLOR>%d</ALPHACOLOR>\n", indent, fgetc(f));
+				fprintf(xml, "\t%s<RED>%d</RED>\n", indent, fgetc(f));
+				fprintf(xml, "\t%s<GREEN>%d</GREEN>\n", indent, fgetc(f));
+				fprintf(xml, "\t%s<BLUE>%d</BLUE>\n", indent, fgetc(f));
+				fprintf(xml, "%s</SLICE>\n", indent);
+			}
+		}
+		else{
+			// at least version 8 looks like a Descriptor
+			ed_versdesc(f, level, len-4, parent);
 		}
 	}
 }
@@ -361,11 +436,11 @@ static struct dictentry rdesc[] = {
 	{1001, NULL, NULL, "Macintosh print record", NULL},
 	{1003, NULL, NULL, "PS2.0 indexed color table", NULL},
 	{1005, NULL, "-RESOLUTION", "ResolutionInfo", ir_resolution},
-	{1006, NULL, "ALPHA", "Alpha names", ir_pstrings},
+	{1006, NULL, "ALPHANAMES", "Alpha names", ir_pstrings},
 	{1007, NULL, "DISPLAYINFO", "DisplayInfo", ir_displayinfo},
 	{1008, NULL, "-CAPTION", "Caption", ir_pstring},
 	{1009, NULL, NULL, "Border information", NULL},
-	{1010, NULL, NULL, "Background color", NULL},
+	{1010, NULL, "BGCOLOR", "Background color", ed_colorspace},
 	{1011, NULL, "PRINTFLAGS", "Print flags", ir_printflags},
 	{1012, NULL, NULL, "Grayscale/multichannel halftoning info", NULL},
 	{1013, NULL, NULL, "Color halftoning info", NULL},
@@ -378,7 +453,7 @@ static struct dictentry rdesc[] = {
 	{1021, NULL, NULL, "EPS options", NULL},
 	{1022, NULL, NULL, "Quick Mask info", NULL},
 	{1024, NULL, "-TARGETLAYER", "Layer state info", ir_2byte},
-	{1025, NULL, NULL, "Working path", NULL},
+	{1025, NULL, "WORKINGPATH", "Working path", ir_path},
 	{1026, NULL, "LAYERSGROUP", "Layers group info", ir_layersgroup},
 	{1028, NULL, NULL, "IPTC-NAA record (File Info)", NULL},
 	{1029, NULL, NULL, "Image mode for raw format files", NULL},
@@ -398,12 +473,12 @@ static struct dictentry rdesc[] = {
 	{1042, NULL, "-EFFECTSVISIBLE", "Effects visible", ir_1byte},
 	{1043, NULL, NULL, "Spot Halftone", NULL},
 	{1044, NULL, "-DOCUMENTIDSEED", "Document specific IDs", ir_4byte},
-	{1045, NULL, NULL, "Unicode Alpha Names", NULL},
+	{1045, NULL, "ALPHANAMESUNICODE", "Unicode Alpha Names", ir_unicodestrings},
 	// v6.0
 	{1046, NULL, "-COLORTABLECOUNT", "Indexed Color Table Count", ir_2byte},
 	{1047, NULL, "-TRANSPARENTINDEX", "Transparent Index", ir_2byte},
 	{1049, NULL, "-GLOBALALTITUDE", "Global Altitude", ir_4byte},
-	{1050, NULL, "SLICES", "Slices", NULL},
+	{1050, NULL, "SLICES", "Slices", ir_slices},
 	{1051, NULL, "-WORKFLOWURL", "Workflow URL", ir_unicodestr},
 	{1052, NULL, NULL, "Jump To XPEP", NULL},
 	{1053, NULL, NULL, "Alpha Identifiers", NULL},
@@ -444,7 +519,7 @@ static struct dictentry rdesc[] = {
 	{1084, NULL, NULL, "Macintosh NSPrintInfo", NULL},
 	{1085, NULL, NULL, "Windows DEVMODE", NULL},
 
-	{7000, NULL, NULL, "ImageReady variables", ir_cdata},
+	{7000, NULL, "IMAGEREADYVARS", "ImageReady variables", ir_cdata},
 	{7001, NULL, NULL, "ImageReady data sets", NULL},
 
 	{8000, NULL, NULL, "Lightroom workflow", NULL}, // CS3 per July 2010 document
@@ -511,11 +586,13 @@ static long doirb(psd_file_t f){
 			fputs(" /> <!-- not parsed -->\n", xml);
 		}
 	}
+
 	if(resdump){
 		char *temp_buf = malloc(padded_size);
 		if(fread(temp_buf, 1, padded_size, f) < padded_size)
 			fatal("did not read expected bytes in image resource\n");
 		dumphex((unsigned char*)temp_buf, size);
+		putchar('\n');
 		free(temp_buf);
 	}
 	else
