@@ -210,7 +210,8 @@ static void ir_printflags10k(psd_file_t f, int level, int len, struct dictentry 
 
 static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry *parent){
 	const char *indent = tabs(level);
-	long v = get4B(f), n = get4B(f), x, y;
+	long v = get4B(f), n = get4B(f);
+	union { float f; int32_t i; } x, y;
 	int space;
 	struct colour_space *sp;
 
@@ -218,15 +219,21 @@ static void ir_colorsamplers(psd_file_t f, int level, int len, struct dictentry 
 		fprintf(xml, "%s<VERSION>%ld</VERSION>\n", indent, v);
 		while(n--){
 			fprintf(xml, "%s<SAMPLER>\n", indent);
-			y = get4B(f);
-			x = get4B(f);
+			if(v >= 3)
+				fprintf(xml, "\t%s<VERSION>%d</VERSION>\n", indent, get2B(f)); // doc incorrectly says 4 byte
+			y.i = get4B(f);
+			x.i = get4B(f);
+			if(v == 1)
+				fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x.i/32., y.i/32.); // undocumented fixed point factor
+			else
+				fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x.f, y.f);
 			space = get2B(f);
-			sp = find_colour_space(space);
-			fprintf(xml, "\t%s<X>%g</X> <Y>%g</Y>\n", indent, x/32., y/32.); // undocumented fixed point factor
-			if(sp)
+			if( (sp = find_colour_space(space)) )
 				fprintf(xml, "\t%s<COLORSPACE> <%s/> </COLORSPACE>\n", indent, sp->name);
 			else
 				fprintf(xml, "\t%s<COLORSPACE>%d</COLORSPACE>\n", indent, space);
+			if(v >= 2)
+				fprintf(xml, "\t%s<DEPTH>%d</DEPTH>\n", indent, get2B(f));
 			fprintf(xml, "%s</SAMPLER>\n", indent);
 		}
 	}
@@ -519,7 +526,7 @@ static struct dictentry rdesc[] = {
 	{1072, NULL, NULL, "Layer Group(s) Enabled ID", NULL},
 
 	// CS3 - July 2010 document
-	{1073, NULL, NULL, "Colour samplers resource", NULL},
+	{1073, NULL, "COLORSAMPLERSCS3", "Color samplers resource (CS3)", ir_colorsamplers},
 	{1074, NULL, "MEASUREMENTSCALE", "Measurement Scale", ed_versdesc},
 	{1075, NULL, "TIMELINE", "Timeline Information", ed_versdesc},
 	{1076, NULL, "SHEETDISCLOSURE", "Sheet Disclosure", ed_versdesc},
