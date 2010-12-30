@@ -247,8 +247,8 @@ static void displayinfo(int level, unsigned char data[]){
 
 	if(xml){
 		fprintf(xml, "%s<%s>\n", indent, kind[data[12]]);
-		colorspace(level+1, (data[0]<<8) | data[1], data+2);
-		fprintf(xml, "\t%s<OPACITY>%d</OPACITY>\n", indent,(data[10]<<8) | data[11]);
+		colorspace(level+1, TWOBYTE(data), data+2);
+		fprintf(xml, "\t%s<OPACITY>%d</OPACITY>\n", indent, TWOBYTE(data+10));
 		// kind values seem to be:
 		// 0 = alpha channel, colour indicates selected areas
 		// 1 = alpha channel, colour indicates masked areas

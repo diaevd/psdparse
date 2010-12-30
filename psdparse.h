@@ -187,6 +187,11 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 #define LMASK_CHAN_ID (-2)
 #define UMASK_CHAN_ID (-3)
 
+// Read 2 BigEndian bytes from the char pointer p.
+// If p is signed char, and high bit is set, result will be effectively
+// sign extended and negative.
+#define TWOBYTE(p) (((p)[0] << 8) | ((p)[1] & 0xff))
+
 struct psd_header{
 	char sig[4];
 	unsigned short version;

@@ -45,7 +45,7 @@ void duotone_data(psd_file_t f, int level){
 				fprintf(xml, "\t%s<PLATE>\n", indent);
 
 				p = data + i*10;
-				colorspace(level+2, (p[0]<<8) | p[1], p + 2);
+				colorspace(level+2, TWOBYTE(p), p + 2);
 
 				fprintf(xml, "\t\t%s<INKNAME>", indent);
 				p = data + 40 + i*64; // points to Pascal string (i.e. preceded by length)
@@ -55,25 +55,25 @@ void duotone_data(psd_file_t f, int level){
 				fprintf(xml, "\t\t%s<TRANSFER>\n", indent);
 				p = data + 4*(10+64) + i*28;
 				for(j = 0; j < 13; ++j){
-					int v = (p[0]<<8) | p[1];
+					int v = TWOBYTE(p);
 					if(v == 0xffff)
 						fprintf(xml, "\t\t\t%s<POINT/>\n", indent);
 					else
 						fprintf(xml, "\t\t\t%s<POINT>%.1f</POINT>\n", indent, v/10.);
 					p += 2;
 				}
-				fprintf(xml, "\t\t\t%s<OVERRIDE>%d</OVERRIDE>\n", indent, (p[0]<<8) | p[1]);
+				fprintf(xml, "\t\t\t%s<OVERRIDE>%d</OVERRIDE>\n", indent, TWOBYTE(p));
 				fprintf(xml, "\t\t%s</TRANSFER>\n", indent);
 
 				fprintf(xml, "\t%s</PLATE>\n", indent);
 			}
 		}
 		p = data + 4*(10+64+28);
-		fprintf(xml, "\t%s<DOTGAIN>%d</DOTGAIN>\n", indent, (p[0]<<8) | p[1]);
+		fprintf(xml, "\t%s<DOTGAIN>%d</DOTGAIN>\n", indent, TWOBYTE(p));
 		p += 2;
 		fprintf(xml, "\t%s<OVERPRINTCOLOR>\n", indent);
 		for(i = 0; i < overprints[plates-1]; ++i){
-			colorspace(level+2, (p[0]<<8) | p[1], p + 2);
+			colorspace(level+2, TWOBYTE(p), p + 2);
 			p += 10;
 		}
 		fprintf(xml, "\t%s</OVERPRINTCOLOR>\n", indent);
