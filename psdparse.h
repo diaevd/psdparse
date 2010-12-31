@@ -187,11 +187,6 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 #define LMASK_CHAN_ID (-2)
 #define UMASK_CHAN_ID (-3)
 
-// Read 2 BigEndian bytes from the char pointer p.
-// If p is signed char, and high bit is set, result will be effectively
-// sign extended and negative.
-#define TWOBYTE(p) (((p)[0] << 8) | ((p)[1] & 0xff))
-
 struct psd_header{
 	char sig[4];
 	unsigned short version;
@@ -316,6 +311,10 @@ int32_t get4B(psd_file_t f);
 int64_t get8B(psd_file_t f);
 int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
+int32_t peek4B(unsigned char *p);
+int64_t peek8B(unsigned char *p);
+int peek2B(unsigned char *p);
+unsigned peek2Bu(unsigned char *p);
 const char *tabs(int n);
 int hexdigit(unsigned char c);
 void openfiles(char *psdpath, struct psd_header *h);

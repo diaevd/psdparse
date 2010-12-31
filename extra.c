@@ -195,7 +195,7 @@ void colorspace(int level, int space, unsigned char data[]){
 			fprintf(xml, "\t\t%s<STRING>%s</STRING>\n", indent, str);
 			for(i = 0; i < 4; ++i)
 				fprintf(xml, "\t\t%s<COMPONENT>%u</COMPONENT>\n",
-						indent, TWOBYTE(data+i*2));
+						indent, peek2Bu(data+i*2));
 			fprintf(xml, "\t%s</UNKNOWNCOLORSPACE>\n", indent);
 		}
 		else if(sp->components && sp->components[0] == '*'){
@@ -211,7 +211,7 @@ void colorspace(int level, int space, unsigned char data[]){
 			int n = strlen(sp->components);
 			fprintf(xml, "\t%s<%s>", indent, sp->name);
 			for(i = 0; i < 4; ++i){
-				unsigned value = TWOBYTE(data+i*2);
+				unsigned value = peek2Bu(data+i*2);
 				// use initials for each component's element
 				if(i < n)
 					fprintf(xml, " <%c>%u</%c>",

@@ -217,6 +217,33 @@ unsigned get2Bu(psd_file_t f){
 	return n |= fgetc(f);
 }
 
+// memory-mapped analogues
+
+// Read a 4-byte signed binary value in BigEndian format.
+// Assumes sizeof(long) == 4 (and two's complement CPU :)
+int32_t peek4B(unsigned char *p){
+	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
+}
+
+// Read a 8-byte signed binary value in BigEndian format.
+// Assumes sizeof(long) == 4
+int64_t peek8B(unsigned char *p){
+	int64_t msl = (unsigned long)peek4B(p);
+	return (msl << 32) | (unsigned long)peek4B(p+4);
+}
+
+// Read a 2-byte signed binary value in BigEndian format.
+// Meant to work even where sizeof(short) > 2
+int peek2B(unsigned char *p){
+	unsigned n = (p[0]<<8) | p[1];
+	return n < 0x8000 ? n : n - 0x10000;
+}
+
+// Read a 2-byte unsigned binary value in BigEndian format.
+unsigned peek2Bu(unsigned char *p){
+	return (p[0]<<8) | p[1];
+}
+
 // return pointer to a string of n tabs
 const char *tabs(int n){
 	static const char forty[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
