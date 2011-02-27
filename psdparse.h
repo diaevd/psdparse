@@ -99,21 +99,6 @@ typedef int psd_status, psd_int, psd_bool;
 typedef uint8_t psd_uchar;
 typedef uint16_t psd_ushort;
 
-#ifdef _WIN32
-	#include <direct.h>
-
-	#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
-
-	#define fseeko _fseeki64
-	#define ftello _ftelli64
-#else
-	#if defined(macintosh) && !defined(HAVE_SYS_STAT_H)
-		// don't clash with OS X header -- this prototype is meant for MPW build.
-		int mkdir(char *s, int mode);
-	#endif
-	#define MKDIR mkdir
-#endif
-
 #ifdef PSDPARSE_PLUGIN
 	#include "world.h" // for DIRSEP
 	#include "file_compat.h"
@@ -136,6 +121,21 @@ typedef uint16_t psd_ushort;
 
 	Boolean warndialog(char *s);
 #else
+	#ifdef _WIN32
+		#include <direct.h>
+
+		#define MKDIR(name,mode) _mkdir(name) // laughable, isn't it.
+
+		#define fseeko _fseeki64
+		#define ftello _ftelli64
+	#else
+		#if defined(macintosh) && !defined(HAVE_SYS_STAT_H)
+			// don't clash with OS X header -- this prototype is meant for MPW build.
+			int mkdir(char *s, int mode);
+		#endif
+		#define MKDIR mkdir
+	#endif
+
 	typedef FILE *psd_file_t;
 	#ifdef _MSC_VER
 		#define fseeko _fseeki64
@@ -355,7 +355,7 @@ void dochannel(psd_file_t f,
 		  int channels, // how many channels are to be processed (>1 only for merged data)
 		  struct psd_header *h);
 void doimage(psd_file_t f,struct layer_info *li,char *name,struct psd_header *h);
-void readlayerinfo(FILE *f, struct psd_header *h, int i);
+void readlayerinfo(psd_file_t f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
 psd_bytes_t globallayermaskinfo(psd_file_t f);
 void doimageresources(psd_file_t f);

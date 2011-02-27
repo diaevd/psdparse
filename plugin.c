@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -66,14 +66,23 @@ void pl_fatal(char *s){
 
 // stubs to keep linker happy.
 
+void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header *h)
+{
+}
+
 FILE* pngsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, psd_pixels_t height, 
 					int channels, int color_type, struct layer_info *li, struct psd_header *h)
 {
 	return NULL;
 }
 
-void pngwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+void pngwriteimage(
+		FILE *png,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h)
 {
 }
 
@@ -83,7 +92,12 @@ FILE* rawsetupwrite(psd_file_t psd, char *dir, char *name, psd_pixels_t width, p
 	return NULL;
 }
 
-void rawwriteimage(FILE *png,psd_file_t psd, int comp[], struct layer_info *li, psd_bytes_t **rowpos,
-				   int startchan, int pngchan, psd_pixels_t rows, psd_pixels_t cols, struct psd_header *h)
+void rawwriteimage(
+		FILE *png,
+		psd_file_t psd,
+		struct layer_info *li,
+		struct channel_info *chan,
+		int chancount,
+		struct psd_header *h)
 {
 }

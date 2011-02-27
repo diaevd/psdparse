@@ -47,7 +47,7 @@ void skipblock(psd_file_t f, char *desc){
  * and also populates the h->linfo[] array.
  */
 
-void readlayerinfo(FILE *f, struct psd_header *h, int i)
+void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 {
 	psd_bytes_t chlen, extralen, extrastart;
 	int j, chid, namelen;
