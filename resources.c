@@ -21,7 +21,7 @@
 
 static void ir_resolution(psd_file_t f, int level, int len, struct dictentry *parent){
 	double hresd, vresd;
-	extern long hres, vres; // fixed point values
+	extern uint32_t hres, vres; // fixed point values
 
 	hresd = FIXEDPT(hres = get4B(f));
 	get2B(f);
