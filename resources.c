@@ -449,7 +449,7 @@ void ir_path(psd_file_t f, int level, int len, struct dictentry *parent){
 				warn_msg("path resource: unexpected record selector");
 			}
 			if(skip)
-				fseek(f, skip, SEEK_CUR);
+				fseeko(f, skip, SEEK_CUR);
 		}
 }
 
