@@ -151,6 +151,8 @@ void dochannel(psd_file_t f,
 
 		// For RLE, we read the row count array and compute file positions.
 		// For ZIP, read and decompress whole channel.
+		chan[ch].rowpos = chan[ch].unzipdata = NULL;
+		chan[ch].rawpos = 0;
 		switch(compr){
 		case RAWDATA:
 			chan[ch].rawpos = pos;
