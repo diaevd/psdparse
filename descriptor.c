@@ -160,7 +160,7 @@ struct dictentry *item(psd_file_t f, int level){
 
 	if(!p){
 		fprintf(stderr, "### item(): unknown key '%s'; file offset %#lx\n",
-				k, (unsigned long)ftell(f));
+				k, (unsigned long)ftello(f));
 		exit(1);
 	}
 	return p;

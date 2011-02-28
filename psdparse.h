@@ -299,7 +299,7 @@ void fatal(char *s);
 void warn_msg(char *fmt, ...);
 void alwayswarn(char *fmt, ...);
 #define checkmalloc(N) ckmalloc(N, __FILE__, __LINE__)
-void *ckmalloc(long n, char *file, int line);
+void *ckmalloc(size_t n, char *file, int line);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
 void fwritexml(char *buf, size_t count, FILE *f);

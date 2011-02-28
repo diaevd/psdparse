@@ -70,9 +70,12 @@ void alwayswarn(char *fmt, ...){
 	fputs(s, stderr);
 }
 
-void *ckmalloc(long n, char *file, int line){
+void *ckmalloc(size_t n, char *file, int line){
 	void *p = malloc(n);
-	if(p) return p;
+	if(p){
+		//printf("Allocated %d bytes %s %d: %p\n", n, file, line, p);
+		return p;
+	}
 	else{
 		fprintf(stderr, "can't get %ld bytes @ %s:%d\n", n, file, line);
 		exit(1);
