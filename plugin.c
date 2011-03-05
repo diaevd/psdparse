@@ -33,7 +33,7 @@ void *pl_malloc(size_t n, char *file, int line){
 	void *p = sPSBuffer->New(&reqSize, n);
 
 	if(p){
-		printf("BufferNewProc allocated %u bytes %s %d: %p\n", (unsigned)n, file, line, p);
+		//printf("BufferNewProc allocated %u bytes %s %d: %p\n", (unsigned)n, file, line, p);
 		++allocs;
 		return p;
 	}
