@@ -611,7 +611,7 @@ static long doirb(psd_file_t f){
 	}
 
 	if(resdump){
-		char *temp_buf = malloc(padded_size);
+		char *temp_buf = checkmalloc(padded_size);
 		if(fread(temp_buf, 1, padded_size, f) < padded_size)
 			fatal("did not read expected bytes in image resource\n");
 		dumphex((unsigned char*)temp_buf, size);

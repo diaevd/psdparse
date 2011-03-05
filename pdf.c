@@ -216,7 +216,7 @@ void stringxml(char *strbuf, size_t cnt){
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
 		outb = 6*(cnt/2); // sloppy overestimate of buffer (FIXME)
-		if( (utf8 = malloc(outb)) ){
+		if( (utf8 = checkmalloc(outb)) ){
 			// skip the meaningless BOM
 			inbuf = strbuf + 2;
 			inb = cnt - 2;
@@ -279,7 +279,7 @@ static void pdf_data(char *buf, size_t n, int level){
 			cnt = pdf_string(&q, NULL, n);
 
 			// parse string into new buffer, and step past in source buffer
-			strbuf = malloc(cnt+1);
+			strbuf = checkmalloc(cnt+1);
 			q = p;
 			pdf_string(&p, strbuf, n);
 			n -= p - q;
@@ -311,7 +311,7 @@ static void pdf_data(char *buf, size_t n, int level){
 				q = p;
 				cnt = pdf_hexstring(&q, NULL, n);
 
-				strbuf = malloc(cnt+1);
+				strbuf = checkmalloc(cnt+1);
 				q = p;
 				pdf_hexstring(&p, strbuf, n);
 				n -= p - q;
@@ -350,7 +350,7 @@ static void pdf_data(char *buf, size_t n, int level){
 			cnt = pdf_name(&q, NULL, n);
 
 			// parse name into new buffer, and step past in source buffer
-			strbuf = malloc(cnt+1);
+			strbuf = checkmalloc(cnt+1);
 			q = p;
 			pdf_name(&p, strbuf, n);
 			strbuf[cnt] = 0;
@@ -413,7 +413,7 @@ static void pdf_data(char *buf, size_t n, int level){
 
 void desc_pdf(psd_file_t f, int level, int printxml, struct dictentry *parent){
 	long count = get4B(f);
-	char *buf = malloc(count);
+	char *buf = checkmalloc(count);
 
 	if(buf){
 		pdf_data(buf, fread(buf, 1, count, f), level);

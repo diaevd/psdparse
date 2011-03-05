@@ -251,8 +251,8 @@ void ed_color(psd_file_t f, int level, int len, struct dictentry *parent){
 }
 
 void conv_unicodestyles(psd_file_t f, long count, const char *indent){
-	unsigned short *utf16 = malloc(2*count);
-	short *style = malloc(2*count);
+	unsigned short *utf16 = checkmalloc(2*count);
+	short *style = checkmalloc(2*count);
 	int i;
 	size_t inb, outb;
 	char *inbuf, *outbuf, *utf8;
@@ -267,7 +267,7 @@ void conv_unicodestyles(psd_file_t f, long count, const char *indent){
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
-		if( (utf8 = malloc(outb)) ){
+		if( (utf8 = checkmalloc(outb)) ){
 			inbuf = (char*)utf16;
 			inb = 2*count;
 			outbuf = utf8;

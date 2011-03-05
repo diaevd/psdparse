@@ -45,7 +45,7 @@ static void ascii_string(psd_file_t f, long count){
 // Caller must free the buffer.
 
 char *conv_unicodestr(psd_file_t f, long count){
-	char *buf = malloc(2*count), *utf8 = NULL;
+	char *buf = checkmalloc(2*count), *utf8 = NULL;
 
 	if(buf){
 		size_t n = fread(buf, 2, count, f);
@@ -56,7 +56,7 @@ char *conv_unicodestr(psd_file_t f, long count){
 		iconv(ic, NULL, &inb, NULL, &outb); // reset iconv state
 
 		outb = 6*count; // sloppy overestimate of buffer (FIXME)
-		if( (utf8 = malloc(outb)) ){
+		if( (utf8 = checkmalloc(outb)) ){
 			inbuf = buf;
 			inb = 2*n;
 			outbuf = utf8;
