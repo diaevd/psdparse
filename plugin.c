@@ -17,11 +17,44 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include "psdparse.h"
+#include "../psdrecover.h"
+
+#include "PIBufferSuite.h"
 
 #ifdef WIN32
 	#define fsread_large FSRead
 #endif
+
+extern PSBufferSuite1 *sPSBuffer;
+extern int allocs;
+
+void *pl_malloc(size_t n, char *file, int line){
+	unsigned32 reqSize = n;
+	void *p = sPSBuffer->New(&reqSize, n);
+
+	if(p){
+		printf("BufferNewProc allocated %u bytes %s %d: %p\n", (unsigned)n, file, line, p);
+		++allocs;
+		return p;
+	}
+	else{
+		fprintf(stderr, "can't get %ld bytes @ %s:%d\n", n, file, line);
+	}
+
+	return NULL;
+}
+
+void pl_free(void *p, char *file, int line){
+	Ptr buf = p;
+
+	if(p){
+		sPSBuffer->Dispose(&buf);
+		--allocs;
+	}
+	else{
+		fprintf(stderr, "tried to free NULL pointer @ %s:%d\n", file, line);
+	}
+}
 
 int pl_fgetc(psd_file_t f){
 	// FIXME: replace with buffered version, this will be SLOW

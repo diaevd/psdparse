@@ -265,13 +265,17 @@ void openfiles(char *psdpath, struct psd_header *h)
 	char *ext, fname[PATH_MAX], *dirsuffix;
 
 	strcpy(indir, psdpath);
-	ext = strrchr(indir, '.');
 	dirsuffix = h->depth < 32 ? "_png" : "_raw";
-	ext ? strcpy(ext, dirsuffix) : strcat(indir, dirsuffix);
+	if( (ext = strrchr(indir, '.')) )
+		strcpy(ext, dirsuffix);
+	else
+		strcat(indir, dirsuffix);
 
 	if(writelist){
 		setupfile(fname, pngdir, "list", ".txt");
 		listfile = fopen(fname, "w");
+	}else{
+		listfile = NULL;
 	}
 
 	// see: http://hsivonen.iki.fi/producing-xml/
@@ -282,6 +286,8 @@ void openfiles(char *psdpath, struct psd_header *h)
 	}else if(writexml){
 		setupfile(fname, pngdir, "psd", ".xml");
 		xml = fopen(fname, "w");
+	}else{
+		xml = NULL;
 	}
 #ifdef HAVE_ICONV_H
 	ic = iconv_open("UTF-8", "UTF-16BE");

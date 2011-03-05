@@ -36,7 +36,7 @@
 	typedef UInt8  uint8_t;
 
 	#define vsnprintf(s,n,f,ap) vsprintf(s,f,ap)
-	#define strdup(s) strcpy(malloc(strlen(s)+1),(s))
+	#define strdup(s) strcpy(checkmalloc(strlen(s)+1),(s))
 
 	int mkdir(char *s, int mode);
 #else
@@ -118,8 +118,13 @@ typedef uint16_t psd_ushort;
 	int pl_fseeko(psd_file_t f, off_t pos, int wh);
 	off_t pl_ftello(psd_file_t f);
 	void pl_fatal(char *s);
+	void *pl_malloc(size_t n, char *file, int line);
+	void pl_free(void *p, char *file, int line);
 
 	Boolean warndialog(char *s);
+
+	#define checkmalloc(N) pl_malloc(N, __FILE__, __LINE__)
+	#define free(P) pl_free(P, __FILE__, __LINE__)
 #else
 	#ifdef _WIN32
 		#include <direct.h>
@@ -146,6 +151,8 @@ typedef uint16_t psd_ushort;
 			#define ftello ftell
 		#endif
 	#endif
+
+	#define checkmalloc(N) ckmalloc(N, __FILE__, __LINE__)
 #endif
 
 #ifndef PATH_MAX
@@ -298,7 +305,6 @@ extern FILE *xml, *listfile;
 void fatal(char *s);
 void warn_msg(char *fmt, ...);
 void alwayswarn(char *fmt, ...);
-#define checkmalloc(N) ckmalloc(N, __FILE__, __LINE__)
 void *ckmalloc(size_t n, char *file, int line);
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);

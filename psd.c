@@ -72,6 +72,9 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 		alwayswarn("### something's not right about that, trying to skip layer.\n");
 		fseeko(f, 6*li->channels+12, SEEK_CUR);
 		skipblock(f, "layer info: extra data");
+		li->chan = NULL;
+		li->chindex = NULL;
+		li->nameno = li->name = NULL;
 	}
 	else
 	{
@@ -85,8 +88,10 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 		// fetch info on each of the layer's channels
 
 		for(j = 0; j < li->channels; ++j){
-			chid = li->chan[j].id = get2B(f);
-			chlen = li->chan[j].length = GETPSDBYTES(f);
+			li->chan[j].id = chid = get2B(f);
+			li->chan[j].length = chlen = GETPSDBYTES(f);
+			li->chan[j].rowpos = NULL;
+			li->chan[j].unzipdata = NULL;
 
 			if(chid >= -3 && chid < li->channels)
 				li->chindex[chid] = j;
@@ -150,7 +155,7 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 		skipblock(f, "layer blending ranges");
 
 		// layer name
-		li->nameno = malloc(16);
+		li->nameno = checkmalloc(16);
 		sprintf(li->nameno, "layer%d", i+1);
 		namelen = fgetc(f);
 		li->name = checkmalloc(PAD4(namelen+1));
