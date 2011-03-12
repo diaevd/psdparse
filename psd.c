@@ -49,7 +49,7 @@ void skipblock(psd_file_t f, char *desc){
 
 void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 {
-	psd_bytes_t chlen, extralen, extrastart;
+	psd_bytes_t extralen, extrastart;
 	int j, chid, namelen;
 	char *chidstr, tmp[10];
 	struct layer_info *li = h->linfo + i;
@@ -74,7 +74,7 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 		skipblock(f, "layer info: extra data");
 		li->chan = NULL;
 		li->chindex = NULL;
-		li->nameno = li->name = NULL;
+		li->nameno = li->name = li->unicode_name = NULL;
 	}
 	else
 	{
@@ -89,7 +89,8 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 
 		for(j = 0; j < li->channels; ++j){
 			li->chan[j].id = chid = get2B(f);
-			li->chan[j].length = chlen = GETPSDBYTES(f);
+			li->chan[j].length = GETPSDBYTES(f);
+			li->chan[j].rawpos = 0;
 			li->chan[j].rowpos = NULL;
 			li->chan[j].unzipdata = NULL;
 
@@ -106,10 +107,10 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 				if(h->mode != SCAVENGE_MODE && chid < (int)strlen(channelsuffixes[h->mode]))
 					sprintf(chidstr = tmp, " (%c)", channelsuffixes[h->mode][chid]); // it's a mode-ish channel
 				else
-					chidstr = ""; // can't explain it
+					chidstr = ""; // don't know
 			}
 			VERBOSE("    channel %2d: " LL_L("%7lld","%7ld") " bytes, id=%2d %s\n",
-					j, chlen, chid, chidstr);
+					j, li->chan[j].length, chid, chidstr);
 		}
 
 		fread(li->blend.sig, 1, 4, f);

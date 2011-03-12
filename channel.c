@@ -37,22 +37,33 @@ void readunpackrow(psd_file_t psd,        // input file handle
 
 	switch(chan->comptype){
 	case RAWDATA: /* uncompressed */
-		pos = chan->rawpos + chan->rowbytes*row;
-		seekres = fseeko(psd, pos, SEEK_SET);
-		if(seekres != -1)
-			n = fread(inrow, 1, chan->rowbytes, psd);
+		if(chan->rawpos){
+			pos = chan->rawpos + chan->rowbytes*row;
+			seekres = fseeko(psd, pos, SEEK_SET);
+			if(seekres != -1)
+				n = fread(inrow, 1, chan->rowbytes, psd);
+		}else{
+			alwayswarn("# readunpackrow() called for raw data, but rawpos is zero");
+		}
 		break;
 	case RLECOMP:
-		pos = chan->rowpos[row];
-		seekres = fseeko(psd, pos, SEEK_SET);
-		if(seekres != -1){
-			rlebytes = fread(rlebuf, 1, chan->rowpos[row+1] - pos, psd);
-			n = unpackbits(inrow, rlebuf, chan->rowbytes, rlebytes);
+		if(chan->rowpos){
+			pos = chan->rowpos[row];
+			seekres = fseeko(psd, pos, SEEK_SET);
+			if(seekres != -1){
+				rlebytes = fread(rlebuf, 1, chan->rowpos[row+1] - pos, psd);
+				n = unpackbits(inrow, rlebuf, chan->rowbytes, rlebytes);
+			}
+		}else{
+			alwayswarn("# readunpackrow() called for RLE data, but rowpos is NULL");
 		}
 		break;
 	case ZIPNOPREDICT:
 	case ZIPPREDICT:
-		memcpy(inrow, chan->unzipdata + chan->rowbytes*row, chan->rowbytes);
+		if(chan->unzipdata)
+			memcpy(inrow, chan->unzipdata + chan->rowbytes*row, chan->rowbytes);
+		else
+			alwayswarn("# readunpackrow() called for ZIP data, but unzipdata is NULL");
 		return;
 	}
 	// if we don't recognise the compression type, skip the row
@@ -64,7 +75,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 	if(n < chan->rowbytes){
 		warn_msg("row data short (wanted %d, got %d bytes)", chan->rowbytes, n);
 		// zero out unwritten part of row
-		memset(inrow + n, 0, chan->rowbytes - n);
+		memset(inrow + n, 0xff, chan->rowbytes - n);
 	}
 }
 
@@ -131,7 +142,7 @@ void dochannel(psd_file_t f,
 
 	pos = chpos + 2;
 
-	// skip rle counts, leave pos pointing to first compressed image row
+	// skip RLE counts, leave pos pointing to first row's compressed data
 	if(compr == RLECOMP)
 		pos += (channels*chan->rows) << h->version;
 
@@ -145,14 +156,15 @@ void dochannel(psd_file_t f,
 		chan[ch].comptype = compr;
 		chan[ch].rows = chan->rows;
 		chan[ch].cols = chan->cols;
+		chan[ch].rowpos = NULL;
+		chan[ch].unzipdata = NULL;
+		chan[ch].rawpos = 0;
 
 		if(!chan->rows)
 			continue;
 
 		// For RLE, we read the row count array and compute file positions.
 		// For ZIP, read and decompress whole channel.
-		chan[ch].rowpos = chan[ch].unzipdata = NULL;
-		chan[ch].rawpos = 0;
 		switch(compr){
 		case RAWDATA:
 			chan[ch].rawpos = pos;
