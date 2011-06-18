@@ -106,7 +106,8 @@ void fputcxml(char c, FILE *f){
 	default:
 		if(c >= 0x20 || (c & 0x80)) // pass through multibyte UTF-8
 			fputc(c, f);
-	// no other characters are valid in XML.
+		else // no other characters are valid in XML.
+			alwayswarn("XML: invalid character %#x skipped\n", c & 0xff);
 	}
 }
 
