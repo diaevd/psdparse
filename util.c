@@ -104,10 +104,9 @@ void fputcxml(char c, FILE *f){
 		fputc(c, f);
 		break;
 	default:
-		if(isprint(c) || (c & 0x80)) // pass through multibyte UTF-8
+		if(c >= 0x20 || (c & 0x80)) // pass through multibyte UTF-8
 			fputc(c, f);
-		else
-			fprintf(f, "&#x%02x;", (unsigned char)c);
+	// no other characters are valid in XML.
 	}
 }
 

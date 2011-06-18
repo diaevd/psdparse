@@ -79,7 +79,7 @@ char *conv_unicodestr(psd_file_t f, long count){
 void xml_unicodestr(psd_file_t f, long count){
 	char *buf = conv_unicodestr(f, count);
 	if(buf){
-		fputs(buf, xml);
+		fputsxml(buf, xml);
 		free(buf);
 	}
 }

@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-2010 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -70,19 +70,20 @@
   20-Dec-2010: 3.4b5 fix faulty XML issue for text layers, reported by Richard Ross
   27-Dec-2010: 3.5b1 incorporate additional information from July 2010 Photoshop File Formats doc
                      ( http://forums.adobe.com/message/3265930#3265930 )
+  18-Jun-2011: 3.5b2 fix problems shown by test file provided by Richard Ross (loop hang, control characters)
 */
 
-#define VERSION_STR "3.5b1"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x50,beta,1
+#define VERSION_STR "3.5b2"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x50,beta,2
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-2010 http://www.telegraphics.com.au/"
+	VERSION_STR ", Copyright (C) Toby Thain 2004-2011 http://www.telegraphics.com.au/"
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,5,0x60,1
+#define VI_VERS_NUM 3,5,0x60,2
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 

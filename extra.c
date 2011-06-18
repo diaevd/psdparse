@@ -1045,6 +1045,9 @@ void doadditional(psd_file_t f, struct psd_header *h, int level, psd_bytes_t len
 		if(!block){
 			warn_msg("bad signature in layer's extra data, skipping the rest");
 			break;
+		}else if(block > length){
+			warn_msg("bad length in sigkeyblock: %d", block);
+			break;
 		}
 		length -= block;
 	}
