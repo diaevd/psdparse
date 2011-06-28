@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -367,6 +367,7 @@ int dopsd(psd_file_t f, char *psdpath, struct psd_header *h){
 				else
 					skipblock(f, "color mode data");
 
+				h->resourcepos = ftello(f);
 				if(rsrc || resdump)
 					doimageresources(f);
 				else

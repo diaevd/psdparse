@@ -28,7 +28,7 @@ VERSION := $(shell perl -n -e 'm/^\#.*VERSION_STR[[:blank:]]+\"([^"]*)\"/ && pri
 
 # for OS X build, download and extract libpng archive, and define path to it:
 # (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
-LIBPNG = ../lpng144
+LIBPNG = ../libpng-1.4.3
 
 # The following line is only needed where libpng is typically not installed (OS X).
 # Otherwise, this line should be commented out (and shared lib will be used):
@@ -45,13 +45,14 @@ MINGW_AR      = i386-mingw32msvc-ar
 MINGW_RANLIB  = i386-mingw32msvc-ranlib
 MINGW_WINDRES = i386-mingw32msvc-windres
 
-CFLAGS   += -g -W -Wall -O2 -Wno-unused-parameter
+CFLAGS   += -g -W -Wall -O0 -Wno-unused-parameter
 LDFLAGS += -g
 CPPFLAGS += -DDEFAULT_VERBOSE=0 -DPSBSUPPORT
 
 SRC    = main.c writepng.c writeraw.c unpackbits.c write.c \
 		 resources.c icc.c extra.c constants.c util.c descriptor.c \
-		 channel.c psd.c scavenge.c pdf.c psd_zip.c duotone.c
+		 channel.c psd.c scavenge.c pdf.c psd_zip.c duotone.c \
+		 rebuild.c
 OBJ    = $(patsubst %.c, obj/%.o,     $(SRC) mmap.c)
 OBJW32 = $(patsubst %.c, obj_w32/%.o, $(SRC) mmap_win.c) obj_w32/res.o
 

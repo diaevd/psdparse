@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -207,7 +207,6 @@ int64_t get8B(psd_file_t f){
 #endif
 
 // Read a 2-byte signed binary value in BigEndian format.
-// Meant to work even where sizeof(short) > 2
 int get2B(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
 	n |= fgetc(f);
@@ -219,6 +218,28 @@ unsigned get2Bu(psd_file_t f){
 	unsigned n = fgetc(f)<<8;
 	return n |= fgetc(f);
 }
+
+
+unsigned put4B(psd_file_t f, int32_t value){
+	return fputc(value >> 24, f) != EOF
+		&& fputc(value >> 16, f) != EOF
+		&& fputc(value >>  8, f) != EOF
+		&& fputc(value, f) != EOF;
+}
+
+unsigned put8B(psd_file_t f, int64_t value){
+	return put4B(f, value >> 32) && put4B(f, value);
+}
+
+unsigned putpsdbytes(psd_file_t f, int version, int64_t value){
+	return version == 1 ? put4B(f, value) : put8B(f, value);
+}
+
+unsigned put2B(psd_file_t f, int value){
+	return fputc(value >> 8, f) != EOF
+		&& fputc(value, f) != EOF;
+}
+
 
 // memory-mapped analogues
 
@@ -276,6 +297,14 @@ void openfiles(char *psdpath, struct psd_header *h)
 		listfile = fopen(fname, "w");
 	}else{
 		listfile = NULL;
+	}
+
+	if(rebuild){
+		char *basename = strrchr(psdpath, DIRSEP);
+		setupfile(fname, pngdir, basename ? basename : psdpath, "-rebuilt.psd");
+		rebuilt_psd = fopen(fname, "w");
+	}else{
+		rebuilt_psd = NULL;
 	}
 
 	// see: http://hsivonen.iki.fi/producing-xml/

@@ -90,6 +90,9 @@
 	#define LL_L(llfmt,lfmt) lfmt
 #endif
 
+// size of the PSD/PSB variant fields, given PSD version
+#define PSDBSIZE(version) ((version) << 2)
+
 // this is paired with %u format specifications so may break
 // if not same size as 'unsigned'.
 typedef uint32_t psd_pixels_t;
@@ -182,6 +185,7 @@ enum{RAWDATA,RLECOMP,ZIPNOPREDICT,ZIPPREDICT}; // ZIP types from CS doc
 
 #define PAD2(x) (((x)+1) & -2) // same or next even
 #define PAD4(x) (((x)+3) & -4) // same or next multiple of 4
+#define PAD_BYTE 0
 
 #define VERBOSE if(verbose) printf
 #define UNQUIET if(!quiet) printf
@@ -206,6 +210,7 @@ struct psd_header{
 
 	// following fields are for our purposes, not actual header fields
 	psd_bytes_t colormodepos; // set by dopsd()
+	psd_bytes_t resourcepos;  // set by dopsd()
 	int nlayers, mergedalpha; // set by dopsd()->dolayermaskinfo()
 	struct layer_info *linfo;     // layer info array, set by dopsd()->dolayermaskinfo()
 	psd_bytes_t lmistart, lmilen; // layer & mask info section, set by dopsd()->dolayermaskinfo()
@@ -246,6 +251,9 @@ struct channel_info{
 	int comptype;             // channel's compression type
 	psd_pixels_t rows, cols, rowbytes;  // set by dochannel()
 	psd_bytes_t length;       // channel byte count in file
+
+	// used in rebuild
+	psd_bytes_t length_rebuild; // channel byte count in file
 
 	// how to find image data, depending on compression type:
 	psd_bytes_t rawpos;       // file offset of RAW channel data (AFTER compression type)
@@ -298,17 +306,20 @@ extern const int mode_colour_space[];
 extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, print_rsrc, resdump, extra, makedirs,
 		   numbered, help, split, nwarns, writepng, writelist,
-		   writexml, xmlout, unicode_filenames;
+		   writexml, xmlout, unicode_filenames, rebuild;
 
-extern FILE *xml, *listfile;
+extern FILE *xml, *listfile, *rebuilt_psd;
 
 void fatal(char *s);
 void warn_msg(char *fmt, ...);
 void alwayswarn(char *fmt, ...);
+
 void *ckmalloc(size_t n, char *file, int line);
+
 void fputcxml(char c, FILE *f);
 void fputsxml(char *str, FILE *f);
 void fwritexml(char *buf, size_t count, FILE *f);
+
 char *getpstr(psd_file_t f);
 char *getpstr2(psd_file_t f);
 char *getkey(psd_file_t f);
@@ -317,10 +328,17 @@ int32_t get4B(psd_file_t f);
 int64_t get8B(psd_file_t f);
 int get2B(psd_file_t f);
 unsigned get2Bu(psd_file_t f);
+
+unsigned put4B(psd_file_t f, int32_t);
+unsigned put8B(psd_file_t f, int64_t);
+unsigned putpsdbytes(psd_file_t f, int version, int64_t);
+unsigned put2B(psd_file_t f, int);
+
 int32_t peek4B(unsigned char *p);
 int64_t peek8B(unsigned char *p);
 int peek2B(unsigned char *p);
 unsigned peek2Bu(unsigned char *p);
+
 const char *tabs(int n);
 int hexdigit(unsigned char c);
 void openfiles(char *psdpath, struct psd_header *h);
@@ -407,5 +425,7 @@ psd_status psd_unzip_with_prediction(psd_uchar *src_buf, psd_int src_len,
 	psd_int row_size, psd_int color_depth);
 
 void duotone_data(psd_file_t f, int level);
+
+void rebuild_psd(psd_file_t psd, int version, struct psd_header *h);
 
 #endif

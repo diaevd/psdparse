@@ -1,5 +1,5 @@
 #    This file is part of "psdparse"
-#    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+#    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by  
@@ -20,7 +20,7 @@ bin_PROGRAMS = psdparse
 psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c write.c \
                    resources.c icc.c extra.c constants.c util.c pdf.c \
                    descriptor.c channel.c psd.c scavenge.c mmap.c \
-                   psd_zip.c duotone.c \
+                   psd_zip.c duotone.c rebuild.c \
                    psdparse.h version.h
 AM_CFLAGS   = -W -Wall -O2
 AM_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 -D_GNU_SOURCE \
