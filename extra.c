@@ -802,8 +802,11 @@ static void mdblock(psd_file_t f, int level, int len){
 	fseeko(f, 3, SEEK_CUR); // padding
 	length = get4B(f);
 	if(xml){
-		fprintf(xml, "%s<METADATA SIG='%c%c%c%c' KEY='%c%c%c%c'>\n", indent,
-				sig[0],sig[1],sig[2],sig[3], key[0],key[1],key[2],key[3]);
+		fprintf(xml, "%s<METADATA SIG='", indent);
+		fwritexml(sig, 4, xml);
+		fputs("' KEY='", xml);
+		fwritexml(key, 4, xml);
+		fputs("'>\n", xml);
 		fprintf(xml, "\t%s<COPY>%d</COPY>\n", indent, copy);
 		fprintf(xml, "\t%s<!-- %ld bytes of undocumented data -->\n", indent, length); // the documentation tells us that it's undocumented
 		fprintf(xml, "%s</METADATA>\n", indent);
