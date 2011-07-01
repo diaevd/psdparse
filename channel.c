@@ -99,7 +99,7 @@ void dochannel(psd_file_t f,
 	chpos = ftello(f);
 
 	if(li){
-		VERBOSE(">>> channel id = %d @ " LL_L("%7lld, %lld","%7ld, %ld") " bytes\n",
+		VERBOSE(">>> channel id = %2d @ " LL_L("%7lld, %lld","%7ld, %ld") " bytes\n",
 				chan->id, chpos, chan->length);
 
 		// If this is a layer mask, the pixel size is a special case
@@ -133,6 +133,11 @@ void dochannel(psd_file_t f,
 
 	// Read compression type
 	compr = get2Bu(f);
+
+	if(compr < RAWDATA || compr > ZIPPREDICT){
+		alwayswarn("## unknown compression type: %d; skipping channel\n", compr);
+		goto err;
+	}
 
 	VERBOSE("    compression = %d (%s)\n", compr, comptype[compr]);
 	VERBOSE("    uncompressed size %u bytes (row bytes = %u)\n",
@@ -225,5 +230,6 @@ void dochannel(psd_file_t f,
 		alwayswarn("# channel data is %lu bytes, but length = %lu\n",
 				   (unsigned long)(pos - chpos), (unsigned long)chan->length);
 
+err:
 	fseeko(f, pos, SEEK_SET);
 }
