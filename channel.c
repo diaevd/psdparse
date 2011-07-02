@@ -188,8 +188,9 @@ void dochannel(psd_file_t f,
 				chan[ch].rowpos[j] = pos;
 				pos += count;
 			}
-			if(j < chan[ch].rows)
+			if(j < chan[ch].rows){
 				fatal("# couldn't read RLE counts");
+			}
 			chan[ch].rowpos[j] = pos; /* = end of last row */
 			break;
 
@@ -213,15 +214,18 @@ void dochannel(psd_file_t f,
 											  chan->cols, h->depth);
 
 				free(zipdata);
-			}else
+			}else{
 				alwayswarn("## can't process ZIP outside layer\n");
+			}
 			break;
+
 		default:
 			if(li)
 				alwayswarn("## bad compression type: %d; skipping channel (id %2d) in layer \"%s\"\n",
 						   compr, chan->id, li->name);
 			else
 				alwayswarn("## bad compression type: %d; skipping channel\n", compr);
+
 			if(li)
 				fseeko(f, chan->length - 2, SEEK_CUR);
 			break;
