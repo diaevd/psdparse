@@ -255,7 +255,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 
 		// Image data ------------------------------------------------------
 		for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
-			UNQUIET("# rebuilding layer %d\n", i);
+			UNQUIET("# rebuilding layer %d: %s\n", i, li->name);
 
 			for(j = 0; j < li->channels; ++j)
 				layerlen += li->chan[j].length_rebuild =
