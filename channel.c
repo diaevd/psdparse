@@ -43,7 +43,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 			if(seekres != -1)
 				n = fread(inrow, 1, chan->rowbytes, psd);
 		}else{
-			alwayswarn("# readunpackrow() called for raw data, but rawpos is zero");
+			warn_msg("# readunpackrow() called for raw data, but rawpos is zero");
 		}
 		break;
 	case RLECOMP:
@@ -55,7 +55,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 				n = unpackbits(inrow, rlebuf, chan->rowbytes, rlebytes);
 			}
 		}else{
-			alwayswarn("# readunpackrow() called for RLE data, but rowpos is NULL");
+			warn_msg("# readunpackrow() called for RLE data, but rowpos is NULL");
 		}
 		break;
 	case ZIPNOPREDICT:
@@ -63,7 +63,7 @@ void readunpackrow(psd_file_t psd,        // input file handle
 		if(chan->unzipdata)
 			memcpy(inrow, chan->unzipdata + chan->rowbytes*row, chan->rowbytes);
 		else
-			alwayswarn("# readunpackrow() called for ZIP data, but unzipdata is NULL");
+			warn_msg("# readunpackrow() called for ZIP data, but unzipdata is NULL");
 		return;
 	}
 	// if we don't recognise the compression type, skip the row
