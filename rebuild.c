@@ -228,7 +228,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	if(merged_only)
 		h->nlayers = 0;
 
-	// File header
+	// File header =====================================================
 	writeheader(rebuilt_psd, version, h);
 
 	// copy color mode data --------------------------------------------
@@ -243,15 +243,14 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	lmilen = 0;
 
 	if(h->nlayers){
-		// Layer info ------------------------------------------------------
+		// Layer info --------------------------------------------------
 		putpsdbytes(rebuilt_psd, version, 0); // dummy layer info length
 		lmilen += PSDBSIZE(version); // account for layer info length field
-		layerlen = 0;
-		layerlen += checklen = writelayerinfo(psd, rebuilt_psd, version, h);
+		layerlen = checklen = writelayerinfo(psd, rebuilt_psd, version, h);
 
 		VERBOSE("# rebuilt layer info: %u bytes\n", (unsigned)layerlen);
 
-		// Image data ------------------------------------------------------
+		// Image data --------------------------------------------------
 		for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
 			UNQUIET("# rebuilding layer %d: %s\n", i, li->name);
 
@@ -260,13 +259,13 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 						writepsdchannels(rebuilt_psd, version, psd, j, li->chan + j, 1, h);
 		}
 
-		// Even alignment --------------------------------------------------
+		// Even alignment ----------------------------------------------
 		if(layerlen & 1){
 			++layerlen;
 			fputc(PAD_BYTE, rebuilt_psd);
 		}
 
-		// Global layer mask info ------------------------------------------
+		// Global layer mask info --------------------------------------
 		put4B(rebuilt_psd, 0); // empty for now
 		layerlen += 4;
 	}
@@ -275,7 +274,9 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	UNQUIET("# rebuilding merged image\n");
 	writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
 
-	// Rebuild finished! ===============================================
+	// File complete ===================================================
+
+	// now do fixups for layer info/layer mask info and image data sizes
 
 	if(h->nlayers){
 		// overwrite layer & mask information with fixed-up sizes
