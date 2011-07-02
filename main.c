@@ -59,7 +59,7 @@ void usage(char *prog, int status){
       --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n\
       --rebuild      write a new PSD/PSB with extracted image layers only\n\
-        --rebuildpsd    rebuild in PSD (v1) format, never PSB format\n\
+        --rebuildpsd    try to rebuild in PSD (v1) format, never PSB (v2)\n\
         --mergedonly    rebuild without any layers (merged image only)\n"
 #ifdef CAN_MMAP
 "      --scavenge     ignore file header, search entire file for image layers\n\
