@@ -335,7 +335,7 @@ void openfiles(char *psdpath, struct psd_header *h)
 // as needed (and if requested).
 
 void setupfile(char *dstname, char *dir, char *name, char *suffix){
-	char *last, d[PATH_MAX];
+	char *last, d[PATH_MAX], c;
 
 #ifdef MKDIR
 	MKDIR(dir, 0755);
@@ -348,7 +348,13 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 				last[0] = 0;
 				strcpy(d, dir);
 				strcat(d, dirsep);
+
+				c = *name;
+				if(*name == '.') // never create hidden directories
+					*name = '_';
 				strcat(d, name);
+				*name = c;
+
 				if(!MKDIR(d, 0755))
 					VERBOSE("# made subdirectory \"%s\"\n", d);
 				last[0] = DIRSEP;
@@ -363,6 +369,11 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 	strcat(dstname, "_");
 #endif
 
+	c = *name;
+	if(*name == '.') // never create hidden files
+		*name = '_';
 	strcat(dstname, name);
+	*name = c;
+
 	strcat(dstname, suffix);
 }

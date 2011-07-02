@@ -162,11 +162,8 @@ void readlayerinfo(psd_file_t f, struct psd_header *h, int i)
 		li->name = checkmalloc(PAD4(namelen+1));
 		fread(li->name, 1, PAD4(namelen+1)-1, f);
 		li->name[namelen] = 0;
-		if(namelen){
+		if(namelen)
 			UNQUIET("    name: \"%s\"\n", li->name);
-			if(li->name[0] == '.')
-				li->name[0] = '_';
-		}
 
 		// process layer's 'additional info'
 
