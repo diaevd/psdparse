@@ -333,7 +333,7 @@ unsigned get2Bu(psd_file_t f);
 
 unsigned put4B(psd_file_t f, int32_t);
 unsigned put8B(psd_file_t f, int64_t);
-unsigned putpsdbytes(psd_file_t f, int version, int64_t);
+unsigned putpsdbytes(psd_file_t f, int version, uint64_t value);
 unsigned put2B(psd_file_t f, int);
 
 int32_t peek4B(unsigned char *p);

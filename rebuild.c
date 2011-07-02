@@ -45,7 +45,7 @@ psd_bytes_t writepsdchannels(
 		int chancount,
 		struct psd_header *h)
 {
-	psd_pixels_t j, total_rows = chancount * ch->rows;
+	psd_pixels_t j, k, total_rows = chancount * ch->rows;
 	psd_bytes_t *rowcounts;
 	unsigned char *compbuf, *inrow, *rlebuf, *p;
 	int i, comp;
@@ -54,21 +54,21 @@ psd_bytes_t writepsdchannels(
 
 	rlebuf    = checkmalloc(ch->rowbytes*2);
 	inrow     = checkmalloc(ch->rowbytes);
-
-#ifdef TRY_RLE // The following is not fully debugged.
 	compbuf   = checkmalloc(PACKBITSWORST(ch->rowbytes)*total_rows);
 	rowcounts = checkmalloc(sizeof(psd_bytes_t)*total_rows);
 
 	// compress the channel(s) to decide between raw & RLE adaptively
 	p = compbuf;
 	compsize = 0;
-	for(i = 0; i < chancount; ++i){
-		for(j = 0; j < ch[i].rows; ++j){
+	for(i = k = 0; i < chancount; ++i){
+		for(j = 0; j < ch[i].rows; ++j, ++k){
 			/* get row data */
 			readunpackrow(psd, ch+i, j, inrow, rlebuf);
-			rowcounts[j] = packbits(inrow, p, ch[i].rowbytes);
-			compsize += rowcounts[j];
-			p += rowcounts[j];
+			rowcounts[k] = packbits(inrow, p, ch[i].rowbytes);
+			compsize += rowcounts[k];
+			p += rowcounts[k];
+			//printf("packed ch %u row %u [%u] (rb %u) to %u bytes\n",
+			//		 i, (unsigned)j, (unsigned)k, (unsigned)ch[i].rowbytes, (unsigned)rowcounts[k]);
 		}
 	}
 	// allow for row counts:
@@ -79,8 +79,15 @@ psd_bytes_t writepsdchannels(
 
 		put2B(out_psd, comp = RLECOMP); // compression type: raw image data
 		chansize += 2;
-		for(j = 0; j < total_rows; ++j)
-			putpsdbytes(out_psd, version, rowcounts[j]);
+		for(j = 0; j < total_rows; ++j){
+			if(version == 1){
+				if(rowcounts[j] > UINT16_MAX)
+					fatal("## row count out of range for PSD (v1) format. Try without --rebuildpsd.\n");
+				put2B(out_psd, rowcounts[j]);
+			}else{
+				put4B(out_psd, rowcounts[j]);
+			}
+		}
 
 		if((psd_pixels_t)fwrite(compbuf, 1, compsize, out_psd) != compsize){
 			alwayswarn("# error writing psd channel (RLE), aborting\n");
@@ -89,9 +96,7 @@ psd_bytes_t writepsdchannels(
 
 		free(compbuf);
 		free(rowcounts);
-	}else
-#endif
-	{
+	}else{
 		// There was no saving using RLE, so don't compress.
 
 		put2B(out_psd, comp = RAWDATA); // compression type

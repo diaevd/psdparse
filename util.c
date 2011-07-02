@@ -231,7 +231,9 @@ unsigned put8B(psd_file_t f, int64_t value){
 	return put4B(f, value >> 32) && put4B(f, value);
 }
 
-unsigned putpsdbytes(psd_file_t f, int version, int64_t value){
+unsigned putpsdbytes(psd_file_t f, int version, uint64_t value){
+	if(version == 1 && value > UINT32_MAX)
+		fatal("## Value out of range for PSD format. Try without --rebuildpsd.\n");
 	return version == 1 ? put4B(f, value) : put8B(f, value);
 }
 
