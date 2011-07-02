@@ -42,7 +42,7 @@
 # required libraries
 	
 	# zlib: http://www.zlib.net/
-ZLIB = ..\zlib-1.2.3
+ZLIB = ..\zlib-1.2.5
 
 	# libpng: http://www.libpng.org/pub/png/libpng.html
 LIBPNG = ..\libpng-1.4.3
@@ -77,6 +77,7 @@ PNGOBJ = $(LIBPNG)\png.obj $(LIBPNG)\pngerror.obj $(LIBPNG)\pngget.obj \
 OBJ = main.obj writepng.obj writeraw.obj unpackbits.obj write.obj \
       resources.obj icc.obj extra.obj constants.obj util.obj descriptor.obj \
       channel.obj psd.obj scavenge.obj pdf.obj psd_zip.obj mmap_win.obj \
+      packbits.obj duotone.obj rebuild.obj \
       getopt.obj getopt1.obj \
       version.res \
       $(ZLIBOBJ) $(PNGOBJ)
