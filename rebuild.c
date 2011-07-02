@@ -197,7 +197,8 @@ psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
 		fputc(namelen, out_psd);
 		fwrite(li->name, 1, PAD4(namelen+1)-1, out_psd);
 
-		// no 'additional info'
+		// additional layer information --------------------------------
+		// currently empty, but if non-empty, is accounted for in size
 
 		// End of layer records section ================================
 	}
@@ -226,6 +227,9 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	int i, j;
 	struct layer_info *li;
 
+	if(merged_only)
+		h->nlayers = 0;
+
 	// File header
 	writeheader(rebuilt_psd, version, h);
 
@@ -238,47 +242,51 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	// Layer and mask information ======================================
 	lmipos = ftello(rebuilt_psd);
 	putpsdbytes(rebuilt_psd, version, 0); // dummy lmi length
-	lmilen = PSDBSIZE(version);
+	lmilen = 0;
 
-	// Layer info ------------------------------------------------------
-	putpsdbytes(rebuilt_psd, version, 0); // dummy layer info length
-	layerlen = PSDBSIZE(version);
-	layerlen += checklen = writelayerinfo(psd, rebuilt_psd, version, h);
+	if(h->nlayers){
+		// Layer info ------------------------------------------------------
+		putpsdbytes(rebuilt_psd, version, 0); // dummy layer info length
+		lmilen += PSDBSIZE(version); // account for layer info length field
+		layerlen = 0;
+		layerlen += checklen = writelayerinfo(psd, rebuilt_psd, version, h);
 
-	VERBOSE("# rebuilt layer info: %u bytes\n", (unsigned)layerlen);
+		VERBOSE("# rebuilt layer info: %u bytes\n", (unsigned)layerlen);
 
-	// Image data ======================================================
-	for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
-		UNQUIET("# rebuilding layer %d\n", i);
+		// Image data ------------------------------------------------------
+		for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
+			UNQUIET("# rebuilding layer %d\n", i);
 
-		for(j = 0; j < li->channels; ++j)
-			layerlen += li->chan[j].length_rebuild =
-					writepsdchannels(rebuilt_psd, version, psd, j, li->chan + j, 1, h);
+			for(j = 0; j < li->channels; ++j)
+				layerlen += li->chan[j].length_rebuild =
+						writepsdchannels(rebuilt_psd, version, psd, j, li->chan + j, 1, h);
+		}
+
+		// Even alignment --------------------------------------------------
+		if(layerlen & 1){
+			++layerlen;
+			fputc(PAD_BYTE, rebuilt_psd);
+		}
+
+		// Global layer mask info ------------------------------------------
+		put4B(rebuilt_psd, 0); // empty for now
+		layerlen += 4;
 	}
-
-	// Even alignment --------------------------------------------------
-	if(layerlen & 1){
-		++layerlen;
-		fputc(0, rebuilt_psd);
-	}
-
-	// Global layer mask info ==========================================
-	//layerlen += copy_block(psd, rebuilt_psd, h->global_lmi_pos);
-	put4B(rebuilt_psd, 0); // empty for now
-	layerlen += 4;
 
 	// Merged image data ===============================================
 	UNQUIET("# rebuilding merged image\n");
 	writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
 
-	// Rebuild finished!
+	// Rebuild finished! ===============================================
 
-	// overwrite layer & mask information with fixed-up sizes
-	fseeko(rebuilt_psd, lmipos, SEEK_SET);
-	putpsdbytes(rebuilt_psd, version, lmilen + layerlen); // do fixup
-	putpsdbytes(rebuilt_psd, version, layerlen); // do fixup
-	if(writelayerinfo(psd, rebuilt_psd, version, h) != checklen)
-		alwayswarn("# oops, this shouldn't happen " __FILE__ " @ %d\n", __LINE__);
+	if(h->nlayers){
+		// overwrite layer & mask information with fixed-up sizes
+		fseeko(rebuilt_psd, lmipos, SEEK_SET);
+		putpsdbytes(rebuilt_psd, version, lmilen + layerlen); // do fixup
+		putpsdbytes(rebuilt_psd, version, layerlen); // do fixup
+		if(writelayerinfo(psd, rebuilt_psd, version, h) != checklen)
+			fatal("# oops! rewritten layer info different size from first pass");
+	}
 
 	VERBOSE("# rebuild done.\n");
 }

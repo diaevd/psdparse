@@ -29,7 +29,7 @@ int verbose = DEFAULT_VERBOSE, quiet = 0, rsrc = 0, print_rsrc = 0, resdump = 0,
 	scavenge = 0, scavenge_psb = 0, scavenge_depth = 8, scavenge_mode = -1,
 	scavenge_rows = 0, scavenge_cols = 0, scavenge_chan = 3, scavenge_rle = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
-	unicode_filenames = 0, rebuild = 0, rebuild_as_psd = 0;
+	unicode_filenames = 0, rebuild = 0, rebuild_v1 = 0, merged_only = 0;
 uint32_t hres, vres; // we don't use these, but they're set within doresources()
 
 #ifdef ALWAYS_WRITE_PNG
@@ -59,7 +59,8 @@ void usage(char *prog, int status){
       --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n\
       --rebuild      write a new PSD/PSB with extracted image layers only\n\
-      --rebuildpsd   rebuild as above, but in PSD (v1) format, never PSB format\n"
+        --rebuildpsd    rebuild in PSD (v1) format, never PSB format\n\
+        --mergedonly    rebuild without any layers (merged image only)\n"
 #ifdef CAN_MMAP
 "      --scavenge     ignore file header, search entire file for image layers\n\
          --psb           for scavenge, assume PSB (default PSD)\n\
@@ -93,7 +94,8 @@ int main(int argc, char *argv[]){
 		{"xmlout",     no_argument, &xmlout, 1},
 		{"split",      no_argument, &split, 1},
 		{"rebuild",    no_argument, &rebuild, 1},
-		{"rebuildpsd", no_argument, &rebuild_as_psd, 1},
+		{"rebuildpsd", no_argument, &rebuild_v1, 1},
+		{"mergedonly", no_argument, &merged_only, 1},
 #ifdef CAN_MMAP
 		{"scavenge",   no_argument, &scavenge, 1},
 		{"scavengeimg",no_argument, &scavenge_rle, 1},
@@ -281,8 +283,8 @@ int main(int argc, char *argv[]){
 			}
 			UNQUIET("  done.\n\n");
 
-			if(rebuild || rebuild_as_psd)
-				rebuild_psd(f, rebuild_as_psd ? 1 : h.version, &h);
+			if(rebuild || rebuild_v1)
+				rebuild_psd(f, rebuild_v1 ? 1 : h.version, &h);
 
 #ifdef HAVE_ICONV_H
 			if(ic != (iconv_t)-1) iconv_close(ic);

@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -90,8 +90,10 @@
 	#define LL_L(llfmt,lfmt) lfmt
 #endif
 
-// size of the PSD/PSB variant fields, given PSD version
-#define PSDBSIZE(version) ((version) << 1)
+// macro for size of the PSD/PSB variant fields, given PSD version
+// this is for common case where PSD(v1) uses 4 byte field & PSB(v2) uses 8 byte field.
+// N.B. exception: RLE row count array, where counts are 2 bytes & 4 bytes respectively
+#define PSDBSIZE(version) ((version) << 2)
 
 // this is paired with %u format specifications so may break
 // if not same size as 'unsigned'.
@@ -308,7 +310,8 @@ extern const int mode_colour_space[];
 extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, print_rsrc, resdump, extra, makedirs,
 		   numbered, help, split, nwarns, writepng, writelist,
-		   writexml, xmlout, unicode_filenames, rebuild, rebuild_as_psd;
+		   writexml, xmlout, unicode_filenames,
+		   rebuild, rebuild_v1, merged_only;
 
 extern FILE *xml, *listfile, *rebuilt_psd;
 

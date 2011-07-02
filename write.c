@@ -182,7 +182,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// - any remaining alpha or spot channels.
 		// For an identifiable image mode (Bitmap, GreyScale, Duotone, Indexed or RGB),
 		// we should ideally
-		// 1) write the first 1[2] or 3[4] channels in appropriate PNG format
+		// 1) write the first 1[+alpha] or 3[+alpha] channels in appropriate PNG format
 		// 2) write the remaining channels as extra GRAY PNG files.
 		// (For multichannel (and maybe other?) modes, we should just write all
 		// channels per step 2)
