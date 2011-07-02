@@ -68,8 +68,6 @@ psd_bytes_t writepsdchannels(
 			rowcounts[k] = packbits(inrow, p, ch[i].rowbytes);
 			compsize += rowcounts[k];
 			p += rowcounts[k];
-			//printf("packed ch %u row %u [%u] (rb %u) to %u bytes\n",
-			//		 i, (unsigned)j, (unsigned)k, (unsigned)ch[i].rowbytes, (unsigned)rowcounts[k]);
 		}
 	}
 	// allow for row counts:
