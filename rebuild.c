@@ -54,15 +54,16 @@ psd_bytes_t writepsdchannels(
 
 	rlebuf    = checkmalloc(ch->rowbytes*2);
 	inrow     = checkmalloc(ch->rowbytes);
+
+	// compress the channel(s) to decide between raw & RLE adaptively
+
 	compbuf   = checkmalloc(PACKBITSWORST(ch->rowbytes)*total_rows);
 	rowcounts = checkmalloc(sizeof(psd_bytes_t)*total_rows);
 
-	// compress the channel(s) to decide between raw & RLE adaptively
 	p = compbuf;
 	compsize = 0;
 	for(i = k = 0; i < chancount; ++i){
 		for(j = 0; j < ch[i].rows; ++j, ++k){
-			/* get row data */
 			readunpackrow(psd, ch+i, j, inrow, rlebuf);
 			rowcounts[k] = packbits(inrow, p, ch[i].rowbytes);
 			compsize += rowcounts[k];
@@ -72,7 +73,7 @@ psd_bytes_t writepsdchannels(
 		}
 	}
 	// allow for row counts:
-	chansize = PSDBSIZE(version)*total_rows + compsize;
+	chansize = (total_rows << version) + compsize;
 
 	if(chansize < total_rows*ch->rowbytes){
 		// There was a saving using RLE, so use compressed data.
@@ -116,9 +117,9 @@ psd_bytes_t writepsdchannels(
 	}
 
 	if(chancount > 1){
-		VERBOSE("# %d merged channels: %u bytes (%s)\n", chancount, (unsigned)chansize, comptype[comp]);
+		VERBOSE("#   %d channels: %6u bytes (%s)\n", chancount, (unsigned)chansize, comptype[comp]);
 	}else{
-		VERBOSE("#   channel %d: %u bytes (%s)\n", chindex, (unsigned)chansize, comptype[comp]);
+		VERBOSE("#   channel %d: %6u bytes (%s)\n", chindex, (unsigned)chansize, comptype[comp]);
 	}
 
 	free(rlebuf);
@@ -158,6 +159,7 @@ psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
 
 		// layer's 'extra data' section ================================
 
+		// TODO: Flag damaged layers in the name and optionally hide them automatically
 		namelen = strlen(li->name);
 		mask_size = li->mask.size >= 36 ? 36 : (li->mask.size >= 20 ? 20 : 0);
 
@@ -247,7 +249,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 
 	// Image data ======================================================
 	for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
-		VERBOSE("# rebuilt layer %d:\n", i);
+		UNQUIET("# rebuilding layer %d\n", i);
 
 		for(j = 0; j < li->channels; ++j)
 			layerlen += li->chan[j].length_rebuild =
@@ -266,6 +268,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	layerlen += 4;
 
 	// Merged image data ===============================================
+	UNQUIET("# rebuilding merged image\n");
 	writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
 
 	// Rebuild finished!
@@ -276,4 +279,6 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	putpsdbytes(rebuilt_psd, version, layerlen); // do fixup
 	if(writelayerinfo(psd, rebuilt_psd, version, h) != checklen)
 		alwayswarn("# oops, this shouldn't happen " __FILE__ " @ %d\n", __LINE__);
+
+	VERBOSE("# rebuild done.\n");
 }
