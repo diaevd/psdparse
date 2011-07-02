@@ -84,13 +84,14 @@ void readunpackrow(psd_file_t psd,        // input file handle
 // Called individually for layer channels (channels always == 1), and
 // once for entire merged data (channels == PSD header channel count).
 
+const char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
+
 void dochannel(psd_file_t f,
 			   struct layer_info *li,
 			   struct channel_info *chan, // array of channel info
 			   int channels, // how many channels are to be processed (>1 only for merged data)
 			   struct psd_header *h)
 {
-	static char *comptype[] = {"raw", "RLE", "ZIP without prediction", "ZIP with prediction"};
 	int compr, ch;
 	psd_bytes_t chpos, pos;
 	unsigned char *zipdata;
@@ -134,12 +135,9 @@ void dochannel(psd_file_t f,
 	// Read compression type
 	compr = get2Bu(f);
 
-	if(compr < RAWDATA || compr > ZIPPREDICT){
-		alwayswarn("## unknown compression type: %d; skipping channel\n", compr);
-		goto err;
+	if(compr >= RAWDATA && compr <= ZIPPREDICT){
+		VERBOSE("    compression = %d (%s)\n", compr, comptype[compr]);
 	}
-
-	VERBOSE("    compression = %d (%s)\n", compr, comptype[compr]);
 	VERBOSE("    uncompressed size %u bytes (row bytes = %u)\n",
 			channels*chan->rows*rb, rb);
 
@@ -216,10 +214,14 @@ void dochannel(psd_file_t f,
 
 				free(zipdata);
 			}else
-				alwayswarn("## can't process ZIP outside layer");
+				alwayswarn("## can't process ZIP outside layer\n");
 			break;
 		default:
-			VERBOSE("## bad compression type - skipping channel\n");
+			if(li)
+				alwayswarn("## bad compression type: %d; skipping channel (id %2d) in layer \"%s\"\n",
+						   compr, chan->id, li->name);
+			else
+				alwayswarn("## bad compression type: %d; skipping channel\n", compr);
 			if(li)
 				fseeko(f, chan->length - 2, SEEK_CUR);
 			break;
@@ -230,6 +232,5 @@ void dochannel(psd_file_t f,
 		alwayswarn("# channel data is %lu bytes, but length = %lu\n",
 				   (unsigned long)(pos - chpos), (unsigned long)chan->length);
 
-err:
 	fseeko(f, pos, SEEK_SET);
 }

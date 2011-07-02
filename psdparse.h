@@ -91,7 +91,7 @@
 #endif
 
 // size of the PSD/PSB variant fields, given PSD version
-#define PSDBSIZE(version) ((version) << 2)
+#define PSDBSIZE(version) ((version) << 1)
 
 // this is paired with %u format specifications so may break
 // if not same size as 'unsigned'.
@@ -215,6 +215,8 @@ struct psd_header{
 	struct layer_info *linfo;     // layer info array, set by dopsd()->dolayermaskinfo()
 	psd_bytes_t lmistart, lmilen; // layer & mask info section, set by dopsd()->dolayermaskinfo()
 	psd_bytes_t layerdatapos; // set by dopsd()
+	psd_bytes_t global_lmi_pos, global_lmi_len;
+	struct channel_info *merged_chans; // set by doimage()
 };
 
 struct layer_mask_info{
@@ -306,7 +308,7 @@ extern const int mode_colour_space[];
 extern char dirsep[], *pngdir;
 extern int verbose, quiet, rsrc, print_rsrc, resdump, extra, makedirs,
 		   numbered, help, split, nwarns, writepng, writelist,
-		   writexml, xmlout, unicode_filenames, rebuild;
+		   writexml, xmlout, unicode_filenames, rebuild, rebuild_as_psd;
 
 extern FILE *xml, *listfile, *rebuilt_psd;
 
@@ -381,7 +383,7 @@ void dochannel(psd_file_t f,
 void doimage(psd_file_t f,struct layer_info *li,char *name,struct psd_header *h);
 void readlayerinfo(psd_file_t f, struct psd_header *h, int i);
 void dolayermaskinfo(psd_file_t f,struct psd_header *h);
-psd_bytes_t globallayermaskinfo(psd_file_t f);
+psd_bytes_t globallayermaskinfo(psd_file_t f, struct psd_header *h);
 void doimageresources(psd_file_t f);
 
 unsigned scavenge_psd(void *addr, size_t st_size, struct psd_header *h);
@@ -408,7 +410,12 @@ void rawwriteimage(
 		int chancount,
 		struct psd_header *h);
 
-int unpackbits(unsigned char *outp,unsigned char *inp,psd_pixels_t rowbytes,psd_pixels_t inlen);
+// worst case PackBits performance for n bytes:
+#define PACKBITSWORST(n) (129*((n)/128) + 1 + ((n) % 128))
+psd_pixels_t packbits(unsigned char *src, unsigned char *dst, psd_pixels_t n);
+
+psd_pixels_t unpackbits(unsigned char *outp, unsigned char *inp,
+						psd_pixels_t rowbytes, psd_pixels_t inlen);
 
 void *map_file(int fd, size_t len);
 void unmap_file(void *addr, size_t len);

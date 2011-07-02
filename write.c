@@ -172,7 +172,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		}
 	}
 	else{
-		struct channel_info *merged_chans = checkmalloc(channels*sizeof(struct channel_info));
+		h->merged_chans = checkmalloc(channels*sizeof(struct channel_info));
 
 		// The 'merged' or 'composite' image is where the flattened image is stored
 		// when 'Maximise Compatibility' is used.
@@ -188,7 +188,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		// channels per step 2)
 
 		VERBOSE("\n  merged image:\n");
-		dochannel(f, NULL, merged_chans, channels, h);
+		dochannel(f, NULL, h->merged_chans, channels, h);
 
 		image_data_end = ftello(f);
 
@@ -199,7 +199,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 		nwarns = 0;
 		ch = 0;
 		if(pngchan && !split){
-			writeimage(f, pngdir, name, NULL, merged_chans,
+			writeimage(f, pngdir, name, NULL, h->merged_chans,
 					   h->depth == 32 ? channels : pngchan,
 					   h->rows, h->cols, h, color_type);
 			ch += pngchan;
@@ -211,12 +211,10 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 				UNQUIET("# writing %d extra channels...\n", channels - ch);
 			}
 
-			writechannels(f, pngdir, name, NULL, merged_chans + ch, channels - ch, h);
+			writechannels(f, pngdir, name, NULL, h->merged_chans + ch, channels - ch, h);
 		}
 
 		if(xml) fputs("\t</COMPOSITE>\n", xml);
-
-		free(merged_chans);
 	}
 
 	// caller may expect this file position

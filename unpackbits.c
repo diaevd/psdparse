@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-9 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by  
@@ -17,13 +17,12 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <stdio.h>
 #include <string.h>
 
 #include "psdparse.h"
 
-int unpackbits(unsigned char *outp, unsigned char *inp,
-			   psd_pixels_t outlen, psd_pixels_t inlen)
+psd_pixels_t unpackbits(unsigned char *outp, unsigned char *inp,
+						psd_pixels_t outlen, psd_pixels_t inlen)
 {
 	psd_pixels_t i, len;
 	int val;

@@ -219,10 +219,12 @@ void dolayermaskinfo(psd_file_t f, struct psd_header *h){
 	}else VERBOSE("  (layer & mask info section is empty)\n");
 }
 
-psd_bytes_t globallayermaskinfo(psd_file_t f){
-	psd_bytes_t n = get4B(f);
+psd_bytes_t globallayermaskinfo(psd_file_t f, struct psd_header *h){
+	psd_bytes_t n;
 	int kind;
 
+	h->global_lmi_pos = ftello(f);
+	n = h->global_lmi_len = get4B(f);
 	if(n){
 		VERBOSE("  (global layer mask info section: %u bytes)\n", (unsigned)n);
 		if(xml){
