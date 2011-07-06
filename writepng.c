@@ -23,6 +23,10 @@
 #include "psdparse.h"
 #include "png.h"
 
+#ifdef HAVE_ZLIB_H
+	#include "zlib.h"
+#endif
+
 static png_structp png_ptr;
 static png_infop info_ptr;
 

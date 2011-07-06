@@ -26,13 +26,19 @@
 
 VERSION := $(shell perl -n -e 'm/^\#.*VERSION_STR[[:blank:]]+\"([^"]*)\"/ && print $$1;' version.h)
 
-# for OS X build, download and extract libpng archive, and define path to it:
-# (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
-LIBPNG = ../libpng-1.4.3
+# Detect a local install of libpng (this may be the case on OS X):
+LDFLAGS += -L/usr/local/lib
+CPPFLAGS += -L/usr/local/include
 
-# The following line is only needed where libpng is typically not installed (OS X).
-# Otherwise, this line should be commented out (and shared lib will be used):
-LIBPNGA = $(LIBPNG)/libpng.a
+# If your system does NOT have libpng (e.g. stock OS X):
+# -----------------------------------
+#   For OS X build, download and extract libpng archive, and define path to it:
+#   (libpng can be downloaded via http://www.libpng.org/pub/png/libpng.html)
+# Path to your extracted source distribution of libpng:
+LIBPNG = ../lpng144
+# Build and link with static library (this MUST be commented out to use an installed library,
+# but MUST be uncommented if you want to build and link with libpng from source):
+#LIBPNGA = $(LIBPNG)/libpng.a
 
 # if building with MinGW ('make exe'), extract zlib and libpng to these directories:
 LIBPNGW32 = ../libpng-1.2.32_w32
