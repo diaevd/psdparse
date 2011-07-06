@@ -21,6 +21,10 @@
 #include "version.h"
 #include "png.h"
 
+#ifdef HAVE_ZLIB_H
+	#include "zlib.h"
+#endif
+
 extern int nwarns;
 extern char indir[];
 
@@ -49,6 +53,7 @@ void usage(char *prog, int status){
   -r, --resources    process and print 'image resources' metadata\n\
       --resdump      print hex dump of resource contents (implies --resources)\n\
   -e, --extra        process 'additional data' (non-image layers, v4 and later)\n\
+                     (enabled by default on 16 and 32 bit files)\n\
   -w, --writepng     write PNG files of each raster layer (and merged composite)\n\
   -n, --numbered     use 'layerNN' name for file, instead of actual layer name\n\
       --unicode      use Unicode layer names for filenames (implies --extra)\n\
@@ -126,8 +131,10 @@ int main(int argc, char *argv[]){
 		case 'V':
 			printf("psdparse version " VERSION_STR
 				   "\nCopyright (C) 2004-2011 Toby Thain <toby@telegraphics.com.au>"
+#ifdef HAVE_ZLIB_H
 				   "\n\nUses zlib version " ZLIB_VERSION
 				   " - Copyright (C) 1995-2005 Jean-loup Gailly and Mark Adler"
+#endif
 				   "%s", png_get_copyright(NULL));
 			return EXIT_SUCCESS;
 		case 'v': ++verbose; break;
@@ -236,15 +243,17 @@ int main(int argc, char *argv[]){
 				// this is found immediately after the 'image data' section
 
 				k = h.lmistart + h.lmilen - ftello(f);
-				if(extra){
+				if(extra || h.depth > 8){
 					VERBOSE("## global additional info @ %ld (%ld bytes)\n",
 							(long)ftello(f), (long)k);
 
-					if(xml){
+					if(xml)
 						fputs("\t<GLOBALINFO>\n", xml);
-						doadditional(f, &h, 2, k); // write description to XML
+					
+					doadditional(f, &h, 2, k); // write description to XML
+
+					if(xml)
 						fputs("\t</GLOBALINFO>\n", xml);
-					}
 				}
 
 				// position file after 'layer & mask info'

@@ -825,12 +825,9 @@ static void ed_metadata(psd_file_t f, int level, int len, struct dictentry *pare
 
 // see libpsd
 static void ed_layer16(psd_file_t f, int level, int len, struct dictentry *parent){
-	//struct psd_header h2 = *psd_header; // a kind of 'nested' set of layers; don't alter main PSD header
-
-	// overwrite main PSD header, mainly because of the 'merged alpha' flag
-
-	// I *think* they mean us to respect the one in Lr16 because in my test data,
-	// the main layer count is zero, so cannot convey this information.
+	// This block is an entire layer info section (i.e. it begins with
+	// a layer count and is followed by layer info just like the ordinary section).
+	// Update the main header struct with the layer count, info pointers, etc.
 	dolayerinfo(f, psd_header);
 	processlayers(f, psd_header);
 }
