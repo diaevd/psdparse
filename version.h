@@ -73,10 +73,11 @@
   18-Jun-2011: 3.5b2 fix problems shown by test file provided by Richard Ross (loop hang, control characters)
   26-Jun-2011: 3.6b1 option to rebuild PSD
   05-Jul-2011: 3.6b2 fix handling of global 'additional info'
+  14-Jul-2011: 3.6b3 fix looping bug reported by Daniel Wyatt
 */
 
-#define VERSION_STR "3.6b2"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x60,beta,2
+#define VERSION_STR "3.6b3"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x60,beta,3
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
@@ -85,7 +86,7 @@
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,6,0x60,2
+#define VI_VERS_NUM 3,6,0x60,3
 #define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
 #define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 
