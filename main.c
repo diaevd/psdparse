@@ -243,7 +243,7 @@ int main(int argc, char *argv[]){
 				// this is found immediately after the 'image data' section
 
 				k = h.lmistart + h.lmilen - ftello(f);
-				if(extra || h.depth > 8){
+				if((extra || h.depth > 8) && ftello(f) < (h.lmistart + h.lmilen)){
 					VERBOSE("## global additional info @ %ld (%ld bytes)\n",
 							(long)ftello(f), (long)k);
 
