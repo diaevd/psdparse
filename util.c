@@ -349,11 +349,13 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 				strcpy(d, dir);
 				strcat(d, dirsep);
 
-				c = *name;
-				if(*name == '.') // never create hidden directories
-					*name = '_';
-				strcat(d, name);
-				*name = c;
+				// never create hidden directories
+				if(*name == '.'){
+					strcat(d, "_");
+					strcat(d, name+1);
+				}else{
+					strcat(d, name);
+				}
 
 				if(!MKDIR(d, 0755))
 					VERBOSE("# made subdirectory \"%s\"\n", d);
@@ -369,11 +371,13 @@ void setupfile(char *dstname, char *dir, char *name, char *suffix){
 	strcat(dstname, "_");
 #endif
 
-	c = *name;
-	if(*name == '.') // never create hidden files
-		*name = '_';
-	strcat(dstname, name);
-	*name = c;
+	// never create hidden files
+	if(*name == '.'){
+		strcat(dstname, "_");
+		strcat(dstname, name+1);
+	}else{
+		strcat(dstname, name);
+	}
 
 	strcat(dstname, suffix);
 }
