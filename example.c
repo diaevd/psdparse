@@ -33,7 +33,8 @@
 // You WILL get text output unless you set quiet = 1 !
 int verbose = 0, quiet = 1, rsrc = 0, print_rsrc = 0, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
-	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1;
+	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
+	rebuild = 0;
 long hres, vres; // we don't use these, but they're set within doresources()
 char *pngdir;
 

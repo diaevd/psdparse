@@ -36,7 +36,7 @@
 int verbose = 0, quiet = 0, rsrc = 1, print_rsrc = 0, resdump = 0, extra = 0,
 	makedirs = 0, numbered = 0, help = 0, split = 0, xmlout = 0,
 	writepng = 0, writelist = 0, writexml = 0, unicode_filenames = 1,
-	use_merged = 0, merged_only = 0, extra_chan;
+	use_merged = 0, merged_only = 0, extra_chan, rebuild = 0;
 long hres, vres; // set by doresources()
 char *pngdir;
 off_t xcf_merged_pos, *xcf_chan_pos; // updated by doimage() if merged image is processed

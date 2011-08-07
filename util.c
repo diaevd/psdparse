@@ -282,6 +282,7 @@ int hexdigit(unsigned char c){
 }
 
 char indir[PATH_MAX];
+FILE *rebuilt_psd;
 
 void openfiles(char *psdpath, struct psd_header *h)
 {

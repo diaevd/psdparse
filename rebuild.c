@@ -22,7 +22,7 @@
 
 #include "psdparse.h"
 
-FILE *rebuilt_psd;
+extern FILE *rebuilt_psd;
 
 void writeheader(psd_file_t out_psd, int version, struct psd_header *h){
 	fwrite("8BPS", 1, 4, out_psd);
@@ -55,7 +55,7 @@ psd_bytes_t writepsdchannels(
 	rlebuf    = checkmalloc(ch->rowbytes*2);
 	inrow     = checkmalloc(ch->rowbytes);
 
-	// compress the channel(s) to decide between raw & RLE adaptively
+	// compress channel(s) to decide if RLE is a saving
 
 	compbuf   = checkmalloc(PACKBITSWORST(ch->rowbytes)*total_rows);
 	rowcounts = checkmalloc(sizeof(psd_bytes_t)*total_rows);
@@ -74,9 +74,9 @@ psd_bytes_t writepsdchannels(
 	chansize = (total_rows << version) + compsize;
 
 	if(chansize < total_rows*ch->rowbytes){
-		// There was a saving using RLE, so use compressed data.
+		// RLE was shorter, so use compressed data.
 
-		put2B(out_psd, comp = RLECOMP); // compression: RLE
+		put2B(out_psd, comp = RLECOMP);
 		for(j = 0; j < total_rows; ++j){
 			if(version == 1){
 				if(rowcounts[j] > UINT16_MAX)
@@ -97,7 +97,7 @@ psd_bytes_t writepsdchannels(
 	}else{
 		// There was no saving using RLE, so don't compress.
 
-		put2B(out_psd, comp = RAWDATA); // uncompressed data
+		put2B(out_psd, comp = RAWDATA);
 		chansize = total_rows*ch->rowbytes;
 		for(i = 0; i < chancount; ++i){
 			for(j = 0; j < ch[i].rows; ++j){
@@ -138,11 +138,12 @@ psd_bytes_t writedummymerged(
 	char *inrow = calloc(rowbytes, 1);
 
 	put2B(out_psd, RAWDATA); // uncompressed data
+
 	for(i = 0; i < h->channels; ++i){
 		for(j = 0; j < h->rows; ++j){
 			/* write an uncompressed row */
 			if((psd_pixels_t)fwrite(inrow, 1, rowbytes, out_psd) != rowbytes){
-				alwayswarn("# error writing psd channel (raw), aborting\n");
+				alwayswarn("# error writing merged channel, aborting\n");
 				return 0;
 			}
 		}
@@ -151,8 +152,11 @@ psd_bytes_t writedummymerged(
 	return 2 + h->channels * h->rows * rowbytes;
 }
 
+static int32_t bounds_top, bounds_left, bounds_bottom, bounds_right;
+
 psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
-						   int version, struct psd_header *h)
+						   int version, struct psd_header *h,
+						   psd_pixels_t h_offset, psd_pixels_t v_offset)
 {
 	int i, j, namelen, mask_size, extralen;
 	psd_bytes_t size;
@@ -161,10 +165,20 @@ psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
 	put2B(out_psd, h->mergedalpha ? -h->nlayers : h->nlayers);
 	size = 2;
 	for(i = 0, li = h->linfo; i < h->nlayers; ++i, ++li){
-		put4B(out_psd, li->top);
-		put4B(out_psd, li->left);
-		put4B(out_psd, li->bottom);
-		put4B(out_psd, li->right);
+		// accumulate this layer's bounding rectangle into global bounds
+		if(bounds_top > li->top)
+			bounds_top = li->top;
+		if(bounds_left > li->left)
+			bounds_left = li->left;
+		if(bounds_bottom < li->bottom)
+			bounds_bottom = li->bottom;
+		if(bounds_right < li->right)
+			bounds_right = li->right;
+
+		put4B(out_psd, li->top + v_offset);
+		put4B(out_psd, li->left + h_offset);
+		put4B(out_psd, li->bottom + v_offset);
+		put4B(out_psd, li->right + h_offset);
 		put2B(out_psd, li->channels);
 		size += 18;
 		for(j = 0; j < li->channels; ++j){
@@ -193,10 +207,10 @@ psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
 		// layer mask data ---------------------------------------------
 		put4B(out_psd, mask_size);
 		if(mask_size >= 20){
-			put4B(out_psd, li->mask.top);
-			put4B(out_psd, li->mask.left);
-			put4B(out_psd, li->mask.bottom);
-			put4B(out_psd, li->mask.right);
+			put4B(out_psd, li->mask.top + v_offset);
+			put4B(out_psd, li->mask.left + h_offset);
+			put4B(out_psd, li->mask.bottom + v_offset);
+			put4B(out_psd, li->mask.right + h_offset);
 			fputc(li->mask.default_colour, out_psd);
 			fputc(li->mask.flags, out_psd);
 			mask_size -= 18;
@@ -247,6 +261,7 @@ psd_bytes_t copy_block(psd_file_t psd, psd_file_t out_psd, psd_bytes_t pos){
 
 void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	psd_bytes_t lmipos, lmilen, layerlen, checklen;
+	int32_t h_offset = 0, v_offset = 0;
 	int i, j;
 	struct layer_info *li;
 
@@ -271,7 +286,8 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 		// Layer info --------------------------------------------------
 		putpsdbytes(rebuilt_psd, version, 0); // dummy layer info length
 		lmilen += PSDBSIZE(version); // account for layer info length field
-		layerlen = checklen = writelayerinfo(psd, rebuilt_psd, version, h);
+		bounds_top = bounds_left = bounds_bottom = bounds_right = 0;
+		layerlen = checklen = writelayerinfo(psd, rebuilt_psd, version, h, 0, 0);
 
 		VERBOSE("# rebuilt layer info: %u bytes\n", (unsigned)layerlen);
 
@@ -301,9 +317,40 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 		writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
 	}else{
 		// For some reason, we have no information about the merged image,
-		// so write a dummy image:
+		// (scavenging?) so write a dummy image.
+
 		UNQUIET("# unable to recover merged image; using blank image\n");
+
+		if(!h->rows && !h->cols){
+			// If we are scavenging, and the size of the (merged) document
+			// wasn't given, then fake the dimensions based on combined bounds
+			// of all layers. Then shift all layers into this area.
+			h->rows = bounds_bottom - bounds_top;
+			v_offset = -bounds_top;
+			h->cols = bounds_right - bounds_left;
+			h_offset = -bounds_left;
+			UNQUIET("# sized document to %d rows x %d columns to fit all layers\n", h->rows, h->cols);
+		}
+
+		if(h->mode == -1){
+			// mode wasn't specified (scavenging); try to guess
+			if(h->depth == 1)
+				h->mode = ModeBitmap;
+			else if(h->channels <= 2)
+				h->mode = ModeGrayScale;
+			else if(h->channels <= 4)
+				h->mode = ModeRGBColor;
+			else
+				h->mode = ModeMultichannel;
+			UNQUIET("# had to guess image mode: %s  (if this is incorrect, try --mode N with --scavenge)\n",
+					mode_names[h->mode]);
+		}
+
 		writedummymerged(rebuilt_psd, version, h);
+
+		// fixup header
+		fseeko(rebuilt_psd, 0, SEEK_SET);
+		writeheader(rebuilt_psd, version, h);
 	}
 
 	// File complete ===================================================
@@ -315,7 +362,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 		fseeko(rebuilt_psd, lmipos, SEEK_SET);
 		putpsdbytes(rebuilt_psd, version, lmilen + layerlen); // do fixup
 		putpsdbytes(rebuilt_psd, version, layerlen); // do fixup
-		if(writelayerinfo(psd, rebuilt_psd, version, h) != checklen)
+		if(writelayerinfo(psd, rebuilt_psd, version, h, h_offset, v_offset) != checklen)
 			fatal("# oops! rewritten layer info different size from first pass");
 	}
 
