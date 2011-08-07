@@ -70,7 +70,13 @@ void usage(char *prog, int status){
 "      --scavenge     ignore file header, search entire file for image layers\n\
          --psb           for scavenge, assume PSB (default PSD)\n\
          --depth N       for scavenge, assume this bit depth (default %d)\n\
-         --mode N        for scavenge, assume this mode (optional)\n\
+         --mode N        for scavenge, assume this mode (optional):\n\
+                           1 bit:  Bitmap 0\n\
+                           8 bit:  GrayScale 1, IndexedColor 2, RGBColor 3,\n\
+                                   CMYKColor 4, HSLColor 5, HSBColor 6,\n\
+                                   Multichannel 7, Duotone 8, LabColor 9\n\
+                           16 bit: Gray16 10, RGB48 11, Lab48 12,\n\
+                                   CMYK64 13, DeepMultichannel 14, Duotone16 15\n\
          --mergedrows N  to scavenge merged image, row count must be known\n\
          --mergedcols N  to scavenge merged image, column count must be known\n\
          --mergedchan N  to scavenge merged image, channel count must be known (default %d)\n\
