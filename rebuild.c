@@ -76,8 +76,7 @@ psd_bytes_t writepsdchannels(
 	if(chansize < total_rows*ch->rowbytes){
 		// There was a saving using RLE, so use compressed data.
 
-		put2B(out_psd, comp = RLECOMP); // compression type: raw image data
-		chansize += 2;
+		put2B(out_psd, comp = RLECOMP); // compression: RLE
 		for(j = 0; j < total_rows; ++j){
 			if(version == 1){
 				if(rowcounts[j] > UINT16_MAX)
@@ -98,8 +97,8 @@ psd_bytes_t writepsdchannels(
 	}else{
 		// There was no saving using RLE, so don't compress.
 
-		put2B(out_psd, comp = RAWDATA); // compression type
-		chansize = 2 + total_rows*ch->rowbytes;
+		put2B(out_psd, comp = RAWDATA); // uncompressed data
+		chansize = total_rows*ch->rowbytes;
 		for(i = 0; i < chancount; ++i){
 			for(j = 0; j < ch[i].rows; ++j){
 				/* get row data */
@@ -114,6 +113,8 @@ psd_bytes_t writepsdchannels(
 		}
 	}
 
+	chansize += 2; // allow for compression type field
+
 	if(chancount > 1){
 		VERBOSE("#   %d channels: %6u bytes (%s)\n", chancount, (unsigned)chansize, comptype[comp]);
 	}else{
@@ -124,6 +125,30 @@ psd_bytes_t writepsdchannels(
 	free(inrow);
 
 	return chansize;
+}
+
+psd_bytes_t writedummymerged(
+		FILE *out_psd,
+		int version,
+		struct psd_header *h)
+{
+	unsigned i;
+	psd_pixels_t j;
+	psd_bytes_t rowbytes = (h->cols*h->depth + 7)/8;
+	char *inrow = calloc(rowbytes, 1);
+
+	put2B(out_psd, RAWDATA); // uncompressed data
+	for(i = 0; i < h->channels; ++i){
+		for(j = 0; j < h->rows; ++j){
+			/* write an uncompressed row */
+			if((psd_pixels_t)fwrite(inrow, 1, rowbytes, out_psd) != rowbytes){
+				alwayswarn("# error writing psd channel (raw), aborting\n");
+				return 0;
+			}
+		}
+	}
+	free(inrow);
+	return 2 + h->channels * h->rows * rowbytes;
 }
 
 psd_bytes_t writelayerinfo(psd_file_t psd, psd_file_t out_psd,
@@ -271,8 +296,15 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 	}
 
 	// Merged image data ===============================================
-	UNQUIET("# rebuilding merged image\n");
-	writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
+	if(h->merged_chans){
+		UNQUIET("# rebuilding merged image\n");
+		writepsdchannels(rebuilt_psd, version, psd, 0, h->merged_chans, h->channels, h);
+	}else{
+		// For some reason, we have no information about the merged image,
+		// so write a dummy image:
+		UNQUIET("# unable to recover merged image; using blank image\n");
+		writedummymerged(rebuilt_psd, version, h);
+	}
 
 	// File complete ===================================================
 
