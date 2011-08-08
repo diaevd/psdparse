@@ -17,6 +17,10 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#ifdef HAVE_SETRLIMIT
+	#include <sys/resource.h>
+#endif
+
 #include "psdparse.h"
 #include "version.h"
 #include "png.h"
@@ -107,6 +111,9 @@ int main(int argc, char *argv[]){
 		{"rebuild",    no_argument, &rebuild, 1},
 		{"rebuildpsd", no_argument, &rebuild_v1, 1},
 		{"mergedonly", no_argument, &merged_only, 1},
+		// special purpose options
+		{"memlimit",   required_argument, NULL, 'X'},
+		{"cpulimit",   required_argument, NULL, 'Y'},
 #ifdef CAN_MMAP
 		{"scavenge",   no_argument, &scavenge, 1},
 		{"scavengeimg",no_argument, &scavenge_rle, 1},
@@ -126,6 +133,7 @@ int main(int argc, char *argv[]){
 	char *base;
 	void *addr = NULL;
 	char temp_str[PATH_MAX];
+	struct rlimit rlp;
 #ifdef CAN_MMAP
 	struct stat sb;
 #endif
@@ -159,6 +167,20 @@ int main(int argc, char *argv[]){
 		case 'R': scavenge_rows  = atoi(optarg); break;
 		case 'C': scavenge_cols  = atoi(optarg); break;
 		case 'H': scavenge_chan  = atoi(optarg); break;
+#ifdef HAVE_SETRLIMIT
+		// Note that these are generally not enforced on OS X!
+		// see: http://lists.apple.com/archives/unix-porting/2005/Jun/msg00115.html
+		case 'X': // set limit on size of memory (megabytes)
+			rlp.rlim_cur = rlp.rlim_max = atoi(optarg) << 20;
+			if(setrlimit(RLIMIT_AS, &rlp) != 0)
+				fatal("# failed to set memory limit\n");
+			break;
+		case 'Y': // set limit on cpu (seconds)
+			rlp.rlim_cur = rlp.rlim_max = atoi(optarg);
+			if(setrlimit(RLIMIT_CPU, &rlp) != 0)
+				fatal("# failed to set CPU limit\n");
+			break;
+#endif
 		default:  usage(argv[0], EXIT_FAILURE);
 		}
 
