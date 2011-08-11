@@ -60,7 +60,7 @@ obj_w32/%.o : %.c ; $(MINGW_CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 all : psdparse
 
 clean :
-	rm -f psdparse example psd2xcf psdparse.exe psd2png.exe \
+	rm -f psdparse example psd2xcf pngresize psdparse.exe psd2png.exe \
 		  *.o $(OBJ) $(OBJW32) $(LIBPNGW32)/*.[oa]
 	-$(MAKE) -C $(ZLIBW32) clean
 	-$(MAKE) -C $(LIBPNGW32) clean
