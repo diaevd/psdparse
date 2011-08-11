@@ -21,12 +21,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <setjmp.h>
 #include <unistd.h>
 #include <math.h>
 #include <sys/resource.h>
 #include <sys/errno.h>
-
 
 #include "png.h"
 
@@ -214,7 +212,7 @@ int main(int argc, char *argv[]){
     			 &color_type, &interlace_method, &compression_method, &filter_method);
 
 
-    printf("width: %d  height: %d  bit_depth: %d  color_type: %d\n",
+    printf("width: %lu  height: %lu  bit_depth: %d  color_type: %d\n",
            width, height, bit_depth, color_type);
     if(width <= max_pixels && height <= max_pixels){
     	if(link(argv[1], argv[2]) == 0){
@@ -237,7 +235,7 @@ int main(int argc, char *argv[]){
 	larger_dimension = width > height ? width : height;
 	new_width = max_pixels*width/larger_dimension;
 	new_height = max_pixels*height/larger_dimension;
-    printf("new width: %d  new height: %d\n", new_width, new_height);
+    printf("new width: %lu  new height: %lu\n", new_width, new_height);
 
     printf("file channels: %u  file rowbytes: %lu\n",
     	   png_get_channels(png_ptr, info_ptr),
