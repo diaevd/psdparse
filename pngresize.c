@@ -143,6 +143,7 @@ int main(int argc, char *argv[]){
 	const struct rlimit mem_limit = { MB(300), MB(300) },
 						cpu_limit = { 120, 120 };
 	FILE *fp;
+	char out_name[0x100];
 	unsigned char header[HEADER_BYTES];
 	png_structp png_ptr, wpng_ptr;
 	png_infop info_ptr, end_info, winfo_ptr;
@@ -212,18 +213,28 @@ int main(int argc, char *argv[]){
     			 &color_type, &interlace_method, &compression_method, &filter_method);
 
 
+	larger_dimension = width > height ? width : height;
+	new_width = max_pixels*width/larger_dimension;
+	new_height = max_pixels*height/larger_dimension;
+    printf("new width: %lu  new height: %lu\n", new_width, new_height);
+
     printf("width: %lu  height: %lu  bit_depth: %d  color_type: %d\n",
            width, height, bit_depth, color_type);
     if(width <= max_pixels && height <= max_pixels){
-    	if(link(argv[1], argv[2]) == 0){
+    	new_width = width;
+    	new_height = height;
+		sprintf(out_name, "%s_%lu_%lu.png", argv[2], new_width, new_height);
+    	if(link(argv[1], out_name) == 0){
 			printf("hard link created\n");
 			return EXIT_SUCCESS;
 		}else if(errno != EXDEV){
 			fprintf(stderr, "# failed to create hard link (%d)\n", errno);
 			return EXIT_FAILURE;
 		}
-		// otherwise fall through and write new file
-    }
+    }else{
+		// otherwise write resized file
+		sprintf(out_name, "%s_%lu_%lu.png", argv[2], new_width, new_height);
+	}
 
 	// scale image and write new png
 
@@ -232,10 +243,6 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
 	}
 	
-	larger_dimension = width > height ? width : height;
-	new_width = max_pixels*width/larger_dimension;
-	new_height = max_pixels*height/larger_dimension;
-    printf("new width: %lu  new height: %lu\n", new_width, new_height);
 
     printf("file channels: %u  file rowbytes: %lu\n",
     	   png_get_channels(png_ptr, info_ptr),
@@ -270,7 +277,7 @@ int main(int argc, char *argv[]){
    }
 	
 // -------------- write output image --------------
-   FILE *out_file = fopen(argv[2], "wb");
+   FILE *out_file = fopen(out_name, "wb");
 
     wpng_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!wpng_ptr)
@@ -289,8 +296,9 @@ int main(int argc, char *argv[]){
     }
     
     png_init_io(wpng_ptr, out_file);
+    static int coltype[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA, PNG_COLOR_TYPE_RGB, PNG_COLOR_TYPE_RGB_ALPHA};
     png_set_IHDR(wpng_ptr, winfo_ptr, new_width, new_height,
-       8, channels == 3 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGB_ALPHA,
+       8, coltype[channels],
        PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
     png_write_info(wpng_ptr, winfo_ptr);
