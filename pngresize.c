@@ -137,11 +137,14 @@ void lanczos_decim( png_bytep *row_ptrs, // input image: array of row pointers
 
 int main(int argc, char *argv[]){
 	static png_uint_32 new_width, new_height;
+    static int coltype[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
+							PNG_COLOR_TYPE_RGB, PNG_COLOR_TYPE_RGB_ALPHA};
 	FILE *in_file, *out_file;
-	unsigned char header[HEADER_BYTES], out_name[0x100];
+	unsigned char header[HEADER_BYTES];
+	char out_name[0x100];
 	png_structp png_ptr, wpng_ptr;
 	png_infop info_ptr, end_info, winfo_ptr;
-	png_bytep *row_ptrs, out_plane[4];
+	png_bytep *row_ptrs, out_plane[4], row;
 	png_uint_32 width, height, max_pixels, i, j;
     int bit_depth, color_type, interlace, compression,
         filter, channels, rowbytes, larger_dimension, k;
@@ -172,7 +175,7 @@ int main(int argc, char *argv[]){
      || !(info_ptr = png_create_info_struct(png_ptr))
      || !(end_info = png_create_info_struct(png_ptr)))
     {
-        fputs("# png_create_info_struct failed\n", stderr);
+        fputs("# png_create_read_struct or png_create_info_struct failed\n", stderr);
         return EXIT_FAILURE;
     }
     
@@ -192,14 +195,14 @@ int main(int argc, char *argv[]){
 	max_pixels = atoi(argv[3]);
 	new_width = max_pixels*width/larger_dimension;
 	new_height = max_pixels*height/larger_dimension;
-    printf("new width: %lu  new height: %lu\n", new_width, new_height);
+    printf("new width: %u  new height: %u\n", new_width, new_height);
 
-    printf("width: %lu  height: %lu  bit_depth: %d  color_type: %d\n",
+    printf("width: %u  height: %u  bit_depth: %d  color_type: %d\n",
            width, height, bit_depth, color_type);
     if(width <= max_pixels && height <= max_pixels){
     	new_width = width;
     	new_height = height;
-		sprintf(out_name, "%s_%lu_%lu.png", argv[2], new_width, new_height);
+		sprintf(out_name, "%s_%u_%u.png", argv[2], new_width, new_height);
     	if(link(argv[1], out_name) == 0){
 			printf("hard link created\n");
 			return EXIT_SUCCESS;
@@ -209,7 +212,7 @@ int main(int argc, char *argv[]){
 		}
     }else{
 		// otherwise write resized file
-		sprintf(out_name, "%s_%lu_%lu.png", argv[2], new_width, new_height);
+		sprintf(out_name, "%s_%u_%u.png", argv[2], new_width, new_height);
 	}
 
 	if(interlace != PNG_INTERLACE_NONE){
@@ -217,9 +220,9 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
 	}
 
-    printf("file channels: %u  file rowbytes: %lu\n",
-    png_get_channels(png_ptr, info_ptr),
-    png_get_rowbytes(png_ptr, info_ptr));
+    printf("file channels: %u  file rowbytes: %zu\n",
+		   png_get_channels(png_ptr, info_ptr),
+		   png_get_rowbytes(png_ptr, info_ptr));
 
 	// define transformations
     if (color_type == PNG_COLOR_TYPE_PALETTE)
@@ -237,7 +240,7 @@ int main(int argc, char *argv[]){
 // -------------- read source image --------------
    row_ptrs = calloc(height, sizeof(png_bytep));
    for(i = 0; i < height; ++i)
-      row_ptrs[i] = malloc(width*channels);
+       row_ptrs[i] = malloc(width*channels);
    png_read_image(png_ptr, row_ptrs);
 
 // -------------- filter image --------------
@@ -249,11 +252,16 @@ int main(int argc, char *argv[]){
    }
 	
 // -------------- write output image --------------
-    if (!(out_file = fopen(out_name, "wb"))
-     || !(wpng_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
-     || !(winfo_ptr = png_create_info_struct(wpng_ptr)))
+    if (!(out_file = fopen(out_name, "wb")))
     {
-       return EXIT_FAILURE;
+        fputs("# could not open output file\n", stderr);
+        return EXIT_FAILURE;
+    }
+    if(!(wpng_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
+    || !(winfo_ptr = png_create_info_struct(wpng_ptr)))
+    {
+        fputs("# png_create_write_struct or png_create_info_struct failed\n", stderr);
+        return EXIT_FAILURE;
     }
 
     if (setjmp(png_jmpbuf(wpng_ptr))){
@@ -262,19 +270,19 @@ int main(int argc, char *argv[]){
     }
     
     png_init_io(wpng_ptr, out_file);
-    static int coltype[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
-							PNG_COLOR_TYPE_RGB, PNG_COLOR_TYPE_RGB_ALPHA};
     png_set_IHDR(wpng_ptr, winfo_ptr, new_width, new_height, 8, coltype[channels],
 				 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
     png_write_info(wpng_ptr, winfo_ptr);
     
-    unsigned char *row_pointer = malloc(channels*new_width);
+    row = malloc(channels*new_width);
     for(j = 0; j < new_height; ++j){
+    	// interleave channels from the separate planes
     	for(i = 0; i < new_width; ++i)
     		for(k = 0; k < channels; ++k)
-    			row_pointer[i*channels + k] = out_plane[k][j*new_width + i];
-    	png_write_row(wpng_ptr, row_pointer);
+    			row[i*channels + k] = out_plane[k][j*new_width + i];
+    	// write one interleaved row
+    	png_write_row(wpng_ptr, row);
     }
     
     png_write_end(wpng_ptr, winfo_ptr);
