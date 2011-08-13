@@ -32,7 +32,7 @@
 
 #define HEADER_BYTES 8
 #define MB(x) ((x) << 20)
-#define OVERSAMPLE_RATE 1.0
+#define OVERSAMPLE_RATE 2.0
 
 // This was very helpful in understanding Lanczos kernel and convolution:
 // http://stackoverflow.com/questions/943781/where-can-i-find-a-good-read-about-bicubic-interpolation-and-lanczos-resampling/946943#946943
