@@ -238,18 +238,18 @@ int main(int argc, char *argv[]){
 	printf("transformed channels: %d  rowbytes: %d\n", channels, rowbytes);
 		
 // -------------- read source image --------------
-   row_ptrs = calloc(height, sizeof(png_bytep));
-   for(i = 0; i < height; ++i)
-	   row_ptrs[i] = malloc(width*channels);
-   png_read_image(png_ptr, row_ptrs);
+	row_ptrs = calloc(height, sizeof(png_bytep));
+	for(i = 0; i < height; ++i)
+		row_ptrs[i] = malloc(width*channels);
+	png_read_image(png_ptr, row_ptrs);
 
 // -------------- filter image --------------
-   for(k = 0; k < channels; ++k){
-	   out_plane[k] = malloc(new_width*new_height);
-	   lanczos_decim(row_ptrs, channels, k /* plane index */, width, height,
-					 out_plane[k], new_width, new_height,
-					 (double)larger_dimension/max_pixels);
-   }
+	for(k = 0; k < channels; ++k){
+		out_plane[k] = malloc(new_width*new_height);
+		lanczos_decim(row_ptrs, channels, k /* plane index */, width, height,
+					  out_plane[k], new_width, new_height,
+					  (double)larger_dimension/max_pixels);
+	}
 	
 // -------------- write output image --------------
 	if (!(out_file = fopen(out_name, "wb")))
