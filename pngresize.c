@@ -1,20 +1,20 @@
 /*
-    This file is part of "psdparse"
-    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
+	This file is part of "psdparse"
+	Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; either version 2 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 /* quick hack. please don't take this too seriously */
@@ -65,15 +65,15 @@ void lanczos_1d(double *conv, unsigned n, double fac){
 }
 
 void lanczos_decim( png_bytep *row_ptrs, // input image: array of row pointers
-					int in_planes,       // bytes separating input planes;
-					                     // allows for interleaved input
+					int in_planes,		 // bytes separating input planes;
+										 // allows for interleaved input
 					int plane_index,
-					int in_w,            // image columns
-					int in_h,            // image rows
-                    unsigned char *out,  // pointer to output buffer (always one plane)
-                    int out_w,           // output columns
-                    int out_h,           // output rows
-                    double scale )       // ratio of input to output (> 1.0)
+					int in_w,			 // image columns
+					int in_h,			 // image rows
+					unsigned char *out,	 // pointer to output buffer (always one plane)
+					int out_w,			 // output columns
+					int out_h,			 // output rows
+					double scale )		 // ratio of input to output (> 1.0)
 {
 	double *conv, *knl, sum, weight;
 	float *t_buf, *t_row, *t_col;
@@ -137,7 +137,7 @@ void lanczos_decim( png_bytep *row_ptrs, // input image: array of row pointers
 
 int main(int argc, char *argv[]){
 	static png_uint_32 new_width, new_height;
-    static int coltype[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
+	static int coltype[] = {0, PNG_COLOR_TYPE_GRAY, PNG_COLOR_TYPE_GRAY_ALPHA,
 							PNG_COLOR_TYPE_RGB, PNG_COLOR_TYPE_RGB_ALPHA};
 	FILE *in_file, *out_file;
 	unsigned char header[HEADER_BYTES];
@@ -146,146 +146,146 @@ int main(int argc, char *argv[]){
 	png_infop info_ptr, end_info, winfo_ptr;
 	png_bytep *row_ptrs, out_plane[4], row;
 	png_uint_32 width, height, max_pixels, i, j;
-    int bit_depth, color_type, interlace, compression,
-        filter, channels, rowbytes, larger_dimension, k;
+	int bit_depth, color_type, interlace, compression,
+		filter, channels, rowbytes, larger_dimension, k;
 	
 	if(argc <= 3){
 		fprintf(stderr,
-"usage:  %s source_filename dest_filename max_pixels\n\
-        Writes a new PNG with height and width scaled to max_pixels.\n\
-        If image is already no larger than max_pixels, makes a hard link\n\
-        to original file.\n", argv[0]);
+"usage:	 %s source_filename dest_filename max_pixels\n\
+         Writes a new PNG with height and width scaled to max_pixels.\n\
+         If image is already no larger than max_pixels, makes a hard link\n\
+         to original file.\n", argv[0]);
 		return 2;
 	}
 	
-    in_file = fopen(argv[1], "rb");
-    if (!in_file){
-        fputs("# cannot open input file\n", stderr);
-        return EXIT_FAILURE;
-    }
+	in_file = fopen(argv[1], "rb");
+	if (!in_file){
+		fputs("# cannot open input file\n", stderr);
+		return EXIT_FAILURE;
+	}
 
-    if (fread(header, 1, HEADER_BYTES, in_file) < HEADER_BYTES
-        || png_sig_cmp(header, 0, HEADER_BYTES))
-    {
-        fputs("# not a PNG file\n", stderr);
-        return EXIT_FAILURE;
-    }
+	if (fread(header, 1, HEADER_BYTES, in_file) < HEADER_BYTES
+		|| png_sig_cmp(header, 0, HEADER_BYTES))
+	{
+		fputs("# not a PNG file\n", stderr);
+		return EXIT_FAILURE;
+	}
 
-    if (!(png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
-     || !(info_ptr = png_create_info_struct(png_ptr))
-     || !(end_info = png_create_info_struct(png_ptr)))
-    {
-        fputs("# png_create_read_struct or png_create_info_struct failed\n", stderr);
-        return EXIT_FAILURE;
-    }
-    
-    if (setjmp(png_jmpbuf(png_ptr))){
-        fputs("# libpng failed to read the file\n", stderr);
-        return EXIT_FAILURE;
-    }
+	if (!(png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
+	 || !(info_ptr = png_create_info_struct(png_ptr))
+	 || !(end_info = png_create_info_struct(png_ptr)))
+	{
+		fputs("# png_create_read_struct or png_create_info_struct failed\n", stderr);
+		return EXIT_FAILURE;
+	}
+	
+	if (setjmp(png_jmpbuf(png_ptr))){
+		fputs("# libpng failed to read the file\n", stderr);
+		return EXIT_FAILURE;
+	}
 
-    png_init_io(png_ptr, in_file);
-    png_set_sig_bytes(png_ptr, HEADER_BYTES);
+	png_init_io(png_ptr, in_file);
+	png_set_sig_bytes(png_ptr, HEADER_BYTES);
 
-    png_read_info(png_ptr, info_ptr);
-    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth,
-    			 &color_type, &interlace, &compression, &filter);
+	png_read_info(png_ptr, info_ptr);
+	png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth,
+				 &color_type, &interlace, &compression, &filter);
 
 	larger_dimension = width > height ? width : height;
 	max_pixels = atoi(argv[3]);
 	new_width = max_pixels*width/larger_dimension;
 	new_height = max_pixels*height/larger_dimension;
-    printf("new width: %u  new height: %u\n", new_width, new_height);
+	printf("new width: %u  new height: %u\n", new_width, new_height);
 
-    printf("width: %u  height: %u  bit_depth: %d  color_type: %d\n",
-           width, height, bit_depth, color_type);
-    if(width <= max_pixels && height <= max_pixels){
-    	new_width = width;
-    	new_height = height;
+	printf("width: %u  height: %u  bit_depth: %d  color_type: %d\n",
+		   width, height, bit_depth, color_type);
+	if(width <= max_pixels && height <= max_pixels){
+		new_width = width;
+		new_height = height;
 		sprintf(out_name, "%s_%u_%u.png", argv[2], new_width, new_height);
-    	if(link(argv[1], out_name) == 0){
+		if(link(argv[1], out_name) == 0){
 			printf("hard link created\n");
 			return EXIT_SUCCESS;
 		}else if(errno != EXDEV){
 			fprintf(stderr, "# failed to create hard link (%d)\n", errno);
 			return EXIT_FAILURE;
 		}
-    }else{
+	}else{
 		// otherwise write resized file
 		sprintf(out_name, "%s_%u_%u.png", argv[2], new_width, new_height);
 	}
 
 	if(interlace != PNG_INTERLACE_NONE){
-        fputs("# interlace not supported\n", stderr);
-        return EXIT_FAILURE;
+		fputs("# interlace not supported\n", stderr);
+		return EXIT_FAILURE;
 	}
 
-    printf("file channels: %u  file rowbytes: %zu\n",
+	printf("file channels: %u  file rowbytes: %zu\n",
 		   png_get_channels(png_ptr, info_ptr),
 		   png_get_rowbytes(png_ptr, info_ptr));
 
 	// define transformations
-    if (color_type == PNG_COLOR_TYPE_PALETTE)
-        png_set_palette_to_rgb(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_palette_to_rgb(png_ptr);
 	else if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
 		png_set_expand_gray_1_2_4_to_8(png_ptr);
-    if(bit_depth == 16)
-    	png_set_strip_16(png_ptr);
-    png_read_update_info(png_ptr, info_ptr);
+	if(bit_depth == 16)
+		png_set_strip_16(png_ptr);
+	png_read_update_info(png_ptr, info_ptr);
 
-    channels = png_get_channels(png_ptr, info_ptr);
-    rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-    printf("transformed channels: %d  rowbytes: %d\n", channels, rowbytes);
-        
+	channels = png_get_channels(png_ptr, info_ptr);
+	rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+	printf("transformed channels: %d  rowbytes: %d\n", channels, rowbytes);
+		
 // -------------- read source image --------------
    row_ptrs = calloc(height, sizeof(png_bytep));
    for(i = 0; i < height; ++i)
-       row_ptrs[i] = malloc(width*channels);
+	   row_ptrs[i] = malloc(width*channels);
    png_read_image(png_ptr, row_ptrs);
 
 // -------------- filter image --------------
    for(k = 0; k < channels; ++k){
 	   out_plane[k] = malloc(new_width*new_height);
 	   lanczos_decim(row_ptrs, channels, k /* plane index */, width, height,
-	                 out_plane[k], new_width, new_height,
-	                 (double)larger_dimension/max_pixels);
+					 out_plane[k], new_width, new_height,
+					 (double)larger_dimension/max_pixels);
    }
 	
 // -------------- write output image --------------
-    if (!(out_file = fopen(out_name, "wb")))
-    {
-        fputs("# could not open output file\n", stderr);
-        return EXIT_FAILURE;
-    }
-    if(!(wpng_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
-    || !(winfo_ptr = png_create_info_struct(wpng_ptr)))
-    {
-        fputs("# png_create_write_struct or png_create_info_struct failed\n", stderr);
-        return EXIT_FAILURE;
-    }
+	if (!(out_file = fopen(out_name, "wb")))
+	{
+		fputs("# could not open output file\n", stderr);
+		return EXIT_FAILURE;
+	}
+	if(!(wpng_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))
+	|| !(winfo_ptr = png_create_info_struct(wpng_ptr)))
+	{
+		fputs("# png_create_write_struct or png_create_info_struct failed\n", stderr);
+		return EXIT_FAILURE;
+	}
 
-    if (setjmp(png_jmpbuf(wpng_ptr))){
-        fputs("# libpng failed to write the file\n", stderr);
-        return EXIT_FAILURE;
-    }
-    
-    png_init_io(wpng_ptr, out_file);
-    png_set_IHDR(wpng_ptr, winfo_ptr, new_width, new_height, 8, coltype[channels],
+	if (setjmp(png_jmpbuf(wpng_ptr))){
+		fputs("# libpng failed to write the file\n", stderr);
+		return EXIT_FAILURE;
+	}
+	
+	png_init_io(wpng_ptr, out_file);
+	png_set_IHDR(wpng_ptr, winfo_ptr, new_width, new_height, 8, coltype[channels],
 				 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-    png_write_info(wpng_ptr, winfo_ptr);
-    
-    row = malloc(channels*new_width);
-    for(j = 0; j < new_height; ++j){
-    	// interleave channels from the separate planes
-    	for(i = 0; i < new_width; ++i)
-    		for(k = 0; k < channels; ++k)
-    			row[i*channels + k] = out_plane[k][j*new_width + i];
-    	// write one interleaved row
-    	png_write_row(wpng_ptr, row);
-    }
-    
-    png_write_end(wpng_ptr, winfo_ptr);
+	png_write_info(wpng_ptr, winfo_ptr);
+	
+	row = malloc(channels*new_width);
+	for(j = 0; j < new_height; ++j){
+		// interleave channels from the separate planes
+		for(i = 0; i < new_width; ++i)
+			for(k = 0; k < channels; ++k)
+				row[i*channels + k] = out_plane[k][j*new_width + i];
+		// write one interleaved row
+		png_write_row(wpng_ptr, row);
+	}
+	
+	png_write_end(wpng_ptr, winfo_ptr);
 
 	return EXIT_SUCCESS;
 }
