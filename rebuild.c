@@ -342,7 +342,7 @@ void rebuild_psd(psd_file_t psd, int version, struct psd_header *h){
 				h->mode = ModeRGBColor;
 			else
 				h->mode = ModeMultichannel;
-			UNQUIET("# had to guess image mode: %s  (if this is incorrect, try --mode N with --scavenge)\n",
+			UNQUIET("# tried to guess image mode: %s  (if this is incorrect, try --mode N with --scavenge)\n",
 					mode_names[h->mode]);
 		}
 
