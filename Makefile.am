@@ -15,15 +15,20 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-bin_PROGRAMS = psdparse
+bin_PROGRAMS = psdparse psd2xcf
 
 psdparse_SOURCES = main.c writepng.c writeraw.c unpackbits.c packbits.c write.c \
                    resources.c icc.c extra.c constants.c util.c pdf.c \
                    descriptor.c channel.c psd.c scavenge.c mmap.c \
                    psd_zip.c duotone.c rebuild.c \
                    psdparse.h version.h
+psd2xcf_SOURCES = psd2xcf.c xcf.c psd.c util.c extra.c descriptor.c constants.c \
+           	  pdf.c resources.c icc.c channel.c psd_zip.c unpackbits.c \
+	          duotone.c
+psdparse_LDFLAGS = $(LIBPNG_LIBS)
+psd2xcf_LDFLAGS = -lz
+
 AM_CFLAGS   = -W -Wall -O2
 AM_CPPFLAGS = -DDIRSEP="'/'" -DDEFAULT_VERBOSE=0 -D_GNU_SOURCE \
               -DPSBSUPPORT -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 \
               $(LIBPNG_CPPFLAGS)
-LDADD = $(LIBPNG_LIBS)

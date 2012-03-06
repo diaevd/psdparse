@@ -133,7 +133,9 @@ int main(int argc, char *argv[]){
 	char *base;
 	void *addr = NULL;
 	char temp_str[PATH_MAX];
+#ifdef HAVE_SETRLIMIT
 	struct rlimit rlp;
+#endif
 #ifdef CAN_MMAP
 	struct stat sb;
 #endif
