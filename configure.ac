@@ -1,5 +1,5 @@
 #    This file is part of "psdparse"
-#    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
+#    Copyright (C) 2004-2012 Toby Thain, toby@telegraphics.com.au
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by  
@@ -15,7 +15,7 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_INIT(psdparse, 3.6.5)
+AC_INIT(psdparse, 3.6.6)
 AC_CONFIG_SRCDIR(main.c)
 AM_INIT_AUTOMAKE
 

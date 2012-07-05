@@ -76,21 +76,22 @@
   14-Jul-2011: 3.6b3 fix looping bug reported by Daniel Wyatt
   15-Jul-2011: 3.6b4 fix segfault reported by Daniel Wyatt
   07-Aug-2011: 3.6b5 improve rebuild behaviour when combined with scavenge
+  04-Jul-2012: 3.6f1 new release
 */
 
-#define VERSION_STR "3.6b5"  // <-- remember to change in configure.ac!
-#define VERSION_NUM 3,0x60,beta,5
+#define VERSION_STR "3.6f1"  // <-- remember to change in configure.ac!
+#define VERSION_NUM 3,0x60,final,1
 #define VERS_RSRC \
 	VERSION_NUM,\
 	verAustralia,\
 	VERSION_STR,\
-	VERSION_STR ", Copyright (C) Toby Thain 2004-2011 http://www.telegraphics.com.au/"
+	VERSION_STR ", Copyright (C) Toby Thain 2004-2012 http://www.telegraphics.com.au/"
 
 /* formatted for Win32 VERSIONINFO resource */
 // development = 0x20, alpha = 0x40, beta = 0x60, final = 0x80
-#define VI_VERS_NUM 3,6,0x60,5
-#define VI_FLAGS	VS_FF_PRERELEASE /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
-#define VI_COMMENTS	"Beta.\r\n\r\nPlease contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
+#define VI_VERS_NUM 3,6,0x80,1
+#define VI_FLAGS	0 /* 0 for final, or any of VS_FF_DEBUG,VS_FF_PATCHED,VS_FF_PRERELEASE,VS_FF_PRIVATEBUILD,VS_FF_SPECIALBUILD */
+#define VI_COMMENTS	"Please contact support@telegraphics.com.au with any bug reports, suggestions or comments.\0"	/* null terminated Comments field */
 
 /* wildcard signature in resources */
 #define ANY '    '
