@@ -1,6 +1,6 @@
 /*
     This file is part of "psdparse"
-    Copyright (C) 2004-2011 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2004-2012 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -67,9 +67,9 @@ void usage(char *prog, int status){
   -x, --xml          write XML describing document, layers, and any output files\n\
       --xmlout       direct XML to standard output (implies --xml and --quiet)\n\
   -s, --split        write each composite channel to individual (grey scale) PNG\n\
+      --mergedonly   process merged composite image only (if available)\n\
       --rebuild      write a new PSD/PSB with extracted image layers only\n\
-        --rebuildpsd    try to rebuild in PSD (v1) format, never PSB (v2)\n\
-        --mergedonly    rebuild without any layers (merged image only)\n"
+        --rebuildpsd    try to rebuild in PSD (v1) format, never PSB (v2)\n"
 #ifdef CAN_MMAP
 "      --scavenge     ignore file header, search entire file for image layers\n\
          --psb           for scavenge, assume PSB (default PSD)\n\

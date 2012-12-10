@@ -150,7 +150,7 @@ void doimage(psd_file_t f, struct layer_info *li, char *name, struct psd_header 
 
 		image_data_end = ftello(f);
 
-		if(writepng){
+		if(writepng && !merged_only){
 			nwarns = 0;
 			if(pngchan && !split){
 				writeimage(f, pngdir, name, li, li->chan,
